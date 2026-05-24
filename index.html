@@ -441,7 +441,6 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
         <div class="vm-scenes-list" id="vmScenesList"></div>
         <div style="margin-top:16px;">
           <button class="vm-launch" onclick="vmLaunch()" id="vmLaunchBtn"><i class="ti ti-player-play"></i> Iniciar visor</button>
-        <button class="vm-launch" onclick="vmGenerateLink()" style="margin-top:8px;background:rgba(93,202,165,.12);border-color:rgba(93,202,165,.3);color:#5DCAA5;"><i class="ti ti-link"></i> Generar link compartible</button>
         </div>
       </div>
       <button class="vm-back" onclick="closeVisorMode()"><i class="ti ti-arrow-left"></i> Volver a la app</button>
@@ -475,7 +474,6 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
         <button class="bbtn" id="vmBtnAuto" onclick="vmToggleAuto()"><i class="ti ti-player-play"></i></button>
       </div>
       <button class="vm-exit-btn" onclick="vmExitViewer()"><i class="ti ti-settings"></i> Configurar</button>
-      <button class="vm-exit-btn" onclick="vmCopyLink()" style="right:150px;background:rgba(93,202,165,.12);border-color:rgba(93,202,165,.3);color:#5DCAA5;"><i class="ti ti-link"></i> Copiar link</button>
     </div>
   </div>
 
@@ -490,8 +488,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 <input type="file" id="fi" accept="image/*" onchange="loadPano(event)">
 
 <script>
-// ── DEFAULT DATA ──
-const PROJ_DEFAULT=[
+const PROJ=[
   {name:"Torre Mirador",sub:"Grupo Inmobiliario Orión · Morelia",loc:"Morelia, Michoacán",date:"Dic 2025",status:"activo",pct:65,
    scenes:[
     {name:"Lobby principal",meta:"Planta baja",hs:[
@@ -511,57 +508,6 @@ const PROJ_DEFAULT=[
   {name:"Eco-Parque Sur",sub:"SEMARNAT · Morelia",loc:"Morelia, Michoacán",date:"Nov 2026",status:"nuevo",pct:10,
    scenes:[{name:"Acceso principal",meta:"Exterior",hs:[]}]}
 ];
-
-// ── PERSISTENCE ──
-function saveData(){
-  try{
-    localStorage.setItem('agelarq_proj', JSON.stringify(PROJ));
-    localStorage.setItem('agelarq_cur', JSON.stringify({cP,cS}));
-  }catch(e){console.warn('Save failed:',e);}
-}
-function loadData(){
-  try{
-    const saved=localStorage.getItem('agelarq_proj');
-    if(saved){
-      const parsed=JSON.parse(saved);
-      PROJ.length=0;
-      parsed.forEach(function(p){PROJ.push(p);});
-    }
-    const cur=localStorage.getItem('agelarq_cur');
-    if(cur){
-      const c=JSON.parse(cur);
-      cP=c.cP||0;cS=c.cS||0;
-      if(cP>=PROJ.length)cP=0;
-      if(cS>=PROJ[cP].scenes.length)cS=0;
-    }
-  }catch(e){console.warn('Load failed:',e);}
-}
-function saveVmData(){
-  try{
-    localStorage.setItem('agelarq_vm',JSON.stringify({
-      scenes:vmScenes,
-      projName:document.getElementById('vmProjName').value,
-      projSub:document.getElementById('vmProjSub').value
-    }));
-  }catch(e){}
-}
-function loadVmData(){
-  try{
-    const saved=localStorage.getItem('agelarq_vm');
-    if(saved){
-      const d=JSON.parse(saved);
-      vmScenes=d.scenes||[];
-      if(d.projName)document.getElementById('vmProjName').value=d.projName;
-      if(d.projSub)document.getElementById('vmProjSub').value=d.projSub;
-      vmRenderScenesList();
-    }
-  }catch(e){}
-}
-function resetAllData(){
-  if(!confirm('¿Borrar todos los datos? Esta acción no se puede deshacer.'))return;
-  localStorage.clear();location.reload();
-}
-const PROJ=PROJ_DEFAULT.map(function(p){return JSON.parse(JSON.stringify(p));});
 
 let cP=0,cS=0,presActive=false,sbVis=true,autoRot=false,addHS=false,hsPanelVis=false,cpVis=false;
 let renderer,scene3,cam,sphere,fov=55;
@@ -700,14 +646,12 @@ function refreshProjHeader(){
   document.getElementById('sbSt').innerHTML='<span class="sdot '+dc+'"></span><span class="sb-st-t">'+dt+' · '+p.pct+'%</span>';
 }
 function selectProj(pi){
-  saveData();
   if(pi===cP)return;cP=pi;cS=0;
   refreshProjHeader();
   document.querySelectorAll('.pchip').forEach((c,j)=>c.classList.toggle('on',j===pi));
   buildList();selScene(0);updateClientCount();
 }
 function selScene(si){
-  saveData();
   if(si===cS&&loaded[k(cP,si)])return;
   cS=si;
   const s=PROJ[cP].scenes[si];
@@ -740,7 +684,7 @@ function addNewScene(){
   fade(()=>{sphere.material=new THREE.MeshBasicMaterial({color:0x080810});document.getElementById('upl').classList.remove('hide');});
   document.getElementById('tbScene').textContent=name;
   document.getElementById('ptN').textContent=name;
-  setTimeout(()=>document.getElementById('fi').click(),200);saveData();
+  setTimeout(()=>document.getElementById('fi').click(),200);
 }
 function deleteScene(si){
   if(PROJ[cP].scenes.length<=1){toast('El proyecto debe tener al menos una escena');return;}
@@ -748,7 +692,7 @@ function deleteScene(si){
   PROJ[cP].scenes.splice(si,1);
   delete loaded[k(cP,si)];
   if(cS>=PROJ[cP].scenes.length)cS=PROJ[cP].scenes.length-1;
-  buildList();selScene(cS);saveData();
+  buildList();selScene(cS);
 }
 
 // LOAD PANO
@@ -760,7 +704,7 @@ function loadPano(e){
     loaded[k(cP,cS)]={tex,url,file:f};
     fade(()=>{sphere.material=new THREE.MeshBasicMaterial({map:tex});lon=0;lat=0;updateCam();renderHS(cP,cS);});
     setThumb('sph'+cP+'_'+cS,url);
-    updateClientCount();toast('Panorámica cargada ✓');saveData();
+    updateClientCount();toast('Panorámica cargada ✓');
   });
   e.target.value='';
 }
@@ -876,7 +820,7 @@ function saveHS(){
   if(!loaded[k(cP,cS)]){toast('Carga una panorámica primero');return;}
   PROJ[cP].scenes[cS].hs.push({x,y,title,details});
   document.getElementById('epTitle').value='';document.getElementById('epDetail').value='';
-  clearHS();renderHS(cP,cS);buildList();refreshHSList();toast('Hotspot guardado');saveData();
+  clearHS();renderHS(cP,cS);buildList();refreshHSList();toast('Hotspot guardado');
 }
 function refreshHSList(){
   const el=document.getElementById('epList');el.innerHTML='';
@@ -886,7 +830,7 @@ function refreshHSList(){
     el.appendChild(d);
   });
 }
-function delHS(i){PROJ[cP].scenes[cS].hs.splice(i,1);clearHS();renderHS(cP,cS);buildList();refreshHSList();toast('Hotspot eliminado');saveData();}
+function delHS(i){PROJ[cP].scenes[cS].hs.splice(i,1);clearHS();renderHS(cP,cS);buildList();refreshHSList();toast('Hotspot eliminado');}
 
 // ── QR / LINK / VISOR DESCARGABLE ──
 // Genera un HTML completo autónomo con la imagen embebida en base64
@@ -1257,7 +1201,7 @@ function saveEdit(){
   else if(type==='cp-date')PROJ[cP].date=val;
   refreshProjHeader();buildList();buildStrip();
   if(cS<PROJ[cP].scenes.length)document.getElementById('tbScene').textContent=PROJ[cP].scenes[cS].name;
-  closeEdit();toast('Guardado ✓');saveData();
+  closeEdit();toast('Guardado ✓');
 }
 
 window.addEventListener('resize',()=>{
@@ -1267,48 +1211,39 @@ window.addEventListener('resize',()=>{
   cam.updateProjectionMatrix();
 });
 window.addEventListener('load', () => {
-  loadData();
   initThree(); 
   refreshProjHeader(); 
   buildStrip(); 
   buildList();
 
+  // --- INICIO: ACTIVAR TU VISOR MODE NATIVO ---
+  const parametros = new URLSearchParams(window.location.search);
+  const urlDeLaFoto = parametros.get('foto');
 
-  // ── Handle shared visor link (?visor=1) ──
-  const _params=new URLSearchParams(window.location.search);
-  if(_params.get('visor')==='1'){
-    const pname=decodeURIComponent(_params.get('p')||'Proyecto');
-    const psub=decodeURIComponent(_params.get('sub')||'');
-    const scenesRaw=_params.get('scenes')||'';
-    if(scenesRaw){
-      const parsedScenes=scenesRaw.split('|').map(function(s){
-        const parts=s.split('::');
-        return{name:decodeURIComponent(parts[0]||'Escena'),meta:decodeURIComponent(parts[1]||''),url:decodeURIComponent(parts[2]||'')};
-      }).filter(function(s){return s.url;});
-      if(parsedScenes.length>0){
-        vmScenes=parsedScenes;
-        document.getElementById('vmProjName').value=pname;
-        document.getElementById('vmProjSub').value=psub;
-        document.getElementById('visorMode').classList.add('show');
-        document.getElementById('vmSetup').classList.add('hide');
-        document.getElementById('vmViewer').classList.add('show');
-        document.getElementById('vmTitleLabel').textContent=pname;
-        // Hide edit/config buttons in shared mode
-        var exitBtn=document.querySelector('.vm-exit-btn');
-        if(exitBtn)exitBtn.style.display='none';
-        document.querySelectorAll('.vm-exit-btn').forEach(function(b){b.style.display='none';});
-        vmInitThree();
-        vmBuildPips();
-        vmGoTo(0);
-      }
-    }
+  if (urlDeLaFoto) {
+      // 1. Abrimos la pantalla de tu Visor Mode
+      document.getElementById('visorMode').classList.add('show');
+      
+      // 2. Le inyectamos la foto de Cloudinary a tu sistema
+      vmScenes = [{ name: 'Vista 360', meta: '', url: urlDeLaFoto }];
+      
+      // 3. Le damos un nombre al proyecto para que se vea bonito
+      const inputNombre = document.getElementById('vmProjName');
+      if(inputNombre) inputNombre.value = 'Visor AgelArq';
+      
+      // 4. ¡Disparamos tu propia función de arranque!
+      vmLaunch(); 
   }
+  // --- FIN: ACTIVAR TU VISOR MODE NATIVO ---
 
-  setTimeout(function(){
-    var intro=document.getElementById('intro');
-    if(intro){intro.classList.add('out');setTimeout(function(){if(intro.parentNode)intro.remove();},900);}
-  },1600);
-  loadVmData();
+  // Quitamos la pantalla de carga
+  setTimeout(() => {
+      const intro = document.getElementById('intro');
+      if(intro) {
+          intro.classList.add('out');
+          setTimeout(() => intro.remove(), 900);
+      }
+  }, 1600);
 });
 
 
@@ -1344,19 +1279,23 @@ function vmAddScene(){
 }
 
 function vmRenderScenesList(){
-  var el=document.getElementById('vmScenesList');
+  const el=document.getElementById('vmScenesList');
   el.innerHTML='';
   vmScenes.forEach(function(s,i){
-    var div=document.createElement('div');
-    div.className='vm-scene-item';
-    div.innerHTML='<img class="vm-scene-thumb" src="'+s.url+'">'
+    const div=document.createElement('div');div.className='vm-scene-item';
+    div.innerHTML =
+  '<img class="vm-scene-thumb" src="' + s.url + '">' +
+  '<div class="vm-scene-info">' +
+  '<div class="vm-scene-n">' + s.name + '</div>' +
+  '<div class="vm-scene-m">' + (s.meta || '') + '</div>' +
+  '</div>';
       +'<div class="vm-scene-info"><div class="vm-scene-n">'+s.name+'</div><div class="vm-scene-m">'+(s.meta||'')+'</div></div>'
       +'<button class="vm-scene-del" onclick="vmDelScene('+i+')"><i class="ti ti-x"></i></button>';
     el.appendChild(div);
   });
 }
 
-function vmDelScene(i){vmScenes.splice(i,1);vmRenderScenesList();saveVmData();}
+function vmDelScene(i){vmScenes.splice(i,1);vmRenderScenesList();}
 
 function vmBuildPips(){
   const el=document.getElementById('vmPips');el.innerHTML='';
@@ -1458,34 +1397,6 @@ window.addEventListener('resize',function(){
   if(vmRenderer){vmRenderer.setSize(document.getElementById('visorMode').offsetWidth,document.getElementById('visorMode').offsetHeight);vmCam.aspect=document.getElementById('visorMode').offsetWidth/document.getElementById('visorMode').offsetHeight;vmCam.updateProjectionMatrix();}
 });
 // ══════════════════════════════════════
-function vmBuildLink(){
-  const pname=document.getElementById('vmProjName').value.trim()||'Proyecto';
-  const psub=document.getElementById('vmProjSub').value.trim()||'';
-  if(vmScenes.length===0){toast('Agrega al menos una escena');return null;}
-  const scenesParam=vmScenes.map(function(s){
-    return encodeURIComponent(s.name)+'::'+encodeURIComponent(s.meta)+'::'+encodeURIComponent(s.url);
-  }).join('|');
-  const base=window.location.href.split('?')[0].split('#')[0];
-  return base+'?visor=1&p='+encodeURIComponent(pname)+'&sub='+encodeURIComponent(psub)+'&scenes='+scenesParam;
-}
-function vmGenerateLink(){
-  saveVmData();
-  const url=vmBuildLink();
-  if(!url)return;
-  window.open(url,'_blank');
-  toast('Abriendo en nueva pestaña ✓');
-}
-function vmCopyLink(){
-  saveVmData();
-  const url=vmBuildLink();
-  if(!url)return;
-  if(navigator.clipboard){
-    navigator.clipboard.writeText(url).then(function(){toast('Link copiado ✓');}).catch(function(){prompt('Copia este link:',url);});
-  } else {
-    prompt('Copia este link:',url);
-  }
-}
-
 </script>
 </body>
 </html>
