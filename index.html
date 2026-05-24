@@ -1210,9 +1210,40 @@ window.addEventListener('resize',()=>{
   cam.aspect=app.offsetWidth/app.offsetHeight;
   cam.updateProjectionMatrix();
 });
-window.addEventListener('load',()=>{
-  initThree();refreshProjHeader();buildStrip();buildList();
-  setTimeout(()=>{document.getElementById('intro').classList.add('out');setTimeout(()=>document.getElementById('intro').remove(),900);},1600);
+window.addEventListener('load', () => {
+  initThree(); 
+  refreshProjHeader(); 
+  buildStrip(); 
+  buildList();
+
+  // --- INICIO: ACTIVAR TU VISOR MODE NATIVO ---
+  const parametros = new URLSearchParams(window.location.search);
+  const urlDeLaFoto = parametros.get('foto');
+
+  if (urlDeLaFoto) {
+      // 1. Abrimos la pantalla de tu Visor Mode
+      document.getElementById('visorMode').classList.add('show');
+      
+      // 2. Le inyectamos la foto de Cloudinary a tu sistema
+      vmScenes = [{ name: 'Vista 360', meta: '', url: urlDeLaFoto }];
+      
+      // 3. Le damos un nombre al proyecto para que se vea bonito
+      const inputNombre = document.getElementById('vmProjName');
+      if(inputNombre) inputNombre.value = 'Visor AgelArq';
+      
+      // 4. ¡Disparamos tu propia función de arranque!
+      vmLaunch(); 
+  }
+  // --- FIN: ACTIVAR TU VISOR MODE NATIVO ---
+
+  // Quitamos la pantalla de carga
+  setTimeout(() => {
+      const intro = document.getElementById('intro');
+      if(intro) {
+          intro.classList.add('out');
+          setTimeout(() => intro.remove(), 900);
+      }
+  }, 1600);
 });
 
 
