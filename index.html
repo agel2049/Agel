@@ -1344,16 +1344,12 @@ function vmAddScene(){
 }
 
 function vmRenderScenesList(){
-  const el=document.getElementById('vmScenesList');
+  var el=document.getElementById('vmScenesList');
   el.innerHTML='';
   vmScenes.forEach(function(s,i){
-    const div=document.createElement('div');div.className='vm-scene-item';
-    div.innerHTML =
-  '<img class="vm-scene-thumb" src="' + s.url + '">' +
-  '<div class="vm-scene-info">' +
-  '<div class="vm-scene-n">' + s.name + '</div>' +
-  '<div class="vm-scene-m">' + (s.meta || '') + '</div>' +
-  '</div>';
+    var div=document.createElement('div');
+    div.className='vm-scene-item';
+    div.innerHTML='<img class="vm-scene-thumb" src="'+s.url+'">'
       +'<div class="vm-scene-info"><div class="vm-scene-n">'+s.name+'</div><div class="vm-scene-m">'+(s.meta||'')+'</div></div>'
       +'<button class="vm-scene-del" onclick="vmDelScene('+i+')"><i class="ti ti-x"></i></button>';
     el.appendChild(div);
