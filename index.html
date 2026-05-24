@@ -1304,6 +1304,10 @@ window.addEventListener('load', () => {
     }
   }
 
+  setTimeout(function(){
+    var intro=document.getElementById('intro');
+    if(intro){intro.classList.add('out');setTimeout(function(){if(intro.parentNode)intro.remove();},900);}
+  },1600);
   loadVmData();
 });
 
