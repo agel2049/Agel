@@ -309,6 +309,22 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   pointer-events:none;opacity:1;transition:opacity 2s;white-space:nowrap;}
 .touch-hint.fade{opacity:0;}
 
+/* ══ LINKS PANEL ══ */
+.vm-links-section{margin-top:16px;border-top:1px solid var(--border);padding-top:14px;}
+.vm-links-title{font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
+#vmLinksList{display:flex;flex-direction:column;gap:5px;max-height:180px;overflow-y:auto;scrollbar-width:none;}
+#vmLinksList::-webkit-scrollbar{display:none;}
+.vml-item{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:7px 9px;transition:border-color .2s;}
+.vml-item:hover{border-color:rgba(255,255,255,.12);}
+.vml-info{flex:1;min-width:0;}
+.vml-name{font-size:11px;color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.vml-meta{font-size:9px;color:var(--muted);margin-top:2px;letter-spacing:.04em;}
+.vml-actions{display:flex;gap:3px;flex-shrink:0;}
+.vml-btn{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:3px 6px;font-size:11px;cursor:pointer;transition:all .2s;line-height:1;}
+.vml-btn:hover{background:rgba(184,157,116,.15);border-color:rgba(184,157,116,.4);color:var(--accent);}
+.vml-btn.del:hover{background:rgba(226,75,74,.12);border-color:rgba(226,75,74,.4);color:#E24B4A;}
+.vm-save-link-btn{width:100%;margin-top:7px;background:rgba(184,157,116,.08);color:var(--accent);border:1px solid rgba(184,157,116,.22);border-radius:8px;padding:7px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:all .3s;display:flex;align-items:center;justify-content:center;gap:5px;}
+.vm-save-link-btn:hover{background:rgba(184,157,116,.2);}
 
 </style>
 </head>
@@ -487,7 +503,17 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
         <div class="vm-scenes-list" id="vmScenesList"></div>
         <div style="margin-top:16px;">
           <button class="vm-launch" onclick="vmLaunch()" id="vmLaunchBtn"><i class="ti ti-player-play"></i> Iniciar visor</button>
-        <button class="vm-launch" onclick="vmGenerateLink()" style="margin-top:8px;background:rgba(93,202,165,.12);border-color:rgba(93,202,165,.3);color:#5DCAA5;"><i class="ti ti-link"></i> Generar link compartible</button>
+        <button class="vm-launch" onclick="vmGenerateLink()" style="margin-top:8px;background:rgba(93,202,165,.12);border-color:rgba(93,202,165,.3);color:#5DCAA5;"><i class="ti ti-link"></i> Abrir link en nueva pestaña</button>
+        <button class="vm-save-link-btn" onclick="vmSaveLink()"><i class="ti ti-bookmark"></i> Guardar link con nombre de cliente</button>
+        </div>
+
+        <!-- LINKS GUARDADOS -->
+        <div class="vm-links-section">
+          <div class="vm-links-title">
+            <span>Links guardados</span>
+            <span id="vmLinksCount" style="color:var(--muted);font-size:9px;"></span>
+          </div>
+          <div id="vmLinksList"></div>
         </div>
       </div>
       <button class="vm-back" onclick="closeVisorMode()"><i class="ti ti-arrow-left"></i> Volver a la app</button>
@@ -522,7 +548,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
         <button class="bbtn" id="vmBtnAuto" onclick="vmToggleAuto()"><i class="ti ti-player-play"></i></button>
       </div>
       <button class="vm-exit-btn" onclick="vmExitViewer()"><i class="ti ti-settings"></i> Configurar</button>
-      <button class="vm-exit-btn" onclick="vmCopyLink()" style="right:150px;background:rgba(93,202,165,.12);border-color:rgba(93,202,165,.3);color:#5DCAA5;"><i class="ti ti-link"></i> Copiar link</button>
+      <button class="vm-exit-btn" onclick="vmCopyLink()" style="right:150px;background:rgba(93,202,165,.12);border-color:rgba(93,202,165,.3);color:#5DCAA5;"><i class="ti ti-copy"></i> Copiar link</button>
     </div>
   </div>
 
@@ -593,25 +619,71 @@ let addHS = false, hsPanelVis = false, cpVis = false;
 const texCache = {}; // key: "p-s" → THREE.Texture
 const k = (p, s) => `${p}-${s}`;
 
-// ── PERSISTENCE ──
-const SAVE_KEY = 'agelarq_v3';
+// ── PERSISTENCE ── IndexedDB for images + localStorage for metadata ──
+const SAVE_KEY    = 'agelarq_v4_meta';
+const IDB_NAME    = 'agelarq_images';
+const IDB_STORE   = 'imgs';
+let   _idb        = null;
 
+function openIDB() {
+  return new Promise((res, rej) => {
+    if (_idb) { res(_idb); return; }
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+    req.onsuccess = e => { _idb = e.target.result; res(_idb); };
+    req.onerror   = e => rej(e);
+  });
+}
+function idbSet(key, val) {
+  return openIDB().then(db => new Promise((res, rej) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    const req = tx.objectStore(IDB_STORE).put(val, key);
+    req.onsuccess = () => res();
+    req.onerror   = e => rej(e);
+  }));
+}
+function idbGet(key) {
+  return openIDB().then(db => new Promise((res, rej) => {
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const req = tx.objectStore(IDB_STORE).get(key);
+    req.onsuccess = e => res(e.target.result || null);
+    req.onerror   = e => rej(e);
+  }));
+}
+function idbDel(key) {
+  return openIDB().then(db => new Promise((res, rej) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    const req = tx.objectStore(IDB_STORE).delete(key);
+    req.onsuccess = () => res();
+    req.onerror   = e => rej(e);
+  }));
+}
+function idbKeys() {
+  return openIDB().then(db => new Promise((res, rej) => {
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const req = tx.objectStore(IDB_STORE).getAllKeys();
+    req.onsuccess = e => res(e.target.result || []);
+    req.onerror   = e => rej(e);
+  }));
+}
+
+// Save metadata (no images) to localStorage; images go to IndexedDB
 function saveData() {
   try {
-    // Save full PROJ including b64 images
-    const payload = { v: 3, cP, cS, proj: PROJ };
-    localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
-  } catch(e) {
-    // Storage full (b64 images are large) — try without images
-    try {
-      const slim = PROJ.map(p => ({
-        ...p,
-        scenes: p.scenes.map(s => ({ ...s, img: null }))
-      }));
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 3, cP, cS, proj: slim, noImg: true }));
-      console.warn('Saved without images (storage full)');
-    } catch(e2) { console.error('Save failed:', e2); }
-  }
+    const slim = PROJ.map(p => ({
+      ...p,
+      scenes: p.scenes.map(s => ({ ...s, img: null, thumb: null }))
+    }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 4, cP, cS, proj: slim }));
+  } catch(e) { console.error('Meta save failed:', e); }
+}
+
+// Save a single scene's image to IndexedDB
+function saveImageIDB(pi, si, b64) {
+  return idbSet(`img_${pi}_${si}`, b64);
+}
+function saveThumbIDB(pi, si, b64) {
+  return idbSet(`thumb_${pi}_${si}`, b64);
 }
 
 let _saveTimer = null;
@@ -625,7 +697,7 @@ function loadData() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return false;
     const data = JSON.parse(raw);
-    if (!data || data.v !== 3) return false;
+    if (!data || data.v !== 4) return false;
     PROJ = data.proj;
     cP = Math.min(data.cP || 0, PROJ.length - 1);
     cS = Math.min(data.cS || 0, PROJ[cP].scenes.length - 1);
@@ -640,32 +712,43 @@ function resetAllData() {
   if (!confirm('¿Borrar todos los datos? No se puede deshacer.')) return;
   localStorage.removeItem(SAVE_KEY);
   localStorage.removeItem('agelarq_vm');
-  location.reload();
+  localStorage.removeItem('agelarq_links');
+  openIDB().then(db => {
+    db.transaction(IDB_STORE, 'readwrite').objectStore(IDB_STORE).clear();
+  }).finally(() => location.reload());
 }
 
-// Rebuild all textures from PROJ after load
+// Rebuild all textures from IndexedDB after page load
 function rebuildTextures() {
   let count = 0;
+  const tasks = [];
   PROJ.forEach((p, pi) => {
     p.scenes.forEach((s, si) => {
-      if (s.img) {
-        count++;
-        const loader = new THREE.TextureLoader();
-        loader.load(s.img, tex => {
-          texCache[k(pi, si)] = tex;
-          // If this is the current scene, apply immediately
-          if (pi === cP && si === cS && sphere) {
-            sphere.material = new THREE.MeshBasicMaterial({ map: tex });
-            document.getElementById('upl').classList.add('hide');
-            renderHS(cP, cS);
-          }
-          // Restore thumbnail
-          setThumb(`sph${pi}_${si}`, s.thumb || s.img);
-        });
-      }
+      tasks.push(
+        idbGet(`img_${pi}_${si}`).then(b64 => {
+          if (!b64) return;
+          count++;
+          PROJ[pi].scenes[si].img = b64; // restore in-memory ref
+          const loader = new THREE.TextureLoader();
+          loader.load(b64, tex => {
+            texCache[k(pi, si)] = tex;
+            if (pi === cP && si === cS && sphere) {
+              sphere.material = new THREE.MeshBasicMaterial({ map: tex });
+              document.getElementById('upl').classList.add('hide');
+              renderHS(cP, cS);
+            }
+          });
+          return idbGet(`thumb_${pi}_${si}`).then(th => {
+            if (th) setThumb(`sph${pi}_${si}`, th);
+          });
+        })
+      );
     });
   });
-  return count;
+  Promise.all(tasks).then(() => {
+    if (count > 0) toast(`${count} panorámica${count>1?'s':''} restaurada${count>1?'s':''} ✓`);
+  });
+  return count; // approximate, actual loading is async
 }
 
 // Dispose textures far from current scene
@@ -795,21 +878,23 @@ function updateFovLabel() { document.getElementById('fovLabel').textContent = Ma
 function zoomIn()  { fov = Math.max(20, fov - 8); cam.fov = fov; cam.updateProjectionMatrix(); updateFovLabel(); }
 function zoomOut() { fov = Math.min(100, fov + 8); cam.fov = fov; cam.updateProjectionMatrix(); updateFovLabel(); }
 
-// ── LOAD PANORAMA (FileReader → b64 → PROJ → texCache → render) ──
+// ── LOAD PANORAMA (FileReader → b64 → IndexedDB + PROJ → texCache → render) ──
 function loadPano(e) {
   const f = e.target.files[0]; if (!f) return;
   document.getElementById('upl').classList.add('hide');
-  toast('Convirtiendo imagen...');
+  toast('Cargando imagen...');
   const reader = new FileReader();
   reader.onload = function() {
-    const b64 = reader.result; // data:image/jpeg;base64,...
-    // Store in PROJ (persistent)
-    PROJ[cP].scenes[cS].img = b64;
-    PROJ[cP].scenes[cS].thumb = b64; // full res as thumb too
+    const b64 = reader.result;
+    // Store reference in memory
+    PROJ[cP].scenes[cS].img   = b64;
+    PROJ[cP].scenes[cS].thumb = b64;
+    // Persist image to IndexedDB (no size limit problems)
+    saveImageIDB(cP, cS, b64);
+    saveThumbIDB(cP, cS, b64);
     // Build Three.js texture
     const loader = new THREE.TextureLoader();
     loader.load(b64, tex => {
-      // Dispose old texture if exists
       if (texCache[k(cP,cS)]) texCache[k(cP,cS)].dispose();
       texCache[k(cP,cS)] = tex;
       sphere.material = new THREE.MeshBasicMaterial({ map: tex });
@@ -818,7 +903,7 @@ function loadPano(e) {
       setThumb(`sph${cP}_${cS}`, b64);
       updateClientCount();
       toast('Panorámica guardada ✓');
-      autoSave(); // ← save after image loaded
+      autoSave(); // saves metadata (names, hotspots, etc.)
     });
   };
   reader.readAsDataURL(f);
@@ -915,29 +1000,37 @@ function selScene(si) {
   autoSave();
 
   if (texCache[k(cP,si)]) {
-    // Texture already in cache
     fade(() => {
       sphere.material = new THREE.MeshBasicMaterial({ map: texCache[k(cP,si)] });
       lon=0; lat=0; updateCam(); renderHS(cP,si); manageTextures();
     });
     document.getElementById('upl').classList.add('hide');
-  } else if (s.img) {
-    // Rebuild texture from stored b64
-    document.getElementById('upl').classList.add('hide');
-    toast('Cargando escena...');
-    fade(() => {
-      const loader = new THREE.TextureLoader();
-      loader.load(s.img, tex => {
-        texCache[k(cP,si)] = tex;
-        sphere.material = new THREE.MeshBasicMaterial({ map: tex });
-        lon=0; lat=0; updateCam(); renderHS(cP,si); manageTextures();
-      });
-    });
   } else {
-    // No image yet
-    fade(() => {
-      sphere.material = new THREE.MeshBasicMaterial({ color: 0x080810 });
-      document.getElementById('upl').classList.remove('hide');
+    // Try loading from IndexedDB
+    idbGet(`img_${cP}_${si}`).then(b64 => {
+      if (b64) {
+        PROJ[cP].scenes[si].img = b64;
+        document.getElementById('upl').classList.add('hide');
+        toast('Cargando escena...');
+        fade(() => {
+          const loader = new THREE.TextureLoader();
+          loader.load(b64, tex => {
+            texCache[k(cP,si)] = tex;
+            sphere.material = new THREE.MeshBasicMaterial({ map: tex });
+            lon=0; lat=0; updateCam(); renderHS(cP,si); manageTextures();
+          });
+        });
+      } else {
+        fade(() => {
+          sphere.material = new THREE.MeshBasicMaterial({ color: 0x080810 });
+          document.getElementById('upl').classList.remove('hide');
+        });
+      }
+    }).catch(() => {
+      fade(() => {
+        sphere.material = new THREE.MeshBasicMaterial({ color: 0x080810 });
+        document.getElementById('upl').classList.remove('hide');
+      });
     });
   }
 }
@@ -965,6 +1058,8 @@ function deleteScene(si) {
   if (PROJ[cP].scenes.length <= 1) { toast('El proyecto debe tener al menos una escena'); return; }
   if (!confirm('¿Eliminar esta escena?')) return;
   if (texCache[k(cP,si)]) { texCache[k(cP,si)].dispose(); delete texCache[k(cP,si)]; }
+  idbDel(`img_${cP}_${si}`);
+  idbDel(`thumb_${cP}_${si}`);
   PROJ[cP].scenes.splice(si, 1);
   if (cS >= PROJ[cP].scenes.length) cS = PROJ[cP].scenes.length - 1;
   buildList(); selScene(cS); autoSave();
@@ -997,7 +1092,8 @@ function renderHS(pi, si) {
   layer.innerHTML = ''; layer.style.pointerEvents = 'none';
   PROJ[pi].scenes[si].hs.forEach((h, j) => {
     const dot  = document.createElement('div'); dot.className = 'hs';
-    dot.style.cssText = `position:absolute;transform:translate(-50%,-50%);animation-delay:${j*.85}s;opacity:0;`;
+    // FIX: pointer-events on dot, not on whole layer
+    dot.style.cssText = `position:absolute;transform:translate(-50%,-50%);animation-delay:${j*.85}s;opacity:0;pointer-events:all;`;
     const card = document.createElement('div'); card.className = 'hs-card';
     card.style.cssText = `position:absolute;${h.x>50?'right':'left'}:18px;top:-5px;`;
     card.innerHTML =
@@ -1360,6 +1456,11 @@ function vmUpdateCam() {
 
 function vmGoTo(idx) {
   vmCurIdx = idx;
+  // FIX: reset drag state so mouse never gets "stuck" between scenes
+  vmDn = false;
+  const vmCurEl = document.getElementById('vmCur');
+  if (vmCurEl) vmCurEl.classList.remove('drag');
+
   const s = vmScenes[idx];
   const pname = document.getElementById('vmProjName').value.trim() || 'Proyecto';
   document.getElementById('vmTitleN').textContent = s.name;
@@ -1385,7 +1486,7 @@ function vmToggleAuto() {
   document.getElementById('vmBtnAuto').classList.toggle('on', vmAuto);
 }
 
-// VM Hotspots
+// VM Hotspots — FIX: layer stays pointer-events:none; only the dots themselves are clickable
 function vmRenderVmHS(s) {
   if (_vmHsRaf) { cancelAnimationFrame(_vmHsRaf); _vmHsRaf=null; } _vmHsItems=[];
   const layer = document.getElementById('vmHsLayer'); if (!layer) return;
@@ -1393,7 +1494,8 @@ function vmRenderVmHS(s) {
   if (!s.hs || !s.hs.length) return;
   s.hs.forEach((h, j) => {
     const dot = document.createElement('div'); dot.className='hs';
-    dot.style.cssText=`position:absolute;transform:translate(-50%,-50%);animation-delay:${j*.85}s;opacity:0;`;
+    // FIX: pointer-events on the dot itself, NOT on the whole layer
+    dot.style.cssText=`position:absolute;transform:translate(-50%,-50%);animation-delay:${j*.85}s;opacity:0;pointer-events:all;`;
     const card=document.createElement('div'); card.className='hs-card';
     card.style.cssText=`position:absolute;${(h.x||50)>50?'right':'left'}:18px;top:-5px;`;
     card.innerHTML=`<div class="hc-eye">${h.title||'Info'}</div>`+
@@ -1405,7 +1507,7 @@ function vmRenderVmHS(s) {
     const x=h.x||((j+1)/(s.hs.length+1)*100), y=h.y||50;
     _vmHsItems.push({dot,vec3:_pctToVec3(x,y)});
   });
-  layer.style.pointerEvents='all';
+  // layer.style.pointerEvents stays 'none' — dots handle their own events
   (function tick(){
     if(!vmCam||!document.getElementById('vmCanvas'))return;
     const rect=document.getElementById('vmCanvas').getBoundingClientRect();
@@ -1422,7 +1524,13 @@ function vmRenderVmHS(s) {
 
 // VM Persistence
 function saveVmData() {
-  try { localStorage.setItem('agelarq_vm', JSON.stringify({ scenes:vmScenes, projName:document.getElementById('vmProjName').value, projSub:document.getElementById('vmProjSub').value })); } catch(e){}
+  try {
+    localStorage.setItem('agelarq_vm', JSON.stringify({
+      scenes: vmScenes,
+      projName: document.getElementById('vmProjName').value,
+      projSub:  document.getElementById('vmProjSub').value
+    }));
+  } catch(e){}
 }
 function loadVmData() {
   try {
@@ -1436,37 +1544,143 @@ function loadVmData() {
   } catch(e){}
 }
 
-// VM Link
-function vmBuildLinkForScene(pi, si) {
-  if (vmScenes.length===0) return null;
-  return vmBuildLink();
+// ════════════════════════════════════════════════════
+// SISTEMA DE LINKS GUARDADOS
+// ════════════════════════════════════════════════════
+const LINKS_KEY = 'agelarq_links';
+let savedLinks = [];   // [{id, name, client, url, created, scenes:[]}]
+
+function loadLinks() {
+  try { savedLinks = JSON.parse(localStorage.getItem(LINKS_KEY)||'[]'); } catch(e){ savedLinks=[]; }
 }
-function vmBuildLink() {
+function persistLinks() {
+  try { localStorage.setItem(LINKS_KEY, JSON.stringify(savedLinks)); } catch(e){}
+}
+
+function vmBuildLink(scenesOverride) {
   const pname = document.getElementById('vmProjName').value.trim()||'Proyecto';
   const psub  = document.getElementById('vmProjSub').value.trim()||'';
-  if (!vmScenes.length) { toast('Agrega al menos una escena al Visor de Cliente'); return null; }
-  const sp = vmScenes.map(s => {
+  const src   = scenesOverride || vmScenes;
+  if (!src.length) { toast('Agrega al menos una escena al Visor de Cliente'); return null; }
+  const sp = src.map(s => {
     const hsStr = JSON.stringify(s.hs||[]);
     return encodeURIComponent(s.name)+'::'+encodeURIComponent(s.meta)+'::'+encodeURIComponent(s.url)+'::'+encodeURIComponent(hsStr);
   }).join('|');
   return window.location.href.split('?')[0].split('#')[0]+'?visor=1&p='+encodeURIComponent(pname)+'&sub='+encodeURIComponent(psub)+'&scenes='+sp;
 }
-function vmGenerateLink() { saveVmData(); const url=vmBuildLink(); if(!url)return; window.open(url,'_blank'); toast('Abriendo en nueva pestaña ✓'); }
-function vmCopyLink()     { saveVmData(); const url=vmBuildLink(); if(!url)return; if(navigator.clipboard)navigator.clipboard.writeText(url).then(()=>toast('Link copiado ✓')).catch(()=>prompt('Copia:',url)); else prompt('Copia:',url); }
+
+function vmBuildLinkForScene(pi, si) {
+  if (vmScenes.length===0) return null;
+  return vmBuildLink();
+}
+
+// Guardar link con nombre de cliente
+function vmSaveLink() {
+  saveVmData();
+  const url = vmBuildLink();
+  if (!url) return;
+  const clientName = prompt('Nombre del cliente o identificador del link:','');
+  if (clientName === null) return; // cancelled
+  const id = Date.now().toString(36);
+  savedLinks.push({
+    id,
+    name: clientName.trim() || 'Link ' + (savedLinks.length+1),
+    url,
+    created: new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}),
+    projName: document.getElementById('vmProjName').value.trim(),
+    sceneCount: vmScenes.length
+  });
+  persistLinks();
+  toast('Link guardado ✓');
+  renderLinksPanel();
+}
+
+function vmGenerateLink() {
+  saveVmData();
+  const url = vmBuildLink();
+  if (!url) return;
+  window.open(url,'_blank');
+  toast('Abriendo en nueva pestaña ✓');
+}
+
+function vmCopyLink() {
+  saveVmData();
+  const url = vmBuildLink();
+  if (!url) return;
+  if (navigator.clipboard) navigator.clipboard.writeText(url).then(()=>toast('Link copiado ✓')).catch(()=>prompt('Copia:',url));
+  else prompt('Copia:',url);
+}
+
+function copyLinkById(id) {
+  const lk = savedLinks.find(l=>l.id===id);
+  if (!lk) return;
+  if (navigator.clipboard) navigator.clipboard.writeText(lk.url).then(()=>toast('Link copiado ✓')).catch(()=>prompt('Copia:',lk.url));
+  else prompt('Copia:',lk.url);
+}
+
+function openLinkById(id) {
+  const lk = savedLinks.find(l=>l.id===id);
+  if (lk) window.open(lk.url,'_blank');
+}
+
+function editLinkById(id) {
+  const lk = savedLinks.find(l=>l.id===id);
+  if (!lk) return;
+  const newName = prompt('Nuevo nombre para el link:', lk.name);
+  if (newName === null) return;
+  if (newName.trim()) lk.name = newName.trim();
+  persistLinks(); renderLinksPanel(); toast('Renombrado ✓');
+}
+
+function deleteLinkById(id) {
+  if (!confirm('¿Eliminar este link guardado?')) return;
+  savedLinks = savedLinks.filter(l=>l.id!==id);
+  persistLinks(); renderLinksPanel(); toast('Link eliminado');
+}
+
+function renderLinksPanel() {
+  const el = document.getElementById('vmLinksList');
+  if (!el) return;
+  const countEl = document.getElementById('vmLinksCount');
+  if (countEl) countEl.textContent = savedLinks.length ? `${savedLinks.length} guardado${savedLinks.length!==1?'s':''}` : '';
+  el.innerHTML = '';
+  if (!savedLinks.length) {
+    el.innerHTML = '<div style="font-size:10px;color:var(--muted);text-align:center;padding:10px 0;">Sin links guardados aún</div>';
+    return;
+  }
+  savedLinks.slice().reverse().forEach(lk => {
+    const d = document.createElement('div');
+    d.className = 'vml-item';
+    d.innerHTML =
+      `<div class="vml-info">
+        <div class="vml-name">${lk.name}</div>
+        <div class="vml-meta">${lk.projName||''} · ${lk.sceneCount||0} escena${(lk.sceneCount||0)!==1?'s':''} · ${lk.created}</div>
+      </div>
+      <div class="vml-actions">
+        <button class="vml-btn" title="Abrir" onclick="openLinkById('${lk.id}')"><i class="ti ti-external-link"></i></button>
+        <button class="vml-btn" title="Copiar" onclick="copyLinkById('${lk.id}')"><i class="ti ti-copy"></i></button>
+        <button class="vml-btn" title="Renombrar" onclick="editLinkById('${lk.id}')"><i class="ti ti-pencil"></i></button>
+        <button class="vml-btn del" title="Eliminar" onclick="deleteLinkById('${lk.id}')"><i class="ti ti-trash"></i></button>
+      </div>`;
+    el.appendChild(d);
+  });
+}
+
+// Stub de download (para que no falle el botón en el HTML)
+function downloadViewer() { toast('Sube index.html a GitHub Pages para compartir vía URL'); }
+function downloadCurrentSceneViewer() { toast('Usa "Generar link" para compartir con clientes'); }
 
 // ── INIT ──
 window.addEventListener('load', () => {
+  loadLinks();
   const restored = loadData();
   initThree();
   refreshProjHeader();
   buildStrip();
   buildList();
 
-  // Rebuild textures from stored b64 images
-  if (restored) {
-    const count = rebuildTextures();
-    if (count > 0) toast(`Restaurando ${count} panorámica${count>1?'s':''}...`);
-  }
+  // Rebuild textures from IndexedDB
+  if (restored) rebuildTextures();
 
   // Show current scene
   selScene(cS);
@@ -1498,6 +1712,7 @@ window.addEventListener('load', () => {
   }
 
   loadVmData();
+  renderLinksPanel();
 
   // Hide touch hint after 3s
   setTimeout(() => { const th=document.getElementById('touchHint'); if(th)th.classList.add('fade'); }, 3000);
