@@ -224,7 +224,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .vm-brand{font-size:11px;font-weight:500;color:var(--text);letter-spacing:.06em;text-transform:uppercase;}
 .vm-sep{width:1px;height:13px;background:var(--border);}
 .vm-name{font-size:11px;color:var(--muted);font-style:italic;font-weight:300;}
-.vm-setup{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:20px;transition:opacity .4s;}
+.vm-setup{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:20px;transition:opacity .4s;}
 .vm-setup.hide{opacity:0;pointer-events:none;}
 .vm-card{width:100%;max-width:480px;background:rgba(18,18,22,.8);border:1px solid var(--border);border-radius:20px;padding:28px;}
 .vm-card-title{font-size:13px;font-weight:500;color:var(--text);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;}
@@ -247,8 +247,8 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .vm-scene-del:hover{color:#E24B4A;}
 .vm-launch{width:100%;background:rgba(184,157,116,.15);color:var(--accent);border:1px solid rgba(184,157,116,.35);border-radius:10px;padding:12px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:all .3s;display:flex;align-items:center;justify-content:center;gap:8px;}
 .vm-launch:hover{background:rgba(184,157,116,.28);}
-.vm-back{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:99px;padding:5px 14px;font-size:10px;letter-spacing:.08em;cursor:pointer;font-family:'Inter',sans-serif;transition:all .3s;display:flex;align-items:center;gap:5px;}
-.vm-back:hover{color:var(--text);}
+.vm-back{position:relative;z-index:10;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:99px;padding:7px 18px;font-size:10px;letter-spacing:.08em;cursor:pointer;font-family:'Inter',sans-serif;transition:all .3s;display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.vm-back:hover{color:var(--text);border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.1);}
 
 /* Viewer canvas */
 #vmCanvas{width:100%;height:100%;display:block;cursor:none;}
@@ -486,7 +486,26 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   <div id="cur"></div>
 
   <header id="topbar" class="g">
-    <div class="tb-mark"><i class="ti ti-building"></i></div>
+    <div class="tb-mark">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;">
+        <defs>
+          <linearGradient id="lgA" x1="0" y1="0" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="rgba(255,255,255,0.22)"/>
+            <stop offset="50%" stop-color="rgba(184,157,116,0.18)"/>
+            <stop offset="100%" stop-color="rgba(255,255,255,0.08)"/>
+          </linearGradient>
+          <filter id="lgBlur"><feGaussianBlur stdDeviation="0.4"/></filter>
+        </defs>
+        <!-- outer shape -->
+        <path d="M11 2 L20 19 H2 Z" fill="url(#lgA)" stroke="rgba(255,255,255,0.18)" stroke-width="0.7" stroke-linejoin="round"/>
+        <!-- crossbar hole (negative space gives the A its character) -->
+        <path d="M7.8 13.5 H14.2" stroke="rgba(255,255,255,0.55)" stroke-width="1.3" stroke-linecap="round"/>
+        <!-- inner highlight edge -->
+        <path d="M11 4 L18.5 18.5" stroke="rgba(255,255,255,0.09)" stroke-width="0.5"/>
+        <!-- inner left face tint -->
+        <path d="M11 2 L2 19 H11 Z" fill="rgba(255,255,255,0.04)"/>
+      </svg>
+    </div>
     <span class="tb-brand">AgelArq</span>
     <div class="tb-sep"></div>
     <div class="tb-crumb">
@@ -580,8 +599,6 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
       <button class="pres-btn" onclick="prevS()"><i class="ti ti-chevron-left"></i> Anterior</button>
       <button class="pres-btn" onclick="nextS()">Siguiente <i class="ti ti-chevron-right"></i></button>
       <button class="pres-btn" id="presBtnAuto" onclick="toggleAuto()"><i class="ti ti-player-play"></i></button>
-      <button class="pres-btn" onclick="zoomIn()"><i class="ti ti-zoom-in"></i></button>
-      <button class="pres-btn" onclick="zoomOut()"><i class="ti ti-zoom-out"></i></button>
       <button class="pres-btn exit" onclick="togglePres()"><i class="ti ti-x"></i> Salir</button>
     </div>
   </div>
@@ -683,7 +700,14 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
       <div class="vm-overlay-vig"></div>
       <div id="vmCur"></div>
       <header class="vm-topbar g">
-        <div class="vm-logo"><i class="ti ti-building"></i></div>
+        <div class="vm-logo">
+          <svg width="18" height="18" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs><linearGradient id="lgAv" x1="0" y1="0" x2="22" y2="22" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="rgba(255,255,255,0.22)"/><stop offset="100%" stop-color="rgba(184,157,116,0.15)"/></linearGradient></defs>
+            <path d="M11 2 L20 19 H2 Z" fill="url(#lgAv)" stroke="rgba(255,255,255,0.18)" stroke-width="0.7" stroke-linejoin="round"/>
+            <path d="M7.8 13.5 H14.2" stroke="rgba(255,255,255,0.55)" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M11 2 L2 19 H11 Z" fill="rgba(255,255,255,0.04)"/>
+          </svg>
+        </div>
         <span class="vm-brand">AgelArq</span>
         <div class="vm-sep"></div>
         <span class="vm-name" id="vmTitleLabel">—</span>
@@ -724,7 +748,26 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   </div>
 
   <div id="intro">
-    <div class="intro-logo"><i class="ti ti-building"></i></div>
+    <div class="intro-logo">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lgAi" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="rgba(255,255,255,0.28)"/>
+            <stop offset="55%" stop-color="rgba(184,157,116,0.22)"/>
+            <stop offset="100%" stop-color="rgba(255,255,255,0.08)"/>
+          </linearGradient>
+          <radialGradient id="lgAg" cx="50%" cy="30%" r="60%">
+            <stop offset="0%" stop-color="rgba(255,255,255,0.12)"/>
+            <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+          </radialGradient>
+        </defs>
+        <path d="M24 4 L44 42 H4 Z" fill="url(#lgAi)" stroke="rgba(255,255,255,0.22)" stroke-width="1.2" stroke-linejoin="round"/>
+        <path d="M24 4 L44 42 H4 Z" fill="url(#lgAg)"/>
+        <path d="M14 30 H34" stroke="rgba(255,255,255,0.65)" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M24 6 L41 41" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+        <path d="M24 4 L4 42 H24 Z" fill="rgba(255,255,255,0.05)"/>
+      </svg>
+    </div>
     <div class="intro-t">AgelArq</div>
     <div class="intro-s">Visor 360° · Proyectos arquitectónicos</div>
     <div class="intro-bar"><div class="intro-fill"></div></div>
@@ -1301,8 +1344,11 @@ function toggleHSPanel() {
   hsPanelVis = !hsPanelVis;
   document.getElementById('hsManager').classList.toggle('show', hsPanelVis);
   document.getElementById('btnHS').classList.toggle('on', hsPanelVis);
-  if (hsPanelVis) { _hsmTab='list'; hsmSyncTabs(); hsmRender(); }
-  else cancelAddHS();
+  if (hsPanelVis) {
+    if (sbVis) { sbVis=false; document.getElementById('sidebar').classList.add('hide'); document.getElementById('btnSb').classList.remove('on'); }
+    if (cpVis) { cpVis=false; document.getElementById('cpanel').classList.add('hide'); document.getElementById('btnCP').classList.remove('on'); }
+    _hsmTab='list'; hsmSyncTabs(); hsmRender();
+  } else cancelAddHS();
 }
 
 function hsmSyncTabs() {
@@ -1393,21 +1439,42 @@ function hsmRenderAdd(body, editSi, editJ) {
       <input class="hsm-inp" id="hsmTitle" placeholder="Ej: Acabado de piso" value="${isEdit?h.title:''}">
       <div class="hsm-lbl">Detalles (separados por comas)</div>
       <input class="hsm-inp" id="hsmDetail" placeholder="Mármol travertino, 60×60" value="${isEdit&&h.details?h.details.join(', '):''}">
-      <div class="hsm-lbl">URL imagen del material</div>
-      <input class="hsm-inp" id="hsmImg" placeholder="https://res.cloudinary.com/..." value="${isEdit&&h.img?h.img:''}" oninput="hsmPreviewImg(this.value)">
+      <div class="hsm-lbl">Imagen del material</div>
+      <div style="display:flex;gap:6px;margin-bottom:5px;">
+        <input class="hsm-inp" id="hsmImg" placeholder="URL de imagen o sube un archivo ↓" value="${isEdit&&h.img&&!h.img.startsWith('data:')?h.img:''}" oninput="hsmPreviewImg(this.value)" style="flex:1;">
+        <label style="flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:7px;padding:7px 10px;cursor:pointer;font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px;transition:all .25s;white-space:nowrap;" onmouseover="this.style.borderColor='rgba(184,157,116,.4)'" onmouseout="this.style.borderColor='var(--border)'">
+          <i class="ti ti-upload"></i> Local
+          <input type="file" accept="image/*" style="display:none;" onchange="hsmLoadLocalImg(event)">
+        </label>
+      </div>
       <img class="hsm-img-preview${isEdit&&h.img?' show':''}" id="hsmImgPreview" src="${isEdit&&h.img?h.img:''}" alt="">
       <div class="hsm-grid">
-        <div><div class="hsm-lbl">X %</div><input class="hsm-inp" id="hsmX" type="number" min="1" max="99" value="${isEdit?h.x:50}"></div>
-        <div><div class="hsm-lbl">Y %</div><input class="hsm-inp" id="hsmY" type="number" min="1" max="99" value="${isEdit?h.y:50}"></div>
+        <div><div class="hsm-lbl">X % (horizontal)</div><input class="hsm-inp" id="hsmX" type="number" min="1" max="99" value="${isEdit?h.x:50}"></div>
+        <div><div class="hsm-lbl">Y % (vertical)</div><input class="hsm-inp" id="hsmY" type="number" min="1" max="99" value="${isEdit?h.y:50}"></div>
       </div>
       <button class="hsm-save" onclick="hsmSave(${isEdit?editSi:'undefined'},${isEdit?editJ:'undefined'})">
-        <i class="ti ti-check"></i> ${isEdit?'Actualizar':'Guardar hotspot'}
+        <i class="ti ti-check"></i> ${isEdit?'Actualizar hotspot':'Guardar hotspot'}
       </button>
       ${!isEdit ? `<div class="hsm-hint"><i class="ti ti-map-pin"></i> Haz clic en el visor para auto-posicionar</div>` : ''}
     </div>`;
 
-  // Auto-start click-to-place for new hotspots on current scene
   if (!isEdit && PROJ[cP].scenes[cS].img) startAddHS();
+}
+
+// Load local image file → base64 for hotspot
+function hsmLoadLocalImg(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => {
+    const b64 = evt.target.result;
+    const inp  = document.getElementById('hsmImg');
+    const prev = document.getElementById('hsmImgPreview');
+    if (inp)  inp.value  = ''; // clear URL field — we use the b64 directly
+    if (prev) { prev.src = b64; prev.classList.add('show'); }
+    // Store b64 temporarily in a data attribute for hsmSave to pick up
+    if (prev) prev.dataset.localB64 = b64;
+  };
+  reader.readAsDataURL(file);
 }
 
 function hsmPreviewImg(url) {
@@ -1426,7 +1493,11 @@ function hsmSave(editSiRaw, editJRaw) {
   const title   = (document.getElementById('hsmTitle')?.value||'').trim();
   const detRaw  = document.getElementById('hsmDetail')?.value||'';
   const details = detRaw.split(',').map(s=>s.trim()).filter(Boolean);
-  const imgUrl  = (document.getElementById('hsmImg')?.value||'').trim();
+  // Image: prefer local b64, then URL field
+  const prev   = document.getElementById('hsmImgPreview');
+  const localB64 = prev?.dataset?.localB64 || null;
+  const urlVal   = (document.getElementById('hsmImg')?.value||'').trim();
+  const imgUrl   = localB64 || urlVal || null;
   const x = parseInt(document.getElementById('hsmX')?.value)||50;
   const y = parseInt(document.getElementById('hsmY')?.value)||50;
   const si = isEdit ? editSi : parseInt(document.getElementById('hsmSceneSel')?.value ?? cS);
@@ -1434,7 +1505,7 @@ function hsmSave(editSiRaw, editJRaw) {
   if (!title) { toast('Escribe un título para el hotspot'); return; }
   if (!PROJ[cP].scenes[si].img) { toast('Carga la panorámica de esa escena primero'); return; }
 
-  const obj = { x, y, title, details, img: imgUrl||null };
+  const obj = { x, y, title, details, img: imgUrl };
   if (isEdit) { PROJ[cP].scenes[si].hs[editJ] = obj; toast('Hotspot actualizado ✓'); }
   else        { PROJ[cP].scenes[si].hs.push(obj);    toast('Hotspot guardado ✓'); }
 
@@ -1515,6 +1586,9 @@ function toggleSb() {
   sbVis = !sbVis;
   document.getElementById('sidebar').classList.toggle('hide', !sbVis);
   document.getElementById('btnSb').classList.toggle('on', sbVis);
+  if (sbVis && hsPanelVis) {
+    hsPanelVis=false; document.getElementById('hsManager').classList.remove('show'); document.getElementById('btnHS').classList.remove('on'); cancelAddHS();
+  }
 }
 
 function toggleAuto() {
@@ -2080,12 +2154,16 @@ function renderLinksPanel() {
     return;
   }
   savedLinks.slice().reverse().forEach(lk => {
+    const sceneCount = lk.sceneNames ? lk.sceneNames.length : (lk.sceneCount||0);
     const d = document.createElement('div');
     d.className = 'vml-item';
-    d.innerHTML =
-      `<div class="vml-info">
+    d.style.cssText = 'flex-direction:column;align-items:stretch;gap:0;';
+    const mainRow = document.createElement('div');
+    mainRow.style.cssText = 'display:flex;align-items:center;gap:7px;';
+    mainRow.innerHTML = `
+      <div class="vml-info" style="cursor:pointer;flex:1;" onclick="vmlToggleScenes('${lk.id}')">
         <div class="vml-name">${lk.name}</div>
-        <div class="vml-meta">${lk.projName||''} · ${lk.sceneCount||0} escena${(lk.sceneCount||0)!==1?'s':''} · ${lk.created}</div>
+        <div class="vml-meta">${lk.projName||''} · ${sceneCount} escena${sceneCount!==1?'s':''} · ${lk.created} <i class="ti ti-chevron-down" id="vmlChev_${lk.id}" style="font-size:9px;transition:transform .25s;"></i></div>
       </div>
       <div class="vml-actions">
         <button class="vml-btn" title="Abrir" onclick="openLinkById('${lk.id}')"><i class="ti ti-external-link"></i></button>
@@ -2093,8 +2171,27 @@ function renderLinksPanel() {
         <button class="vml-btn" title="Renombrar" onclick="editLinkById('${lk.id}')"><i class="ti ti-pencil"></i></button>
         <button class="vml-btn del" title="Eliminar" onclick="deleteLinkById('${lk.id}')"><i class="ti ti-trash"></i></button>
       </div>`;
+    d.appendChild(mainRow);
+    if (lk.sceneNames && lk.sceneNames.length) {
+      const acc = document.createElement('div');
+      acc.id = `vmlAcc_${lk.id}`;
+      acc.style.cssText = 'display:none;padding:7px 4px 3px;border-top:1px solid var(--border);margin-top:7px;';
+      acc.innerHTML = lk.sceneNames.map((n,i) =>
+        `<div style="font-size:10px;color:var(--muted);padding:3px 4px;display:flex;align-items:center;gap:6px;"><span style="width:16px;height:16px;border-radius:50%;background:rgba(184,157,116,.15);color:var(--accent);font-size:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</span>${n}</div>`
+      ).join('');
+      d.appendChild(acc);
+    }
     el.appendChild(d);
   });
+}
+
+function vmlToggleScenes(id) {
+  const acc  = document.getElementById(`vmlAcc_${id}`);
+  const chev = document.getElementById(`vmlChev_${id}`);
+  if (!acc) return;
+  const open = acc.style.display !== 'none';
+  acc.style.display = open ? 'none' : 'block';
+  if (chev) chev.style.transform = open ? '' : 'rotate(180deg)';
 }
 
 // Stub de download (para que no falle el botón en el HTML)
