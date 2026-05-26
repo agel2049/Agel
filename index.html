@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>AgelArq — Visor 360°</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
@@ -19,7 +19,7 @@
 html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(--bg);overflow:hidden;}
 #app{position:relative;width:100vw;height:100vh;overflow:hidden;}
 #viewer360{position:absolute;inset:0;}
-#panoCanvas{width:100%;height:100%;display:block;cursor:none;}
+#panoCanvas{width:100%;height:100%;display:block;cursor:none;touch-action:none;}
 .grad{position:absolute;inset:0;pointer-events:none;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.52) 0%,transparent 24%,transparent 74%,rgba(0,0,0,.52) 100%);}
 .vig{position:absolute;inset:0;pointer-events:none;z-index:2;background:radial-gradient(ellipse at center,transparent 46%,rgba(0,0,0,.68) 100%);}
 #veil{position:absolute;inset:0;z-index:60;background:#0D0D0D;opacity:0;pointer-events:none;transition:opacity .42s ease;}
@@ -148,7 +148,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .bb-fov{font-size:10px;color:var(--muted);letter-spacing:.06em;font-family:'Inter',sans-serif;min-width:30px;text-align:center;}
 #presMode{position:absolute;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:80px;pointer-events:none;opacity:0;transition:opacity .65s var(--ease);}
 #presMode.show{opacity:1;pointer-events:none;}
-.pres-controls{pointer-events:all;}
+.pres-controls{pointer-events:all;z-index:51;position:relative;}
 .pres-content{pointer-events:none;}
 .pres-content{text-align:center;margin-bottom:24px;}
 .pt-n{font-size:26px;font-weight:300;color:#fff;letter-spacing:.07em;}
@@ -251,7 +251,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .vm-back:hover{color:var(--text);border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.1);}
 
 /* Viewer canvas */
-#vmCanvas{width:100%;height:100%;display:block;cursor:none;}
+#vmCanvas{width:100%;height:100%;display:block;cursor:none;touch-action:none;}
 #vmCur{position:absolute;width:30px;height:30px;border-radius:50%;border:1.5px solid rgba(255,255,255,.55);pointer-events:none;z-index:99;transform:translate(-50%,-50%);opacity:0;transition:width .3s,height .3s,border-color .3s,opacity .25s;}
 #vmCur.vis{opacity:1;}#vmCur.drag{width:18px;height:18px;border-color:var(--accent);}
 .vm-viewer{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .5s;}
@@ -370,25 +370,16 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .vm-io-btn{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px 6px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:all .3s;display:flex;align-items:center;justify-content:center;gap:4px;}
 .vm-io-btn:hover{border-color:rgba(255,255,255,.2);color:var(--text);}
 
-/* ══ FULLSCREEN: ocultar branding, mostrar controles solo al hover ══ */
-:fullscreen #topbar,
-:-webkit-full-screen #topbar { opacity:0;pointer-events:none;transition:opacity .55s; }
-:fullscreen:hover #topbar,
-:-webkit-full-screen:hover #topbar { opacity:1;pointer-events:all; }
-:fullscreen .vm-topbar,
-:-webkit-full-screen .vm-topbar { opacity:0;pointer-events:none;transition:opacity .55s; }
-:fullscreen .vm-btmbar,
-:-webkit-full-screen .vm-btmbar { opacity:0;pointer-events:none;transition:opacity .45s; }
-:fullscreen .vm-exit-btn,
-:-webkit-full-screen .vm-exit-btn { opacity:0;pointer-events:none;transition:opacity .45s; }
-:fullscreen #vmViewer:hover .vm-btmbar,
-:fullscreen #vmViewer:hover .vm-exit-btn,
-:-webkit-full-screen #vmViewer:hover .vm-btmbar,
-:-webkit-full-screen #vmViewer:hover .vm-exit-btn { opacity:1;pointer-events:all; }
-:fullscreen #btmBar,
-:-webkit-full-screen #btmBar { opacity:0;pointer-events:none;transition:opacity .45s; }
-:fullscreen #app:hover #btmBar,
-:-webkit-full-screen #app:hover #btmBar { opacity:1;pointer-events:all; }
+/* ══ PRESENT/FULLSCREEN — JS manages visibility via .ui-hidden class ══ */
+.ui-hidden { opacity:0!important; pointer-events:none!important; transition:opacity .5s; }
+.ui-visible { opacity:1!important; pointer-events:all!important; }
+/* VM fullscreen: same treatment */
+#visorMode.fs-on .vm-topbar,
+#visorMode.fs-on .vm-btmbar,
+#visorMode.fs-on .vm-exit-btn { opacity:0; pointer-events:none; transition:opacity .4s; }
+#visorMode.fs-on:hover .vm-topbar,
+#visorMode.fs-on:hover .vm-btmbar,
+#visorMode.fs-on:hover .vm-exit-btn { opacity:1; pointer-events:all; }
 
 /* ══ LIQUID GLASS DIALOGS ══
    Minimal refraction: backdrop-filter blur + chromatic edge + subtle tint
@@ -475,6 +466,111 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .hsm-hint{font-size:10px;color:rgba(93,202,165,.7);text-align:center;margin-top:6px;letter-spacing:.06em;}
 .hsm-empty{font-size:11px;color:var(--muted);text-align:center;padding:20px 0;opacity:.6;}
 
+
+/* ═══════════════════════════════════════════════
+   MOBILE & TABLET — responsive layout
+   ═══════════════════════════════════════════════ */
+
+/* Topbar touch targets */
+@media (max-width: 768px) {
+  #topbar { height:52px; padding:0 10px; gap:6px; border-radius:0 0 16px 16px; top:0; left:0; right:0; transform:none; width:100%; box-sizing:border-box; }
+  .tb-mark { width:28px; height:28px; }
+  .tb-brand { font-size:11px; }
+  .tb-proj  { font-size:11px; max-width:70px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tb-scene { font-size:10px; max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tb-div   { display:none; }
+  /* Keep only essential topbar buttons on mobile */
+  #btnSb, #btnHS, #btnPres { display:flex; }
+  #btnCP, #btnQR { display:none; }
+  #btnPres { font-size:9px; padding:5px 11px; }
+
+  /* Sidebar: full-width drawer on mobile */
+  #sidebar { left:0; top:52px; width:100%; height:calc(100% - 52px); border-radius:0; z-index:60; }
+  #sidebar.hide { opacity:0; transform:translateX(-100%); }
+
+  /* btmBar: full-width pill at bottom */
+  #btmBar { bottom:0; left:0; right:0; transform:none; border-radius:16px 16px 0 0; padding:0 14px; height:52px; width:100%; box-sizing:border-box; justify-content:space-around; }
+  #btmBar.hide { transform:translateY(60px); }
+  .bb-sep { display:none; }
+  .pips { max-width:100px; overflow:hidden; }
+  .pip { width:4px; height:4px; }
+  .pip.on { width:10px; }
+  .bb-cnt { display:none; }
+
+  /* presMode controls stack vertically on small screens */
+  .pres-controls { flex-wrap:wrap; justify-content:center; gap:6px; padding:0 16px; }
+  .pres-btn { padding:8px 14px; font-size:10px; }
+  .pt-n { font-size:18px; }
+
+  /* Upload box */
+  .upl-box { padding:22px 16px; max-width:260px; }
+
+  /* Canvas fills */
+  canvas { width:100%!important; height:100%!important; display:block; }
+
+  /* HS Manager — full width on mobile */
+  #hsManager { width:100%; left:0; top:52px; height:calc(100% - 52px); border-right:none; border-top:1px solid var(--border); }
+
+  /* cpanel — full width */
+  #cpanel { right:0; left:0; top:52px; width:auto; margin:8px; border-radius:14px; }
+
+  /* Scene loading */
+  #sceneLoading { z-index:58; }
+
+  /* visorMode panels */
+  #visorMode .vm-setup-card { max-width:100%; margin:0; border-radius:0; }
+  .vm-setup { padding:10px; }
+}
+
+@media (max-width: 480px) {
+  .tb-proj, .tb-scene { display:none; }
+  #topbar { gap:4px; }
+  .pips { max-width:70px; }
+  #btmBar { padding:0 8px; }
+  .pt-n { font-size:16px; }
+  .pres-btn { padding:7px 10px; font-size:9px; }
+}
+
+/* Tablet landscape: sidebar narrower */
+@media (min-width: 769px) and (max-width:1024px) {
+  #sidebar { width:220px; }
+  #topbar  { gap:8px; }
+  .tb-proj { max-width:90px; }
+}
+
+/* Touch: make hotspot dots bigger */
+@media (pointer: coarse) {
+  .hs { width:18px; height:18px; }
+  .bbtn { padding:8px 10px; font-size:18px; }
+  .sc-ab { padding:5px 7px; font-size:12px; }
+  .hsm-ibtn { padding:5px; font-size:14px; }
+  .vml-btn { padding:5px 8px; font-size:12px; }
+}
+
+
+/* VM Viewer mobile */
+@media (max-width: 768px) {
+  .vm-btmbar { border-radius:16px 16px 0 0; bottom:0; left:0; right:0; transform:none; width:100%; box-sizing:border-box; justify-content:space-around; height:auto; min-height:52px; padding:8px 12px; }
+  .vm-btmbar .bb-sep { display:none; }
+  .vm-pips { max-width:90px; overflow:hidden; }
+  .vm-pip  { width:4px; height:4px; }
+  .vm-pip.on { width:10px; }
+  .vm-exit-btn { bottom:64px; right:10px; font-size:10px; padding:6px 12px; }
+  .vm-exit-btn:nth-of-type(2) { bottom:64px; right:unset; left:10px; }
+  .vm-topbar { height:48px; padding:0 12px; border-radius:0; }
+  .vm-title-bar { bottom:70px; }
+  /* VM setup card */
+  .vm-setup-card { width:100%; max-height:80vh; border-radius:20px 20px 0 0; position:absolute; bottom:0; left:0; right:0; overflow-y:auto; }
+  #vmSetup { padding:8px; }
+  /* Picker modal */
+  .vmp-box { width:95vw; border-radius:20px; }
+}
+
+/* Safe area for notched phones */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  #btmBar { padding-bottom:calc(10px + env(safe-area-inset-bottom)); height:auto; min-height:52px; }
+  #visorMode .vm-btmbar { padding-bottom:calc(10px + env(safe-area-inset-bottom)); height:auto; min-height:52px; }
+}
 </style>
 </head>
 <body>
@@ -511,7 +607,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
     <div class="tb-crumb">
       <span class="tb-proj" id="tbProj">—</span>
       <span class="tb-arr">›</span>
-      <span class="tb-sname" id="tbScene">—</span>
+      <span class="tb-sname tb-scene" id="tbScene">—</span>
     </div>
     <div class="tb-actions">
       <button class="tba" id="btnSb" onclick="toggleSb()"><i class="ti ti-layout-sidebar"></i></button>
@@ -1001,6 +1097,11 @@ function initThree() {
     if (autoRot && !dn) { lon += 0.04; updateCam(); }
     renderer.render(scene3, cam);
   })();
+  // Resize on orientation change / window resize
+  new ResizeObserver(() => {
+    const nw = cv.clientWidth, nh = cv.clientHeight;
+    if (nw && nh) { renderer.setSize(nw, nh, false); cam.aspect = nw/nh; cam.updateProjectionMatrix(); }
+  }).observe(cv);
 }
 
 function updateCam() {
@@ -1025,6 +1126,7 @@ cv.onmousedown = e => {
   dn = true; lx = e.clientX; ly = e.clientY; curEl.classList.add('drag');
 };
 cv.onmousemove = e => {
+  if (presActive) _presRevealUI(); // auto-reveal on any mouse movement
   if (!dn) return;
   lon -= (e.clientX - lx) * 0.06;
   lat += (e.clientY - ly) * 0.06;
@@ -1032,6 +1134,7 @@ cv.onmousemove = e => {
 };
 cv.onmouseup   = () => { dn = false; curEl.classList.remove('drag'); };
 cv.onmouseleave = () => { dn = false; curEl.classList.remove('drag'); };
+cv.addEventListener('touchstart', () => { if (presActive) _presRevealUI(); }, { passive:true });
 cv.addEventListener('wheel', e => {
   e.preventDefault();
   fov = Math.min(100, Math.max(20, fov + e.deltaY * 0.05));
@@ -1056,6 +1159,7 @@ function startInertia() {
 
 cv.addEventListener('touchstart', e => {
   e.preventDefault(); stopInertia(); _velLon = 0; _velLat = 0;
+  if (presActive) _presRevealUI();
   if (e.touches.length === 2) {
     _t2 = true;
     const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -1601,19 +1705,49 @@ function toggleAuto() {
   document.getElementById('rotBadge').classList.toggle('show', autoRot);
 }
 
-// ── PRESENT MODE (fullscreen) ──
+// ── PRESENT MODE ──
+// Directly hides topbar+btmBar via .ui-hidden class.
+// Auto-reveal: mousemove on canvas starts a 2s timer.
+let _presHideTimer = null;
+
+function _presRevealUI() {
+  const tb = document.getElementById('topbar');
+  const bb = document.getElementById('btmBar');
+  if (!presActive) return;
+  tb.classList.remove('ui-hidden');
+  bb.classList.remove('ui-hidden');
+  clearTimeout(_presHideTimer);
+  _presHideTimer = setTimeout(() => {
+    if (presActive) {
+      tb.classList.add('ui-hidden');
+      bb.classList.add('ui-hidden');
+    }
+  }, 2200);
+}
+
 function _applyPres(on) {
   presActive = on;
-  ['topbar','sidebar','btmBar'].forEach(id => document.getElementById(id).classList.toggle('hide', on));
-  document.getElementById('cpanel').classList.add('hide'); cpVis = false;
-  document.getElementById('hsManager').classList.remove('show'); hsPanelVis = false;
-  document.getElementById('presMode').classList.toggle('show', on);
-  document.getElementById('btnPres').textContent = on ? 'Salir' : 'Presentar';
+  const tb = document.getElementById('topbar');
+  const bb = document.getElementById('btmBar');
+
   if (on) {
+    // Immediately hide topbar and btmBar
+    tb.classList.add('ui-hidden');
+    bb.classList.add('ui-hidden');
+    document.getElementById('sidebar').classList.add('hide');
+    document.getElementById('cpanel').classList.add('hide'); cpVis = false;
+    document.getElementById('hsManager').classList.remove('show'); hsPanelVis = false;
+    document.getElementById('presMode').classList.add('show');
+    document.getElementById('btnPres').textContent = 'Salir';
     const s = PROJ[cP].scenes[cS];
     document.getElementById('ptN').textContent = s.name;
     document.getElementById('ptS').textContent = PROJ[cP].name + ' · ' + s.meta;
   } else {
+    clearTimeout(_presHideTimer);
+    tb.classList.remove('ui-hidden');
+    bb.classList.remove('ui-hidden');
+    document.getElementById('presMode').classList.remove('show');
+    document.getElementById('btnPres').textContent = 'Presentar';
     if (sbVis) document.getElementById('sidebar').classList.remove('hide');
   }
 }
@@ -1624,20 +1758,20 @@ function togglePres() {
   if (goOn) {
     try {
       const el = document.documentElement;
-      if (el.requestFullscreen) el.requestFullscreen();
+      if (el.requestFullscreen)            el.requestFullscreen();
       else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
     } catch(e) {}
   } else {
     try {
-      if (document.exitFullscreen) document.exitFullscreen();
-      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      if (document.exitFullscreen)             document.exitFullscreen();
+      else if (document.webkitExitFullscreen)  document.webkitExitFullscreen();
     } catch(e) {}
   }
 }
-// Sync fullscreen exit (user presses Esc)
-document.addEventListener('fullscreenchange',       () => {
+
+// Sync when user presses Esc to exit native fullscreen
+document.addEventListener('fullscreenchange', () => {
   if (!document.fullscreenElement && presActive) _applyPres(false);
-  // VM fullscreen: update icon
   _vmOnFsChange();
 });
 document.addEventListener('webkitfullscreenchange', () => {
@@ -1735,14 +1869,13 @@ let _vmHsRaf = null, _vmHsItems = [];
 
 function openVisorMode()  { document.getElementById('visorMode').classList.add('show'); }
 function closeVisorMode() {
-  // Exit VM fullscreen if active before closing
   if (document.fullscreenElement || document.webkitFullscreenElement) {
     try {
       if (document.exitFullscreen) document.exitFullscreen();
       else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
     } catch(e) {}
   }
-  document.getElementById('visorMode').classList.remove('show');
+  document.getElementById('visorMode').classList.remove('show', 'fs-on');
   if (vmAuto) vmToggleAuto();
 }
 
@@ -1966,23 +2099,25 @@ function vmToggleFullscreen() {
   }
 }
 
-// Update fullscreen button icon on change + resize renderer
+// Update fullscreen button icon + toggle fs-on class + resize renderer
 function _vmOnFsChange() {
   const isFs = !!document.fullscreenElement || !!document.webkitFullscreenElement;
   const btn  = document.getElementById('vmBtnFs');
   if (btn) btn.innerHTML = isFs ? '<i class="ti ti-minimize"></i>' : '<i class="ti ti-maximize"></i>';
-  // Resize Three.js renderer to match new viewport
+  // JS class drives CSS fade of vm-topbar/btmbar/exit-btn
+  const vm = document.getElementById('visorMode');
+  if (vm) vm.classList.toggle('fs-on', isFs);
+  // Resize Three.js renderer
   if (vmRenderer && vmCam) {
     const cv = document.getElementById('vmCanvas');
     if (!cv) return;
-    const w = cv.clientWidth, h = cv.clientHeight;
-    vmRenderer.setSize(w, h, false);
-    vmCam.aspect = w / h;
-    vmCam.updateProjectionMatrix();
+    setTimeout(() => {
+      const w = cv.clientWidth, h = cv.clientHeight;
+      if (w && h) { vmRenderer.setSize(w, h, false); vmCam.aspect = w/h; vmCam.updateProjectionMatrix(); }
+    }, 120); // slight delay to let browser resize settle
   }
 }
-document.addEventListener('fullscreenchange',       _vmOnFsChange);
-document.addEventListener('webkitfullscreenchange', _vmOnFsChange);
+// (listeners registered inside togglePres / _applyPres block above)
 
 // VM Hotspots — layer stays pointer-events:none; only dots handle events
 function vmRenderVmHS(s) {
