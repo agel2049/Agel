@@ -326,6 +326,50 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .vm-save-link-btn{width:100%;margin-top:7px;background:rgba(184,157,116,.08);color:var(--accent);border:1px solid rgba(184,157,116,.22);border-radius:8px;padding:7px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:all .3s;display:flex;align-items:center;justify-content:center;gap:5px;}
 .vm-save-link-btn:hover{background:rgba(184,157,116,.2);}
 
+/* ── FULLSCREEN BUTTON ─────────────────────────── */
+.vm-fs-btn{position:absolute;top:18px;right:18px;z-index:20;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;transition:all .25s;}
+.vm-fs-btn:hover{background:rgba(184,157,116,.15);border-color:rgba(184,157,116,.35);color:var(--accent);}
+
+/* ── ENHANCED HS-CARD with image ──────────────── */
+.hs-card{position:absolute;min-width:195px;max-width:230px;background:rgba(8,8,12,.94);backdrop-filter:var(--blur);border:1px solid var(--border);border-radius:14px;overflow:hidden;opacity:0;transform:translateY(5px) scale(.96);pointer-events:none;transition:all .38s var(--ease);z-index:16;}
+.hs-card.open{opacity:1;transform:none;pointer-events:all;}
+.hc-img{width:100%;height:100px;object-fit:cover;display:block;border-bottom:1px solid var(--border);}
+.hc-body{padding:10px 12px 11px;}
+.hc-eye{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:5px;}
+.hc-row{font-size:11px;color:var(--muted);line-height:1.85;font-weight:300;}
+.hc-x{position:absolute;top:7px;right:7px;background:rgba(0,0,0,.45);border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:11px;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;z-index:2;transition:color .2s;}
+.hc-x:hover{color:var(--text);}
+
+/* ── HS PANEL: image URL field ─────────────────── */
+.ep-img-preview{width:100%;height:64px;border-radius:7px;object-fit:cover;margin-top:5px;display:none;border:1px solid var(--border);}
+.ep-img-preview.show{display:block;}
+
+/* ── VM PICKER MODAL ──────────────────────────── */
+#vmPickerModal{position:absolute;inset:0;z-index:99;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.75);backdrop-filter:blur(14px);opacity:0;pointer-events:none;transition:opacity .32s;}
+#vmPickerModal.show{opacity:1;pointer-events:all;}
+.vmp-box{background:rgba(14,14,18,.97);border:1px solid var(--border);border-radius:20px;padding:24px;width:360px;max-width:94vw;}
+.vmp-title{font-size:12px;font-weight:500;color:var(--text);letter-spacing:.08em;text-transform:uppercase;margin-bottom:16px;}
+#vmPickerList{display:flex;flex-direction:column;gap:7px;max-height:260px;overflow-y:auto;scrollbar-width:none;margin-bottom:16px;}
+#vmPickerList::-webkit-scrollbar{display:none;}
+.vmp-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:9px;padding:8px 10px;cursor:pointer;transition:border-color .2s;}
+.vmp-row:hover{border-color:rgba(184,157,116,.3);}
+.vmp-chk{accent-color:var(--accent);width:14px;height:14px;flex-shrink:0;}
+.vmp-thumb{width:52px;height:34px;border-radius:5px;background:rgba(255,255,255,.07) center/cover;flex-shrink:0;}
+.vmp-info{flex:1;min-width:0;}
+.vmp-info b{display:block;font-size:11px;color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.vmp-info small{font-size:10px;color:var(--muted);}
+.vmp-actions{display:flex;gap:8px;}
+.vmp-btn{flex:1;padding:9px;border-radius:9px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:all .3s;border:1px solid;}
+.vmp-btn.confirm{background:rgba(184,157,116,.15);color:var(--accent);border-color:rgba(184,157,116,.35);}
+.vmp-btn.confirm:hover{background:rgba(184,157,116,.28);}
+.vmp-btn.cancel{background:transparent;color:var(--muted);border-color:var(--border);}
+.vmp-btn.cancel:hover{color:var(--text);}
+
+/* ── EXPORT/IMPORT BUTTONS ─────────────────────── */
+.vm-io-row{display:flex;gap:6px;margin-top:8px;}
+.vm-io-btn{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px 6px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:all .3s;display:flex;align-items:center;justify-content:center;gap:4px;}
+.vm-io-btn:hover{border-color:rgba(255,255,255,.2);color:var(--text);}
+
 </style>
 </head>
 <body>
@@ -383,6 +427,9 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
     <div class="ep-eye"><span>Hotspots</span><button class="ep-xbtn" onclick="toggleHSPanel()"><i class="ti ti-x"></i></button></div>
     <div class="ep-lbl">Título</div><input class="ep-inp" id="epTitle" placeholder="Ej: Acabado de piso">
     <div class="ep-lbl">Detalle (separado por comas)</div><input class="ep-inp" id="epDetail" placeholder="Mármol travertino, 60×60">
+    <div class="ep-lbl">Imagen del material (URL opcional)</div>
+    <input class="ep-inp" id="epImg" placeholder="https://res.cloudinary.com/..." oninput="previewHsImg(this.value)">
+    <img class="ep-img-preview" id="epImgPreview" alt="preview">
     <div class="ep-grid" style="margin-top:7px;">
       <div><div class="ep-lbl">X %</div><input class="ep-inp" id="epX" type="number" min="5" max="95" value="50"></div>
       <div><div class="ep-lbl">Y %</div><input class="ep-inp" id="epY" type="number" min="10" max="90" value="50"></div>
@@ -515,6 +562,12 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
           </div>
           <div id="vmLinksList"></div>
         </div>
+
+        <!-- EXPORT / IMPORT -->
+        <div class="vm-io-row">
+          <button class="vm-io-btn" onclick="exportProjects()"><i class="ti ti-download"></i> Exportar proyectos</button>
+          <button class="vm-io-btn" onclick="importProjects()"><i class="ti ti-upload"></i> Importar</button>
+        </div>
       </div>
       <button class="vm-back" onclick="closeVisorMode()"><i class="ti ti-arrow-left"></i> Volver a la app</button>
     </div>
@@ -546,9 +599,23 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
         <button class="bbtn" onclick="vmZoomOut()"><i class="ti ti-zoom-out"></i></button>
         <div class="bb-sep"></div>
         <button class="bbtn" id="vmBtnAuto" onclick="vmToggleAuto()"><i class="ti ti-player-play"></i></button>
+        <div class="bb-sep"></div>
+        <button class="bbtn" id="vmBtnFs" onclick="vmToggleFullscreen()" title="Pantalla completa"><i class="ti ti-maximize"></i></button>
       </div>
       <button class="vm-exit-btn" onclick="vmExitViewer()"><i class="ti ti-settings"></i> Configurar</button>
-      <button class="vm-exit-btn" onclick="vmCopyLink()" style="right:150px;background:rgba(93,202,165,.12);border-color:rgba(93,202,165,.3);color:#5DCAA5;"><i class="ti ti-copy"></i> Copiar link</button>
+      <button class="vm-exit-btn" onclick="vmOpenScenePicker('copy')" style="right:150px;background:rgba(93,202,165,.12);border-color:rgba(93,202,165,.3);color:#5DCAA5;"><i class="ti ti-copy"></i> Copiar link</button>
+    </div>
+
+    <!-- SCENE PICKER MODAL -->
+    <div id="vmPickerModal">
+      <div class="vmp-box">
+        <div class="vmp-title" id="vmPickerTitle">Seleccionar escenas</div>
+        <div id="vmPickerList"></div>
+        <div class="vmp-actions">
+          <button class="vmp-btn cancel" onclick="vmPickerClose()">Cancelar</button>
+          <button class="vmp-btn confirm" onclick="vmPickerConfirm()"><i class="ti ti-check"></i> Confirmar</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1092,13 +1159,15 @@ function renderHS(pi, si) {
   layer.innerHTML = ''; layer.style.pointerEvents = 'none';
   PROJ[pi].scenes[si].hs.forEach((h, j) => {
     const dot  = document.createElement('div'); dot.className = 'hs';
-    // FIX: pointer-events on dot, not on whole layer
     dot.style.cssText = `position:absolute;transform:translate(-50%,-50%);animation-delay:${j*.85}s;opacity:0;pointer-events:all;`;
     const card = document.createElement('div'); card.className = 'hs-card';
     card.style.cssText = `position:absolute;${h.x>50?'right':'left'}:18px;top:-5px;`;
     card.innerHTML =
+      (h.img ? `<img class="hc-img" src="${h.img}" alt="">` : '') +
+      `<div class="hc-body">` +
       `<div class="hc-eye">${h.title}</div>` +
       h.details.map(d => `<div class="hc-row">${d}</div>`).join('') +
+      `</div>` +
       `<button class="hc-x" onclick="this.closest('.hs-card').classList.remove('open')"><i class="ti ti-x"></i></button>`;
     dot.appendChild(card);
     dot.addEventListener('mouseenter', () => curEl.classList.add('onhs'));
@@ -1147,16 +1216,27 @@ function placeHSAt(e) {
   cancelAddHS();
 }
 
+function previewHsImg(url) {
+  const prev = document.getElementById('epImgPreview');
+  if (!url.trim()) { prev.classList.remove('show'); return; }
+  prev.src = url;
+  prev.onload  = () => prev.classList.add('show');
+  prev.onerror = () => prev.classList.remove('show');
+}
+
 function saveHS() {
   const title   = document.getElementById('epTitle').value.trim();
   const details = document.getElementById('epDetail').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const imgUrl  = document.getElementById('epImg').value.trim();
   const x = parseInt(document.getElementById('epX').value) || 50;
   const y = parseInt(document.getElementById('epY').value) || 50;
   if (!title) { toast('Escribe un título'); return; }
   if (!PROJ[cP].scenes[cS].img) { toast('Carga una panorámica primero'); return; }
-  PROJ[cP].scenes[cS].hs.push({ x, y, title, details });
-  document.getElementById('epTitle').value = '';
+  PROJ[cP].scenes[cS].hs.push({ x, y, title, details, img: imgUrl || null });
+  document.getElementById('epTitle').value  = '';
   document.getElementById('epDetail').value = '';
+  document.getElementById('epImg').value    = '';
+  document.getElementById('epImgPreview').classList.remove('show');
   clearHS(); renderHS(cP,cS); buildList(); refreshHSList();
   toast('Hotspot guardado'); autoSave();
 }
@@ -1429,23 +1509,95 @@ function vmInitThree() {
   vmScene3.add(vmSphere);
   vmUpdateCam();
   (function loop() { requestAnimationFrame(loop); if (vmAuto && !vmDn) { vmLon+=0.04; vmUpdateCam(); } vmRenderer.render(vmScene3, vmCam); })();
-  // cursor
+
+  // Cursor
   const vmCurEl = document.getElementById('vmCur');
   const vmDiv   = document.getElementById('visorMode');
-  vmDiv.addEventListener('mousemove', e => { const r=vmCv.getBoundingClientRect(); vmCurEl.style.left=(e.clientX-r.left)+'px'; vmCurEl.style.top=(e.clientY-r.top)+'px'; });
+  vmDiv.addEventListener('mousemove', e => {
+    const r=vmCv.getBoundingClientRect();
+    vmCurEl.style.left=(e.clientX-r.left)+'px';
+    vmCurEl.style.top=(e.clientY-r.top)+'px';
+  });
   vmDiv.addEventListener('mouseenter', () => vmCurEl.classList.add('vis'));
   vmDiv.addEventListener('mouseleave', () => vmCurEl.classList.remove('vis'));
-  // drag
-  vmCv.onmousedown = e => { vmDn=true; vmLx=e.clientX; vmLy=e.clientY; vmCurEl.classList.add('drag'); };
-  vmCv.onmousemove = e => { if(!vmDn)return; vmLon-=(e.clientX-vmLx)*.06; vmLat+=(e.clientY-vmLy)*.06; vmLx=e.clientX; vmLy=e.clientY; vmUpdateCam(); };
-  vmCv.onmouseup   = () => { vmDn=false; vmCurEl.classList.remove('drag'); };
-  vmCv.onmouseleave= () => { vmDn=false; vmCurEl.classList.remove('drag'); };
-  vmCv.addEventListener('wheel', e => { e.preventDefault(); vmFov=Math.min(100,Math.max(20,vmFov+e.deltaY*.05)); vmCam.fov=vmFov; vmCam.updateProjectionMatrix(); document.getElementById('vmFovLabel').textContent=Math.round(vmFov)+'°'; }, {passive:false});
-  // touch
-  let vt2=false,vId=0,vId2=0;
-  vmCv.addEventListener('touchstart', e => { e.preventDefault(); if(e.touches.length===2){vt2=true;}else{vmDn=true;vmLx=e.touches[0].clientX;vmLy=e.touches[0].clientY;} }, {passive:false});
-  vmCv.addEventListener('touchmove',  e => { e.preventDefault(); if(!vmDn||e.touches.length!==1)return; vmLon-=(e.touches[0].clientX-vmLx)*.06; vmLat+=(e.touches[0].clientY-vmLy)*.06; vmLx=e.touches[0].clientX; vmLy=e.touches[0].clientY; vmUpdateCam(); }, {passive:false});
-  vmCv.addEventListener('touchend',   e => { vmDn=false; vt2=false; });
+
+  // Drag + inertia
+  let _vmVLon=0, _vmVLat=0, _vmLastT=0, _vmIRaf=null;
+  function vmStopInertia() { if(_vmIRaf){cancelAnimationFrame(_vmIRaf);_vmIRaf=null;} }
+  function vmStartInertia() {
+    vmStopInertia();
+    (function tick(){
+      _vmVLon*=0.91; _vmVLat*=0.91;
+      if(Math.abs(_vmVLon)<0.005&&Math.abs(_vmVLat)<0.005)return;
+      vmLon+=_vmVLon; vmLat+=_vmVLat; vmUpdateCam();
+      _vmIRaf=requestAnimationFrame(tick);
+    })();
+  }
+
+  vmCv.onmousedown = e => {
+    vmDn=true; vmLx=e.clientX; vmLy=e.clientY;
+    _vmLastT=Date.now(); _vmVLon=0; _vmVLat=0;
+    vmCurEl.classList.add('drag'); vmStopInertia();
+  };
+  vmCv.onmousemove = e => {
+    if(!vmDn)return;
+    const dt=Math.max(1,Date.now()-_vmLastT);
+    const dlon=-(e.clientX-vmLx)*.06, dlat=(e.clientY-vmLy)*.06;
+    vmLon+=dlon; vmLat+=dlat;
+    _vmVLon=dlon*(16/dt); _vmVLat=dlat*(16/dt);
+    vmLx=e.clientX; vmLy=e.clientY; _vmLastT=Date.now(); vmUpdateCam();
+  };
+  vmCv.onmouseup   = () => { vmDn=false; vmCurEl.classList.remove('drag'); vmStartInertia(); };
+  vmCv.onmouseleave= () => { vmDn=false; vmCurEl.classList.remove('drag'); vmStartInertia(); };
+  vmCv.addEventListener('wheel', e => {
+    e.preventDefault();
+    vmFov=Math.min(100,Math.max(20,vmFov+e.deltaY*.05));
+    vmCam.fov=vmFov; vmCam.updateProjectionMatrix();
+    document.getElementById('vmFovLabel').textContent=Math.round(vmFov)+'°';
+  }, {passive:false});
+
+  // Touch: drag + pinch-to-zoom + inertia
+  let _vt2=false, _vInitDist=0, _vInitFov=55;
+  vmCv.addEventListener('touchstart', e => {
+    e.preventDefault(); vmStopInertia(); _vmVLon=0; _vmVLat=0;
+    if(e.touches.length===2){
+      _vt2=true;
+      const dx=e.touches[0].clientX-e.touches[1].clientX;
+      const dy=e.touches[0].clientY-e.touches[1].clientY;
+      _vInitDist=Math.sqrt(dx*dx+dy*dy); _vInitFov=vmFov;
+    } else {
+      vmDn=true; vmLx=e.touches[0].clientX; vmLy=e.touches[0].clientY; _vmLastT=Date.now();
+    }
+  }, {passive:false});
+  vmCv.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if(e.touches.length===2&&_vt2){
+      const dx=e.touches[0].clientX-e.touches[1].clientX;
+      const dy=e.touches[0].clientY-e.touches[1].clientY;
+      vmFov=Math.min(100,Math.max(20,_vInitFov*(_vInitDist/Math.sqrt(dx*dx+dy*dy))));
+      vmCam.fov=vmFov; vmCam.updateProjectionMatrix();
+      document.getElementById('vmFovLabel').textContent=Math.round(vmFov)+'°';
+    } else if(vmDn&&e.touches.length===1){
+      const nx=e.touches[0].clientX,ny=e.touches[0].clientY;
+      const dt=Math.max(1,Date.now()-_vmLastT);
+      const dlon=-(nx-vmLx)*.06, dlat=(ny-vmLy)*.06;
+      vmLon+=dlon; vmLat+=dlat;
+      _vmVLon=dlon*(16/dt); _vmVLat=dlat*(16/dt);
+      vmLx=nx; vmLy=ny; _vmLastT=Date.now(); vmUpdateCam();
+    }
+  }, {passive:false});
+  vmCv.addEventListener('touchend', e => {
+    if(e.touches.length===0){ vmDn=false; _vt2=false; vmStartInertia(); }
+    else if(e.touches.length===1){ _vt2=false; vmLx=e.touches[0].clientX; vmLy=e.touches[0].clientY; }
+  });
+
+  // Resize observer — keeps renderer sharp on resize/fullscreen
+  new ResizeObserver(() => {
+    if(!vmRenderer||!vmCam)return;
+    const nw=vmCv.clientWidth, nh=vmCv.clientHeight;
+    vmRenderer.setSize(nw,nh,false);
+    vmCam.aspect=nw/nh; vmCam.updateProjectionMatrix();
+  }).observe(vmCv);
 }
 
 function vmUpdateCam() {
@@ -1486,7 +1638,43 @@ function vmToggleAuto() {
   document.getElementById('vmBtnAuto').classList.toggle('on', vmAuto);
 }
 
-// VM Hotspots — FIX: layer stays pointer-events:none; only the dots themselves are clickable
+// ── FULLSCREEN (visor de cliente) ─────────────────────────
+function vmToggleFullscreen() {
+  const el = document.getElementById('visorMode');
+  const btn = document.getElementById('vmBtnFs');
+  const isFs = !!document.fullscreenElement || !!document.webkitFullscreenElement;
+  if (!isFs) {
+    try {
+      if (el.requestFullscreen)       el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    } catch(e) {}
+  } else {
+    try {
+      if (document.exitFullscreen)        document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    } catch(e) {}
+  }
+}
+
+// Update fullscreen button icon on change + resize renderer
+function _vmOnFsChange() {
+  const isFs = !!document.fullscreenElement || !!document.webkitFullscreenElement;
+  const btn  = document.getElementById('vmBtnFs');
+  if (btn) btn.innerHTML = isFs ? '<i class="ti ti-minimize"></i>' : '<i class="ti ti-maximize"></i>';
+  // Resize Three.js renderer to match new viewport
+  if (vmRenderer && vmCam) {
+    const cv = document.getElementById('vmCanvas');
+    if (!cv) return;
+    const w = cv.clientWidth, h = cv.clientHeight;
+    vmRenderer.setSize(w, h, false);
+    vmCam.aspect = w / h;
+    vmCam.updateProjectionMatrix();
+  }
+}
+document.addEventListener('fullscreenchange',       _vmOnFsChange);
+document.addEventListener('webkitfullscreenchange', _vmOnFsChange);
+
+// VM Hotspots — layer stays pointer-events:none; only dots handle events
 function vmRenderVmHS(s) {
   if (_vmHsRaf) { cancelAnimationFrame(_vmHsRaf); _vmHsRaf=null; } _vmHsItems=[];
   const layer = document.getElementById('vmHsLayer'); if (!layer) return;
@@ -1494,20 +1682,27 @@ function vmRenderVmHS(s) {
   if (!s.hs || !s.hs.length) return;
   s.hs.forEach((h, j) => {
     const dot = document.createElement('div'); dot.className='hs';
-    // FIX: pointer-events on the dot itself, NOT on the whole layer
     dot.style.cssText=`position:absolute;transform:translate(-50%,-50%);animation-delay:${j*.85}s;opacity:0;pointer-events:all;`;
     const card=document.createElement('div'); card.className='hs-card';
     card.style.cssText=`position:absolute;${(h.x||50)>50?'right':'left'}:18px;top:-5px;`;
-    card.innerHTML=`<div class="hc-eye">${h.title||'Info'}</div>`+
+    card.innerHTML=
+      (h.img ? `<img class="hc-img" src="${h.img}" alt="" crossorigin="anonymous">` : '') +
+      `<div class="hc-body">` +
+      `<div class="hc-eye">${h.title||'Info'}</div>`+
       (h.details||[]).map(d=>`<div class="hc-row">${d}</div>`).join('')+
+      `</div>`+
       `<button class="hc-x" onclick="this.closest('.hs-card').classList.remove('open')"><i class="ti ti-x"></i></button>`;
     dot.appendChild(card);
-    dot.addEventListener('click', e => { e.stopPropagation(); const was=card.classList.contains('open'); document.querySelectorAll('#vmHsLayer .hs-card').forEach(c=>c.classList.remove('open')); if(!was)card.classList.add('open'); });
+    dot.addEventListener('click', e => {
+      e.stopPropagation();
+      const was=card.classList.contains('open');
+      document.querySelectorAll('#vmHsLayer .hs-card').forEach(c=>c.classList.remove('open'));
+      if(!was)card.classList.add('open');
+    });
     layer.appendChild(dot);
     const x=h.x||((j+1)/(s.hs.length+1)*100), y=h.y||50;
     _vmHsItems.push({dot,vec3:_pctToVec3(x,y)});
   });
-  // layer.style.pointerEvents stays 'none' — dots handle their own events
   (function tick(){
     if(!vmCam||!document.getElementById('vmCanvas'))return;
     const rect=document.getElementById('vmCanvas').getBoundingClientRect();
