@@ -370,6 +370,111 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .vm-io-btn{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px 6px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:all .3s;display:flex;align-items:center;justify-content:center;gap:4px;}
 .vm-io-btn:hover{border-color:rgba(255,255,255,.2);color:var(--text);}
 
+/* ══ FULLSCREEN: ocultar branding, mostrar controles solo al hover ══ */
+:fullscreen #topbar,
+:-webkit-full-screen #topbar { opacity:0;pointer-events:none;transition:opacity .55s; }
+:fullscreen:hover #topbar,
+:-webkit-full-screen:hover #topbar { opacity:1;pointer-events:all; }
+:fullscreen .vm-topbar,
+:-webkit-full-screen .vm-topbar { opacity:0;pointer-events:none;transition:opacity .55s; }
+:fullscreen .vm-btmbar,
+:-webkit-full-screen .vm-btmbar { opacity:0;pointer-events:none;transition:opacity .45s; }
+:fullscreen .vm-exit-btn,
+:-webkit-full-screen .vm-exit-btn { opacity:0;pointer-events:none;transition:opacity .45s; }
+:fullscreen #vmViewer:hover .vm-btmbar,
+:fullscreen #vmViewer:hover .vm-exit-btn,
+:-webkit-full-screen #vmViewer:hover .vm-btmbar,
+:-webkit-full-screen #vmViewer:hover .vm-exit-btn { opacity:1;pointer-events:all; }
+:fullscreen #btmBar,
+:-webkit-full-screen #btmBar { opacity:0;pointer-events:none;transition:opacity .45s; }
+:fullscreen #app:hover #btmBar,
+:-webkit-full-screen #app:hover #btmBar { opacity:1;pointer-events:all; }
+
+/* ══ LIQUID GLASS DIALOGS ══
+   Minimal refraction: backdrop-filter blur + chromatic edge + subtle tint
+   Applied to QR modal, Edit modal, VM Picker modal, hs-card
+*/
+@supports (backdrop-filter: blur(1px)) {
+  #qrModal,#editModal,#vmPickerModal {
+    backdrop-filter: blur(22px) saturate(1.4) brightness(0.82);
+    -webkit-backdrop-filter: blur(22px) saturate(1.4) brightness(0.82);
+    background: rgba(0,0,0,.35) !important;
+  }
+  .qr-box,.em-box,.vmp-box {
+    background: rgba(18,17,24,.55) !important;
+    border: 1px solid rgba(255,255,255,.10) !important;
+    box-shadow:
+      0 0 0 0.5px rgba(255,255,255,.06) inset,
+      0 2px 1px rgba(255,255,255,.04) inset,
+      0 30px 60px rgba(0,0,0,.55),
+      0 0 0 0.5px rgba(120,80,200,.12);
+    backdrop-filter: blur(28px) saturate(1.6);
+    -webkit-backdrop-filter: blur(28px) saturate(1.6);
+  }
+  /* Chromatic edge — subtle iridescence */
+  .qr-box::before,.em-box::before,.vmp-box::before {
+    content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background: linear-gradient(135deg,
+      rgba(255,255,255,.07) 0%,
+      rgba(184,157,116,.05) 40%,
+      rgba(120,80,200,.04) 70%,
+      rgba(255,255,255,.02) 100%);
+    z-index:0;
+  }
+  .qr-box > *,.em-box > *,.vmp-box > * { position:relative;z-index:1; }
+  .hs-card {
+    background: rgba(6,6,10,.62) !important;
+    border: 1px solid rgba(255,255,255,.09) !important;
+    backdrop-filter: blur(24px) saturate(1.5);
+    -webkit-backdrop-filter: blur(24px) saturate(1.5);
+    box-shadow: 0 8px 32px rgba(0,0,0,.45), 0 0 0 0.5px rgba(255,255,255,.05) inset;
+  }
+}
+
+/* ══ HOTSPOT MANAGER PANEL ══ */
+#hsManager{position:absolute;left:0;top:0;bottom:0;width:320px;z-index:50;background:rgba(10,10,14,.92);border-right:1px solid var(--border);display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .38s var(--ease);}
+#hsManager.show{transform:translateX(0);}
+.hsm-header{padding:14px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.hsm-title{font-size:11px;font-weight:500;color:var(--text);letter-spacing:.1em;text-transform:uppercase;}
+.hsm-close{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:15px;display:flex;padding:2px;}
+.hsm-close:hover{color:var(--text);}
+.hsm-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;}
+.hsm-tab{flex:1;padding:9px 6px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:transparent;border:none;cursor:pointer;font-family:'Inter',sans-serif;transition:all .25s;border-bottom:2px solid transparent;}
+.hsm-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.hsm-body{flex:1;overflow-y:auto;scrollbar-width:none;padding:14px 16px;}
+.hsm-body::-webkit-scrollbar{display:none;}
+/* Scene selector in manager */
+.hsm-scene-selector{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px;}
+.hsm-scene-chip{font-size:10px;padding:4px 10px;border-radius:99px;border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .25s;background:transparent;}
+.hsm-scene-chip.active{background:rgba(184,157,116,.15);border-color:rgba(184,157,116,.4);color:var(--accent);}
+/* HS list in manager */
+.hsm-list{display:flex;flex-direction:column;gap:6px;}
+.hsm-item{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color .2s;}
+.hsm-item:hover{border-color:rgba(255,255,255,.1);}
+.hsm-item-head{display:flex;align-items:center;gap:8px;padding:8px 10px;}
+.hsm-item-thumb{width:42px;height:30px;border-radius:5px;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,.06);}
+.hsm-item-thumb.no-img{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px;}
+.hsm-item-info{flex:1;min-width:0;}
+.hsm-item-title{font-size:11px;color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hsm-item-meta{font-size:9px;color:var(--muted);margin-top:1px;}
+.hsm-item-actions{display:flex;gap:3px;}
+.hsm-ibtn{background:transparent;border:none;color:rgba(255,255,255,.25);cursor:pointer;font-size:12px;padding:3px;border-radius:4px;transition:all .2s;}
+.hsm-ibtn:hover{color:var(--accent);background:rgba(184,157,116,.1);}
+.hsm-ibtn.del:hover{color:#E24B4A;background:rgba(226,75,74,.08);}
+/* Add form */
+.hsm-form{background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:12px;padding:14px;}
+.hsm-form-title{font-size:10px;color:var(--accent);letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px;}
+.hsm-lbl{font-size:10px;color:var(--muted);margin-bottom:4px;margin-top:9px;letter-spacing:.04em;}
+.hsm-inp{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:7px;padding:7px 10px;font-size:11px;color:var(--text);font-family:'Inter',sans-serif;outline:none;transition:border-color .25s;box-sizing:border-box;}
+.hsm-inp:focus{border-color:rgba(184,157,116,.5);}
+.hsm-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+.hsm-img-preview{width:100%;height:70px;border-radius:7px;object-fit:cover;margin-top:5px;display:none;border:1px solid var(--border);}
+.hsm-img-preview.show{display:block;}
+.hsm-save{width:100%;margin-top:12px;background:rgba(184,157,116,.14);color:var(--accent);border:1px solid rgba(184,157,116,.32);border-radius:8px;padding:8px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:all .3s;display:flex;align-items:center;justify-content:center;gap:5px;}
+.hsm-save:hover{background:rgba(184,157,116,.26);}
+.hsm-hint{font-size:10px;color:rgba(93,202,165,.7);text-align:center;margin-top:6px;letter-spacing:.06em;}
+.hsm-empty{font-size:11px;color:var(--muted);text-align:center;padding:20px 0;opacity:.6;}
+
 </style>
 </head>
 <body>
@@ -423,20 +528,19 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 
   <div id="hsLayer"></div>
 
-  <div id="hsPanel" class="g hide">
-    <div class="ep-eye"><span>Hotspots</span><button class="ep-xbtn" onclick="toggleHSPanel()"><i class="ti ti-x"></i></button></div>
-    <div class="ep-lbl">Título</div><input class="ep-inp" id="epTitle" placeholder="Ej: Acabado de piso">
-    <div class="ep-lbl">Detalle (separado por comas)</div><input class="ep-inp" id="epDetail" placeholder="Mármol travertino, 60×60">
-    <div class="ep-lbl">Imagen del material (URL opcional)</div>
-    <input class="ep-inp" id="epImg" placeholder="https://res.cloudinary.com/..." oninput="previewHsImg(this.value)">
-    <img class="ep-img-preview" id="epImgPreview" alt="preview">
-    <div class="ep-grid" style="margin-top:7px;">
-      <div><div class="ep-lbl">X %</div><input class="ep-inp" id="epX" type="number" min="5" max="95" value="50"></div>
-      <div><div class="ep-lbl">Y %</div><input class="ep-inp" id="epY" type="number" min="10" max="90" value="50"></div>
+  <!-- ══ HOTSPOT MANAGER ══ -->
+  <div id="hsManager">
+    <div class="hsm-header">
+      <span class="hsm-title"><i class="ti ti-map-pin" style="margin-right:6px;"></i>Hotspots</span>
+      <button class="hsm-close" onclick="toggleHSPanel()"><i class="ti ti-x"></i></button>
     </div>
-    <button class="ep-save" onclick="saveHS()"><i class="ti ti-check"></i> Guardar</button>
-    <div class="ep-hint">O haz clic en el visor para posicionar</div>
-    <div class="ep-list" id="epList"></div>
+    <div class="hsm-tabs">
+      <button class="hsm-tab active" id="hsmTabList" onclick="hsmSetTab('list')">Ver todos</button>
+      <button class="hsm-tab" id="hsmTabAdd"  onclick="hsmSetTab('add')">Agregar</button>
+    </div>
+    <div class="hsm-body" id="hsmBody">
+      <!-- content injected by JS -->
+    </div>
   </div>
 
   <div id="cpanel" class="g hide">
@@ -1190,71 +1294,185 @@ function clearHS() {
 
 function closeAllHS() { document.querySelectorAll('.hs-card').forEach(c => c.classList.remove('open')); }
 
+// ── HOTSPOT MANAGER ──
+let _hsmTab = 'list';
+
 function toggleHSPanel() {
   hsPanelVis = !hsPanelVis;
-  document.getElementById('hsPanel').classList.toggle('hide', !hsPanelVis);
+  document.getElementById('hsManager').classList.toggle('show', hsPanelVis);
   document.getElementById('btnHS').classList.toggle('on', hsPanelVis);
-  if (hsPanelVis && PROJ[cP].scenes[cS].img) startAddHS();
+  if (hsPanelVis) { _hsmTab='list'; hsmSyncTabs(); hsmRender(); }
+  else cancelAddHS();
 }
 
-function startAddHS()  { addHS = true;  curEl.classList.add('addmode');    document.getElementById('addHint').classList.add('show'); }
-function cancelAddHS() { addHS = false; curEl.classList.remove('addmode'); document.getElementById('addHint').classList.remove('show'); }
+function hsmSyncTabs() {
+  document.getElementById('hsmTabList').classList.toggle('active', _hsmTab==='list');
+  document.getElementById('hsmTabAdd').classList.toggle('active',  _hsmTab==='add');
+}
 
-function placeHSAt(e) {
-  const r = cv.getBoundingClientRect();
-  const mouse = new THREE.Vector2(
-    ((e.clientX - r.left) / r.width)  *  2 - 1,
-   -((e.clientY - r.top)  / r.height) *  2 + 1
-  );
-  const ray = new THREE.Raycaster(); ray.setFromCamera(mouse, cam);
-  const hits = ray.intersectObject(sphere);
-  if (hits.length > 0) {
-    const pt = hits[0].point.normalize();
-    document.getElementById('epX').value = Math.max(1, Math.min(99, Math.round(((Math.atan2(pt.z, pt.x) + Math.PI) / (2*Math.PI)) * 100)));
-    document.getElementById('epY').value = Math.max(1, Math.min(99, Math.round(((Math.PI/2 - Math.asin(Math.max(-1,Math.min(1,pt.y)))) / Math.PI) * 100)));
+function hsmSetTab(tab) {
+  _hsmTab = tab;
+  hsmSyncTabs();
+  hsmRender();
+}
+
+function hsmRender() {
+  const body = document.getElementById('hsmBody');
+  if (!body) return;
+  if (_hsmTab === 'list') hsmRenderList(body);
+  else                    hsmRenderAdd(body);
+}
+
+// ── LIST TAB ──
+function hsmRenderList(body) {
+  const scenes = PROJ[cP].scenes;
+  let chips = `<div class="hsm-scene-selector">`;
+  scenes.forEach((s,i) => {
+    const cnt = s.hs ? s.hs.length : 0;
+    chips += `<div class="hsm-scene-chip${i===cS?' active':''}" onclick="hsmFilterScene(${i})">${s.name}${cnt?` <b style='color:var(--accent)'>(${cnt})</b>`:''}</div>`;
+  });
+  chips += `</div><div class="hsm-list" id="hsmList"></div>`;
+  body.innerHTML = chips;
+  hsmBuildList(cS);
+}
+
+function hsmFilterScene(si) {
+  document.querySelectorAll('.hsm-scene-chip').forEach((c,i) => c.classList.toggle('active', i===si));
+  hsmBuildList(si);
+}
+
+function hsmBuildList(si) {
+  const listEl = document.getElementById('hsmList');
+  if (!listEl) return;
+  const hs = PROJ[cP].scenes[si]?.hs || [];
+  if (!hs.length) {
+    listEl.innerHTML = `<div class="hsm-empty">Sin hotspots en "<b>${PROJ[cP].scenes[si].name}</b>"<br><small>Cambia a "Agregar" para crear uno</small></div>`;
+    return;
   }
-  cancelAddHS();
+  listEl.innerHTML = '';
+  hs.forEach((h, j) => {
+    const item = document.createElement('div'); item.className = 'hsm-item';
+    const thumbHtml = h.img
+      ? `<img class="hsm-item-thumb" src="${h.img}" alt="" onerror="this.style.display='none'">`
+      : `<div class="hsm-item-thumb no-img"><i class="ti ti-photo-off"></i></div>`;
+    const det = h.details?.length ? h.details.join(', ') : '—';
+    item.innerHTML = `<div class="hsm-item-head">${thumbHtml}<div class="hsm-item-info"><div class="hsm-item-title">${h.title}</div><div class="hsm-item-meta">${det}</div></div><div class="hsm-item-actions"><button class="hsm-ibtn" title="Editar" onclick="hsmEditHS(${si},${j})"><i class="ti ti-pencil"></i></button><button class="hsm-ibtn del" title="Eliminar" onclick="hsmDelHS(${si},${j})"><i class="ti ti-trash"></i></button></div></div>`;
+    listEl.appendChild(item);
+  });
 }
 
-function previewHsImg(url) {
-  const prev = document.getElementById('epImgPreview');
+function hsmDelHS(si, j) {
+  if (!confirm(`¿Eliminar hotspot "${PROJ[cP].scenes[si].hs[j].title}"?`)) return;
+  PROJ[cP].scenes[si].hs.splice(j, 1);
+  clearHS(); renderHS(cP, cS);
+  hsmBuildList(si); buildList(); autoSave();
+  toast('Hotspot eliminado');
+}
+
+function hsmEditHS(si, j) {
+  _hsmTab = 'add';
+  hsmSyncTabs();
+  hsmRenderAdd(document.getElementById('hsmBody'), si, j);
+}
+
+// ── ADD / EDIT TAB ──
+function hsmRenderAdd(body, editSi, editJ) {
+  cancelAddHS();
+  const isEdit = editSi !== undefined && editJ !== undefined;
+  const h = isEdit ? PROJ[cP].scenes[editSi].hs[editJ] : null;
+  const scenes = PROJ[cP].scenes;
+
+  let sceneOpts = scenes.map((s,i) =>
+    `<option value="${i}"${i===cS?' selected':''}>${s.name}</option>`).join('');
+
+  body.innerHTML = `
+    <div class="hsm-form">
+      <div class="hsm-form-title">${isEdit ? '<i class="ti ti-pencil"></i> Editar hotspot' : '<i class="ti ti-plus"></i> Nuevo hotspot'}</div>
+      ${!isEdit ? `<div class="hsm-lbl">Escena destino</div><select class="hsm-inp" id="hsmSceneSel">${sceneOpts}</select>` : `<div class="hsm-lbl" style="color:var(--accent)">Editando en: ${scenes[editSi].name}</div>`}
+      <div class="hsm-lbl">Título del material *</div>
+      <input class="hsm-inp" id="hsmTitle" placeholder="Ej: Acabado de piso" value="${isEdit?h.title:''}">
+      <div class="hsm-lbl">Detalles (separados por comas)</div>
+      <input class="hsm-inp" id="hsmDetail" placeholder="Mármol travertino, 60×60" value="${isEdit&&h.details?h.details.join(', '):''}">
+      <div class="hsm-lbl">URL imagen del material</div>
+      <input class="hsm-inp" id="hsmImg" placeholder="https://res.cloudinary.com/..." value="${isEdit&&h.img?h.img:''}" oninput="hsmPreviewImg(this.value)">
+      <img class="hsm-img-preview${isEdit&&h.img?' show':''}" id="hsmImgPreview" src="${isEdit&&h.img?h.img:''}" alt="">
+      <div class="hsm-grid">
+        <div><div class="hsm-lbl">X %</div><input class="hsm-inp" id="hsmX" type="number" min="1" max="99" value="${isEdit?h.x:50}"></div>
+        <div><div class="hsm-lbl">Y %</div><input class="hsm-inp" id="hsmY" type="number" min="1" max="99" value="${isEdit?h.y:50}"></div>
+      </div>
+      <button class="hsm-save" onclick="hsmSave(${isEdit?editSi:'undefined'},${isEdit?editJ:'undefined'})">
+        <i class="ti ti-check"></i> ${isEdit?'Actualizar':'Guardar hotspot'}
+      </button>
+      ${!isEdit ? `<div class="hsm-hint"><i class="ti ti-map-pin"></i> Haz clic en el visor para auto-posicionar</div>` : ''}
+    </div>`;
+
+  // Auto-start click-to-place for new hotspots on current scene
+  if (!isEdit && PROJ[cP].scenes[cS].img) startAddHS();
+}
+
+function hsmPreviewImg(url) {
+  const prev = document.getElementById('hsmImgPreview');
+  if (!prev) return;
   if (!url.trim()) { prev.classList.remove('show'); return; }
   prev.src = url;
   prev.onload  = () => prev.classList.add('show');
   prev.onerror = () => prev.classList.remove('show');
 }
 
-function saveHS() {
-  const title   = document.getElementById('epTitle').value.trim();
-  const details = document.getElementById('epDetail').value.split(',').map(s=>s.trim()).filter(Boolean);
-  const imgUrl  = document.getElementById('epImg').value.trim();
-  const x = parseInt(document.getElementById('epX').value) || 50;
-  const y = parseInt(document.getElementById('epY').value) || 50;
-  if (!title) { toast('Escribe un título'); return; }
-  if (!PROJ[cP].scenes[cS].img) { toast('Carga una panorámica primero'); return; }
-  PROJ[cP].scenes[cS].hs.push({ x, y, title, details, img: imgUrl || null });
-  document.getElementById('epTitle').value  = '';
-  document.getElementById('epDetail').value = '';
-  document.getElementById('epImg').value    = '';
-  document.getElementById('epImgPreview').classList.remove('show');
-  clearHS(); renderHS(cP,cS); buildList(); refreshHSList();
-  toast('Hotspot guardado'); autoSave();
+function hsmSave(editSiRaw, editJRaw) {
+  const isEdit = editSiRaw !== undefined && editSiRaw !== 'undefined';
+  const editSi = isEdit ? parseInt(editSiRaw) : undefined;
+  const editJ  = isEdit ? parseInt(editJRaw)  : undefined;
+  const title   = (document.getElementById('hsmTitle')?.value||'').trim();
+  const detRaw  = document.getElementById('hsmDetail')?.value||'';
+  const details = detRaw.split(',').map(s=>s.trim()).filter(Boolean);
+  const imgUrl  = (document.getElementById('hsmImg')?.value||'').trim();
+  const x = parseInt(document.getElementById('hsmX')?.value)||50;
+  const y = parseInt(document.getElementById('hsmY')?.value)||50;
+  const si = isEdit ? editSi : parseInt(document.getElementById('hsmSceneSel')?.value ?? cS);
+
+  if (!title) { toast('Escribe un título para el hotspot'); return; }
+  if (!PROJ[cP].scenes[si].img) { toast('Carga la panorámica de esa escena primero'); return; }
+
+  const obj = { x, y, title, details, img: imgUrl||null };
+  if (isEdit) { PROJ[cP].scenes[si].hs[editJ] = obj; toast('Hotspot actualizado ✓'); }
+  else        { PROJ[cP].scenes[si].hs.push(obj);    toast('Hotspot guardado ✓'); }
+
+  cancelAddHS();
+  clearHS(); renderHS(cP, cS); buildList(); autoSave();
+  _hsmTab = 'list'; hsmSyncTabs();
+  hsmRenderList(document.getElementById('hsmBody'));
+  hsmFilterScene(si);
 }
 
-function refreshHSList() {
-  const el = document.getElementById('epList'); el.innerHTML = '';
-  PROJ[cP].scenes[cS].hs.forEach((h, i) => {
-    const d = document.createElement('div'); d.className = 'ep-item';
-    d.innerHTML = `<span>${h.title}</span><button class="ep-del" onclick="delHS(${i})"><i class="ti ti-trash"></i></button>`;
-    el.appendChild(d);
-  });
+function startAddHS()  { addHS=true;  curEl.classList.add('addmode');    document.getElementById('addHint').classList.add('show'); }
+function cancelAddHS() { addHS=false; curEl.classList.remove('addmode'); document.getElementById('addHint').classList.remove('show'); }
+
+function placeHSAt(e) {
+  const r = cv.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((e.clientX-r.left)/r.width)*2-1,
+   -((e.clientY-r.top)/r.height)*2+1
+  );
+  const ray = new THREE.Raycaster(); ray.setFromCamera(mouse, cam);
+  const hits = ray.intersectObject(sphere);
+  if (hits.length > 0) {
+    const pt = hits[0].point.normalize();
+    const xv = Math.max(1,Math.min(99,Math.round(((Math.atan2(pt.z,pt.x)+Math.PI)/(2*Math.PI))*100)));
+    const yv = Math.max(1,Math.min(99,Math.round(((Math.PI/2-Math.asin(Math.max(-1,Math.min(1,pt.y))))/Math.PI)*100)));
+    const ex = document.getElementById('hsmX'); if(ex) ex.value = xv;
+    const ey = document.getElementById('hsmY'); if(ey) ey.value = yv;
+  }
+  cancelAddHS();
 }
 
-function delHS(i) {
-  PROJ[cP].scenes[cS].hs.splice(i, 1);
-  clearHS(); renderHS(cP,cS); buildList(); refreshHSList();
-  toast('Hotspot eliminado'); autoSave();
-}
+// Compat shims
+function saveHS()        { hsmSave(); }
+function refreshHSList() { if(hsPanelVis) hsmRender(); }
+function delHS(i)        { hsmDelHS(cS,i); }
+function previewHsImg(url) { hsmPreviewImg(url); }
+
+
 
 // ── QR / LINK ──
 let qrCurrentSi = -1;
@@ -1314,7 +1532,7 @@ function _applyPres(on) {
   presActive = on;
   ['topbar','sidebar','btmBar'].forEach(id => document.getElementById(id).classList.toggle('hide', on));
   document.getElementById('cpanel').classList.add('hide'); cpVis = false;
-  document.getElementById('hsPanel').classList.add('hide'); hsPanelVis = false;
+  document.getElementById('hsManager').classList.remove('show'); hsPanelVis = false;
   document.getElementById('presMode').classList.toggle('show', on);
   document.getElementById('btnPres').textContent = on ? 'Salir' : 'Presentar';
   if (on) {
@@ -1342,8 +1560,16 @@ function togglePres() {
     } catch(e) {}
   }
 }
-document.addEventListener('fullscreenchange',       () => { if (!document.fullscreenElement       && presActive) _applyPres(false); });
-document.addEventListener('webkitfullscreenchange', () => { if (!document.webkitFullscreenElement && presActive) _applyPres(false); });
+// Sync fullscreen exit (user presses Esc)
+document.addEventListener('fullscreenchange',       () => {
+  if (!document.fullscreenElement && presActive) _applyPres(false);
+  // VM fullscreen: update icon
+  _vmOnFsChange();
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  if (!document.webkitFullscreenElement && presActive) _applyPres(false);
+  _vmOnFsChange();
+});
 
 // ── FADE TRANSITION ──
 function fade(cb) {
@@ -1434,7 +1660,17 @@ let vmCurIdx = 0;
 let _vmHsRaf = null, _vmHsItems = [];
 
 function openVisorMode()  { document.getElementById('visorMode').classList.add('show'); }
-function closeVisorMode() { document.getElementById('visorMode').classList.remove('show'); if (vmAuto) vmToggleAuto(); }
+function closeVisorMode() {
+  // Exit VM fullscreen if active before closing
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    try {
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    } catch(e) {}
+  }
+  document.getElementById('visorMode').classList.remove('show');
+  if (vmAuto) vmToggleAuto();
+}
 
 function vmAddScene() {
   const name   = document.getElementById('vmSceneName').value.trim();
@@ -1863,6 +2099,41 @@ function renderLinksPanel() {
 
 // Stub de download (para que no falle el botón en el HTML)
 function downloadViewer() { toast('Sube index.html a GitHub Pages para compartir vía URL'); }
+function downloadCurrentSceneViewer() { toast('Usa "Generar link" para compartir con clientes'); }
+
+// ── EXPORT / IMPORT ──
+function exportProjects() {
+  const slim = PROJ.map(p => ({ ...p, scenes: p.scenes.map(s => ({ ...s, img:null, thumb:null })) }));
+  const data = { v:1, exported: new Date().toISOString(), proj: slim, links: savedLinks };
+  const blob = new Blob([JSON.stringify(data,null,2)], { type:'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href=url; a.download='agelarq-proyectos.json'; a.click();
+  URL.revokeObjectURL(url);
+  toast('Proyectos exportados ✓');
+}
+
+function importProjects() {
+  const inp = document.createElement('input');
+  inp.type='file'; inp.accept='.json,application/json';
+  inp.onchange = e => {
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload = evt => {
+      try {
+        const data=JSON.parse(evt.target.result);
+        if(!data.proj||!Array.isArray(data.proj)) throw new Error('Formato inválido');
+        if(!confirm(`¿Importar ${data.proj.length} proyecto(s)? Se reemplazarán los proyectos actuales.`)) return;
+        PROJ=data.proj; if(data.links){ savedLinks=data.links; persistLinks(); }
+        cP=0; cS=0; saveData(); refreshProjHeader(); buildStrip(); buildList(); selScene(0);
+        renderLinksPanel();
+        toast('Importado ✓ — vuelve a cargar las imágenes');
+      } catch(err) { toast('Error al importar: '+err.message); }
+    };
+    reader.readAsText(file);
+  };
+  inp.click();
+}
 function downloadCurrentSceneViewer() { toast('Usa "Generar link" para compartir con clientes'); }
 
 // ── INIT ──
