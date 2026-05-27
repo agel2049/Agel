@@ -216,7 +216,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 @keyframes iload{to{width:100%;}}
 
 /* ══ VISOR MODE ══ */
-#visorMode{position:absolute;inset:0;z-index:95;background:#0D0D0D;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .5s var(--ease);}
+#visorMode{position:fixed;top:0;left:0;right:0;bottom:0;height:100dvh;z-index:95;background:#0D0D0D;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .5s var(--ease);}
 #visorMode.show{opacity:1;pointer-events:all;}
 .vm-topbar{position:absolute;top:18px;left:50%;transform:translateX(-50%);height:46px;padding:0 18px;display:flex;align-items:center;gap:14px;z-index:10;border-radius:99px;white-space:nowrap;}
 .vm-logo{width:20px;height:20px;border-radius:5px;background:rgba(184,157,116,.12);border:1px solid rgba(184,157,116,.24);display:flex;align-items:center;justify-content:center;}
@@ -224,9 +224,15 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .vm-brand{font-size:11px;font-weight:500;color:var(--text);letter-spacing:.06em;text-transform:uppercase;}
 .vm-sep{width:1px;height:13px;background:var(--border);}
 .vm-name{font-size:11px;color:var(--muted);font-style:italic;font-weight:300;}
-.vm-setup{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:20px;transition:opacity .4s;}
+.vm-setup{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;overflow:hidden;transition:opacity .4s;}
 .vm-setup.hide{opacity:0;pointer-events:none;}
-.vm-card{width:100%;max-width:480px;background:rgba(18,18,22,.8);border:1px solid var(--border);border-radius:20px;padding:28px;}
+.vm-setup-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 10px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.vm-setup-htitle{font-size:11px;font-weight:500;color:var(--text);letter-spacing:.12em;text-transform:uppercase;}
+.vm-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:14px 18px;overflow:hidden;flex:1;min-height:0;}
+.vm-col{display:flex;flex-direction:column;overflow-y:auto;scrollbar-width:none;gap:0;}
+.vm-col::-webkit-scrollbar{display:none;}
+.vm-col-eye{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;}
+.vm-card{width:100%;background:rgba(18,18,22,.85);border:1px solid var(--border);border-radius:16px;padding:16px;}
 .vm-card-title{font-size:13px;font-weight:500;color:var(--text);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;}
 .vm-card-sub{font-size:11px;color:var(--muted);margin-bottom:20px;line-height:1.6;}
 .vm-section{margin-bottom:16px;}
@@ -571,6 +577,29 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   #btmBar { padding-bottom:calc(10px + env(safe-area-inset-bottom)); height:auto; min-height:52px; }
   #visorMode .vm-btmbar { padding-bottom:calc(10px + env(safe-area-inset-bottom)); height:auto; min-height:52px; }
 }
+
+/* ══ VM TWO-COLUMN HS PANEL ══ */
+.vm-hs-toggle{background:rgba(184,157,116,.08);border:1px solid rgba(184,157,116,.18);color:var(--accent);border-radius:6px;padding:3px 8px;font-size:9px;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:4px;margin-top:4px;transition:all .25s;white-space:nowrap;}
+.vm-hs-toggle:hover,.vm-hs-toggle.open{background:rgba(184,157,116,.18);border-color:rgba(184,157,116,.4);}
+.vm-hs-toggle i{font-size:8px;transition:transform .25s;}
+.vm-hs-panel{background:rgba(0,0,0,.3);border-top:1px solid var(--border);}
+.vm-hs-panel-inner{padding:12px;}
+.vm-hs-panel-title{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--accent);margin-bottom:9px;display:flex;align-items:center;gap:5px;}
+.vm-hs-item{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.vm-hs-item-img{width:34px;height:24px;object-fit:cover;border-radius:4px;flex-shrink:0;}
+.vm-hs-del{background:transparent;border:none;color:rgba(255,100,100,.4);cursor:pointer;font-size:12px;padding:2px;transition:color .2s;}
+.vm-hs-del:hover{color:#E24B4A;}
+.vm-hs-divider{height:1px;background:var(--border);margin:10px 0;}
+/* Scene item updated */
+.vm-scene-item{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);margin-bottom:5px;transition:border-color .2s;}
+.vm-scene-item:hover{border-color:rgba(255,255,255,.1);}
+
+/* ══ MOBILE — visor stacked layout ══ */
+@media (max-width:768px) {
+  .vm-cols { grid-template-columns:1fr; overflow-y:auto; }
+  .vm-col  { overflow-y:visible; }
+  .vm-setup-header { padding:10px 14px 8px; }
+}
 </style>
 </head>
 <body>
@@ -738,52 +767,59 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   <div id="visorMode">
     <!-- SETUP SCREEN -->
     <div class="vm-setup" id="vmSetup">
-      <div class="vm-card">
-        <div class="vm-card-title">Visor de cliente</div>
-        <div class="vm-card-sub">Ingresa el link de Cloudinary de cada escena panorámica y configura el nombre del proyecto. Se generará un visor limpio solo para visualización.</div>
-        <div class="vm-section">
-          <div class="vm-lbl">Nombre del proyecto</div>
-          <input class="vm-inp" id="vmProjName" placeholder="Ej: Torre Mirador">
-          <div style="margin-top:8px;">
-            <div class="vm-lbl">Subtítulo</div>
-            <input class="vm-inp" id="vmProjSub" placeholder="Ej: Grupo Inmobiliario Orión">
-          </div>
-        </div>
-        <div class="vm-section">
-          <div class="vm-lbl">Agregar escena al visor</div>
-          <div class="vm-row">
-            <input class="vm-inp" id="vmSceneName" placeholder="Nombre de escena">
-            <input class="vm-inp" id="vmSceneMeta" placeholder="Nivel / área">
-          </div>
-          <div style="margin-top:6px;">
-            <input class="vm-inp" id="vmSceneUrl" placeholder="URL de imagen panorámica (Cloudinary, CDN, etc.)">
-          </div>
-          <button class="vm-add-btn" onclick="vmAddScene()" style="margin-top:8px;"><i class="ti ti-plus"></i> Agregar escena</button>
-          <div style="font-size:9px;color:var(--muted);margin-top:5px;opacity:.6;">Puedes agregar hotspots de cada escena expandiéndola en la lista</div>
-        </div>
-        <div class="vm-scenes-list" id="vmScenesList"></div>
-        <div style="margin-top:16px;">
-          <button class="vm-launch" onclick="vmLaunch()" id="vmLaunchBtn"><i class="ti ti-player-play"></i> Iniciar visor</button>
-        <button class="vm-launch" onclick="vmGenerateLink()" style="margin-top:8px;background:rgba(93,202,165,.12);border-color:rgba(93,202,165,.3);color:#5DCAA5;"><i class="ti ti-link"></i> Abrir link en nueva pestaña</button>
-        <button class="vm-save-link-btn" onclick="vmSaveLink()"><i class="ti ti-bookmark"></i> Guardar link con nombre de cliente</button>
-        </div>
-
-        <!-- LINKS GUARDADOS -->
-        <div class="vm-links-section">
-          <div class="vm-links-title">
-            <span>Links guardados</span>
-            <span id="vmLinksCount" style="color:var(--muted);font-size:9px;"></span>
-          </div>
-          <div id="vmLinksList"></div>
-        </div>
-
-        <!-- EXPORT / IMPORT -->
-        <div class="vm-io-row">
-          <button class="vm-io-btn" onclick="exportProjects()"><i class="ti ti-download"></i> Exportar proyectos</button>
-          <button class="vm-io-btn" onclick="importProjects()"><i class="ti ti-upload"></i> Importar</button>
-        </div>
+      <div class="vm-setup-header">
+        <button class="vm-back" onclick="closeVisorMode()"><i class="ti ti-arrow-left"></i> Volver</button>
+        <span class="vm-setup-htitle">Visor de cliente</span>
+        <div></div>
       </div>
-      <button class="vm-back" onclick="closeVisorMode()"><i class="ti ti-arrow-left"></i> Volver a la app</button>
+      <div class="vm-cols">
+
+        <!-- COL 1: Project + Scenes + Actions -->
+        <div class="vm-col">
+          <div class="vm-card">
+            <div class="vm-col-eye">Proyecto</div>
+            <div class="vm-lbl">Nombre del proyecto</div>
+            <input class="vm-inp" id="vmProjName" placeholder="Ej: Torre Mirador">
+            <div style="margin-top:8px;">
+              <div class="vm-lbl">Subtítulo</div>
+              <input class="vm-inp" id="vmProjSub" placeholder="Ej: Grupo Inmobiliario Orión">
+            </div>
+          </div>
+
+          <div class="vm-card" style="margin-top:10px;">
+            <div class="vm-col-eye">Escenas</div>
+            <div class="vm-row" style="margin-bottom:6px;">
+              <input class="vm-inp" id="vmSceneName" placeholder="Nombre">
+              <input class="vm-inp" id="vmSceneMeta" placeholder="Nivel / área">
+            </div>
+            <input class="vm-inp" id="vmSceneUrl" placeholder="URL panorámica (Cloudinary, CDN…)">
+            <button class="vm-add-btn" onclick="vmAddScene()" style="margin-top:7px;"><i class="ti ti-plus"></i> Agregar escena</button>
+            <div class="vm-scenes-list" id="vmScenesList" style="margin-top:10px;"></div>
+          </div>
+
+          <div class="vm-card" style="margin-top:10px;">
+            <button class="vm-launch" onclick="vmLaunch()" id="vmLaunchBtn"><i class="ti ti-player-play"></i> Iniciar visor</button>
+            <button class="vm-launch" onclick="vmGenerateLink()" style="margin-top:7px;background:rgba(93,202,165,.12);border-color:rgba(93,202,165,.3);color:#5DCAA5;"><i class="ti ti-link"></i> Abrir link en nueva pestaña</button>
+            <button class="vm-save-link-btn" onclick="vmSaveLink()"><i class="ti ti-bookmark"></i> Guardar link con nombre de cliente</button>
+          </div>
+        </div>
+
+        <!-- COL 2: Saved Links -->
+        <div class="vm-col">
+          <div class="vm-card" style="height:100%;display:flex;flex-direction:column;">
+            <div class="vm-links-title" style="margin-bottom:10px;">
+              <span class="vm-col-eye" style="margin:0;">Links guardados</span>
+              <span id="vmLinksCount" style="color:var(--muted);font-size:9px;"></span>
+            </div>
+            <div id="vmLinksList" style="flex:1;overflow-y:auto;scrollbar-width:none;"></div>
+            <div class="vm-io-row" style="margin-top:10px;">
+              <button class="vm-io-btn" onclick="exportProjects()"><i class="ti ti-download"></i> Exportar</button>
+              <button class="vm-io-btn" onclick="importProjects()"><i class="ti ti-upload"></i> Importar</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
 
     <!-- VIEWER SCREEN -->
@@ -1874,83 +1910,104 @@ function vmAddScene() {
 }
 
 function vmRenderScenesList() {
-  const el = document.getElementById('vmScenesList'); el.innerHTML = '';
+  const el = document.getElementById('vmScenesList');
+  if (!el) return;
+  el.innerHTML = '';
   vmScenes.forEach((s, i) => {
     const hsCnt = s.hs ? s.hs.length : 0;
-    const div = document.createElement('div'); div.className = 'vm-scene-item';
-    div.innerHTML =
+    // Scene row
+    const row = document.createElement('div');
+    row.className = 'vm-scene-item';
+    row.id = `vmSceneRow_${i}`;
+    row.innerHTML =
       `<img class="vm-scene-thumb" src="${s.url}" onerror="this.style.opacity=0.2">` +
       `<div class="vm-scene-info">
         <div class="vm-scene-n">${s.name}</div>
         <div class="vm-scene-m">${s.meta||''}</div>
-        <div class="vm-scene-hs-count" onclick="vmToggleSceneHS(${i})" style="font-size:9px;color:var(--accent);cursor:pointer;margin-top:3px;display:flex;align-items:center;gap:4px;">
-          <i class="ti ti-map-pin"></i> ${hsCnt} hotspot${hsCnt!==1?'s':''} <i class="ti ti-chevron-down" id="vmHsChev_${i}" style="font-size:8px;transition:transform .25s;"></i>
-        </div>
+        <button class="vm-hs-toggle" id="vmHsBtn_${i}" onclick="vmToggleSceneHS(${i})">
+          <i class="ti ti-map-pin"></i> ${hsCnt} hotspot${hsCnt!==1?'s':''} <i class="ti ti-chevron-down" id="vmHsChev_${i}"></i>
+        </button>
       </div>` +
-      `<div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0;">
-        <button class="vm-scene-del" onclick="vmToggleSceneHS(${i})" title="Hotspots" style="background:rgba(184,157,116,.1);color:var(--accent);border-color:rgba(184,157,116,.3);"><i class="ti ti-map-pin"></i></button>
-        <button class="vm-scene-del" onclick="vmDelScene(${i})" title="Eliminar"><i class="ti ti-trash"></i></button>
-      </div>`;
-    el.appendChild(div);
-    // Hotspot sub-panel
+      `<button class="vm-scene-del" onclick="vmDelScene(${i})" title="Eliminar"><i class="ti ti-trash"></i></button>`;
+    el.appendChild(row);
+    // HS sub-panel — always in DOM, toggled via display
     const hsPanel = document.createElement('div');
+    hsPanel.className = 'vm-hs-panel';
     hsPanel.id = `vmHsPanel_${i}`;
-    hsPanel.style.cssText = 'display:none;background:rgba(0,0,0,.25);border-top:1px solid var(--border);padding:10px;';
-    hsPanel.innerHTML = vmBuildHsPanelHTML(i);
+    hsPanel.style.display = 'none';
     el.appendChild(hsPanel);
   });
+}
+
+// Toggle HS panel — builds content lazily, never calls vmRenderScenesList
+function vmToggleSceneHS(i) {
+  const panel = document.getElementById(`vmHsPanel_${i}`);
+  const chev  = document.getElementById(`vmHsChev_${i}`);
+  if (!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  // Close all
+  document.querySelectorAll('.vm-hs-panel').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('[id^="vmHsChev_"]').forEach(c => c.style.transform = '');
+  document.querySelectorAll('.vm-hs-toggle').forEach(b => b.classList.remove('open'));
+  if (!isOpen) {
+    panel.style.display = 'block';
+    panel.innerHTML = vmBuildHsPanelHTML(i);
+    if (chev) chev.style.transform = 'rotate(180deg)';
+    document.getElementById(`vmHsBtn_${i}`)?.classList.add('open');
+  }
 }
 
 function vmBuildHsPanelHTML(si) {
   const s = vmScenes[si];
   const hs = s.hs || [];
-  let list = hs.length
+  const listHTML = hs.length
     ? hs.map((h,j) => `
-      <div style="display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);">
-        ${h.img ? `<img src="${h.img}" style="width:32px;height:22px;object-fit:cover;border-radius:4px;flex-shrink:0;">` : `<div style="width:32px;height:22px;border-radius:4px;background:rgba(255,255,255,.06);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted);"><i class="ti ti-photo-off"></i></div>`}
+      <div class="vm-hs-item">
+        ${h.img ? `<img src="${h.img}" class="vm-hs-item-img" onerror="this.style.display='none'">` : `<div class="vm-hs-item-img" style="background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;"><i class="ti ti-photo-off" style="font-size:10px;color:var(--muted);"></i></div>`}
         <div style="flex:1;min-width:0;">
           <div style="font-size:10px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${h.title}</div>
           <div style="font-size:9px;color:var(--muted);">${(h.details||[]).join(', ')||'—'}</div>
         </div>
-        <button onclick="vmDelHs(${si},${j})" style="background:transparent;border:none;color:rgba(255,100,100,.5);cursor:pointer;font-size:12px;padding:2px;"><i class="ti ti-x"></i></button>
+        <button onclick="vmDelHs(${si},${j})" class="vm-hs-del"><i class="ti ti-x"></i></button>
       </div>`).join('')
-    : '<div style="font-size:10px;color:var(--muted);padding:4px 0;">Sin hotspots. Agrégalos desde el panel principal o por URL abajo.</div>';
+    : '<div style="font-size:10px;color:var(--muted);padding:6px 0;opacity:.7;">Sin hotspots todavía</div>';
+
+  const editorSceneOpts = PROJ.flatMap((p,pi) => p.scenes.map((sc,sci) =>
+    `<option value="${pi}_${sci}">${p.name} › ${sc.name} (${(sc.hs||[]).length})</option>`
+  )).join('');
 
   return `
-    <div style="font-size:9px;color:var(--accent);letter-spacing:.15em;text-transform:uppercase;margin-bottom:8px;">Hotspots de "${s.name}"</div>
-    <div id="vmHsList_${si}">${list}</div>
-    <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px;">
-      <div style="font-size:9px;color:var(--muted);margin-bottom:2px;">Importar hotspots del editor</div>
-      <select id="vmHsImportSel_${si}" style="background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:10px;color:var(--text);font-family:Inter,sans-serif;width:100%;">
-        <option value="">— Selecciona escena del editor —</option>
-        ${PROJ.flatMap((p,pi) => p.scenes.map((sc,sci) =>
-          `<option value="${pi}_${sci}">${p.name} › ${sc.name} (${(sc.hs||[]).length} hs)</option>`
-        )).join('')}
-      </select>
-      <button onclick="vmImportHs(${si})" style="background:rgba(184,157,116,.1);color:var(--accent);border:1px solid rgba(184,157,116,.3);border-radius:6px;padding:6px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:Inter,sans-serif;">
-        <i class="ti ti-download"></i> Importar hotspots
-      </button>
-      <div style="display:flex;gap:5px;margin-top:4px;">
-        <input id="vmHsTitle_${si}" placeholder="Título" style="flex:1;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:10px;color:var(--text);font-family:Inter,sans-serif;">
-        <input id="vmHsDetail_${si}" placeholder="Detalle,Detalle2" style="flex:1;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:10px;color:var(--text);font-family:Inter,sans-serif;">
+    <div class="vm-hs-panel-inner">
+      <div class="vm-hs-panel-title"><i class="ti ti-map-pin"></i> Hotspots — ${s.name}</div>
+      <div id="vmHsList_${si}">${listHTML}</div>
+      <div class="vm-hs-divider"></div>
+      <div class="vm-lbl" style="margin-bottom:4px;">Importar desde el editor</div>
+      <div style="display:flex;gap:5px;">
+        <select id="vmHsImportSel_${si}" class="vm-inp" style="flex:1;">
+          <option value="">— Escena del editor —</option>
+          ${editorSceneOpts}
+        </select>
+        <button onclick="vmImportHs(${si})" class="vm-add-btn" style="flex-shrink:0;padding:6px 10px;"><i class="ti ti-download"></i></button>
       </div>
-      <button onclick="vmAddHs(${si})" style="background:rgba(93,202,165,.08);color:#5DCAA5;border:1px solid rgba(93,202,165,.25);border-radius:6px;padding:6px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:Inter,sans-serif;">
-        <i class="ti ti-plus"></i> Agregar hotspot manual
-      </button>
+      <div class="vm-hs-divider"></div>
+      <div class="vm-lbl" style="margin-bottom:4px;">Agregar hotspot manual</div>
+      <div style="display:flex;gap:5px;margin-bottom:5px;">
+        <input id="vmHsTitle_${si}" class="vm-inp" placeholder="Título" style="flex:1;">
+        <input id="vmHsDetail_${si}" class="vm-inp" placeholder="Detalle,Detalle2" style="flex:1;">
+      </div>
+      <button onclick="vmAddHs(${si})" class="vm-add-btn" style="width:100%;"><i class="ti ti-plus"></i> Agregar hotspot</button>
     </div>`;
 }
 
-function vmToggleSceneHS(i) {
-  const panel = document.getElementById(`vmHsPanel_${i}`);
-  const chev  = document.getElementById(`vmHsChev_${i}`);
-  if (!panel) return;
-  const open = panel.style.display !== 'none';
-  document.querySelectorAll('[id^="vmHsPanel_"]').forEach(p => { p.style.display='none'; });
-  document.querySelectorAll('[id^="vmHsChev_"]').forEach(c => { c.style.transform=''; });
-  if (!open) {
-    panel.style.display = 'block';
-    if (chev) chev.style.transform = 'rotate(180deg)';
-    panel.innerHTML = vmBuildHsPanelHTML(i);
+// Update a single scene's HS panel in-place without re-rendering the full list
+function vmRefreshHsPanel(si) {
+  const panel = document.getElementById(`vmHsPanel_${si}`);
+  if (panel && panel.style.display !== 'none') panel.innerHTML = vmBuildHsPanelHTML(si);
+  // Update count badge
+  const btn = document.getElementById(`vmHsBtn_${si}`);
+  if (btn) {
+    const cnt = vmScenes[si]?.hs?.length || 0;
+    btn.innerHTML = `<i class="ti ti-map-pin"></i> ${cnt} hotspot${cnt!==1?'s':''} <i class="ti ti-chevron-down" id="vmHsChev_${si}" style="transition:transform .25s;${panel?.style.display!=='none'?'transform:rotate(180deg)':''}"></i>`;
   }
 }
 
@@ -1960,40 +2017,27 @@ function vmAddHs(si) {
   if (!title) { toast('Escribe un título'); return; }
   if (!vmScenes[si].hs) vmScenes[si].hs = [];
   vmScenes[si].hs.push({ title, details:detRaw.split(',').map(s=>s.trim()).filter(Boolean), x:50, y:50, img:null });
-  saveVmData();
-  // Refresh panel
-  const panel = document.getElementById(`vmHsPanel_${si}`);
-  if (panel && panel.style.display !== 'none') panel.innerHTML = vmBuildHsPanelHTML(si);
-  const cnt = vmScenes[si].hs.length;
-  const countEl = document.querySelector(`#vmHsPanel_${si}`);
-  // Update count badge in scene item
-  vmRenderScenesList();
-  vmToggleSceneHS(si);
-  toast('Hotspot agregado ✓');
+  saveVmData(); vmRefreshHsPanel(si); toast('Hotspot agregado ✓');
 }
 
 function vmImportHs(si) {
   const sel = document.getElementById(`vmHsImportSel_${si}`);
-  if (!sel || !sel.value) { toast('Selecciona una escena del editor'); return; }
+  if (!sel?.value) { toast('Selecciona una escena del editor'); return; }
   const [pi, sci] = sel.value.split('_').map(Number);
   const srcHs = PROJ[pi]?.scenes[sci]?.hs || [];
   if (!srcHs.length) { toast('Esa escena no tiene hotspots'); return; }
   if (!vmScenes[si].hs) vmScenes[si].hs = [];
   vmScenes[si].hs = [...vmScenes[si].hs, ...srcHs.map(h => ({...h}))];
-  saveVmData();
-  vmRenderScenesList();
-  vmToggleSceneHS(si);
-  toast(`${srcHs.length} hotspot${srcHs.length!==1?'s':''} importado${srcHs.length!==1?'s':''} ✓`);
+  saveVmData(); vmRefreshHsPanel(si); toast(`${srcHs.length} hotspot${srcHs.length!==1?'s':''} importado${srcHs.length!==1?'s':''} ✓`);
 }
 
 function vmDelHs(si, j) {
   vmScenes[si].hs.splice(j, 1);
-  saveVmData();
-  vmRenderScenesList();
-  vmToggleSceneHS(si);
+  saveVmData(); vmRefreshHsPanel(si);
 }
 
 function vmDelScene(i) { vmScenes.splice(i, 1); vmRenderScenesList(); saveVmData(); }
+
 function vmBuildPips() {
   const el = document.getElementById('vmPips'); el.innerHTML = '';
   vmScenes.forEach((_, i) => {
