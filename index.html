@@ -495,7 +495,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   #sidebar.hide { opacity:0; transform:translateX(-100%); }
 
   /* btmBar: full-width pill at bottom */
-  #btmBar { bottom:8px; left:6px; right:6px; transform:none; border-radius:14px; padding:0 14px; height:50px; width:auto; box-sizing:border-box; justify-content:space-around; }
+  #btmBar { bottom:0; left:0; right:0; transform:none; border-radius:16px 16px 0 0; padding:0 14px; height:52px; width:100%; box-sizing:border-box; justify-content:space-around; }
   #btmBar.hide { transform:translateY(60px); }
   .bb-sep { display:none; }
   .pips { max-width:100px; overflow:hidden; }
@@ -556,7 +556,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 
 /* VM Viewer mobile */
 @media (max-width: 768px) {
-  .vm-btmbar { border-radius:14px; bottom:8px; left:6px; right:6px; transform:none; width:auto; box-sizing:border-box; justify-content:space-around; height:50px; padding:0 12px; }
+  .vm-btmbar { border-radius:16px 16px 0 0; bottom:0; left:0; right:0; transform:none; width:100%; box-sizing:border-box; justify-content:space-around; height:auto; min-height:52px; padding:8px 12px; }
   .vm-btmbar .bb-sep { display:none; }
   .vm-pips { max-width:90px; overflow:hidden; }
   .vm-pip  { width:4px; height:4px; }
@@ -574,7 +574,8 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 
 /* Safe area for notched phones */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
-  #btmBar, #visorMode .vm-btmbar { padding-bottom:env(safe-area-inset-bottom,0px); }
+  #btmBar { padding-bottom:calc(10px + env(safe-area-inset-bottom)); height:auto; min-height:52px; }
+  #visorMode .vm-btmbar { padding-bottom:calc(10px + env(safe-area-inset-bottom)); height:auto; min-height:52px; }
 }
 
 /* ══ VM TWO-COLUMN HS PANEL ══ */
@@ -2340,106 +2341,47 @@ function vmBuildLinkForScene(pi, si) {
 }
 
 // Guardar link con nombre de cliente
-// ── SHORT LINKS via TinyURL ──────────────────────────────────────
-// Free CORS-friendly API, no key required
-async function shortenUrl(longUrl) {
-  try {
-    const res = await fetch('https://tinyurl.com/api-create.php?url=' + encodeURIComponent(longUrl));
-    if (!res.ok) throw new Error('api error');
-    const short = (await res.text()).trim();
-    if (short.startsWith('https://tinyurl.com/')) return short;
-    throw new Error('bad response');
-  } catch(e) {
-    return longUrl; // fallback silently
-  }
-}
-
-// ── SCENE PICKER MODAL ──────────────────────────────────────────
-function vmOpenScenePicker(action) {
+function vmSaveLink() {
   saveVmData();
-  if (!vmScenes.length) { toast('Agrega al menos una escena primero'); return; }
-  const modal = document.getElementById('vmPickerModal');
-  const list  = document.getElementById('vmPickerList');
-  const title = document.getElementById('vmPickerTitle');
-  title.textContent = action === 'save' ? 'Guardar link para cliente' :
-                      action === 'open' ? 'Abrir visor en nueva pestaña' : 'Copiar link';
-  list.innerHTML = '';
-  vmScenes.forEach((s, i) => {
-    const row = document.createElement('label');
-    row.className = 'vmp-row';
-    row.innerHTML =
-      `<input type="checkbox" class="vmp-chk" value="${i}" checked>` +
-      `<span class="vmp-thumb" style="background-image:url('${s.url}')"></span>` +
-      `<span class="vmp-info"><b>${s.name}</b><small>${s.meta||''}</small></span>`;
-    list.appendChild(row);
+  const url = vmBuildLink();
+  if (!url) return;
+  const clientName = prompt('Nombre del cliente o identificador del link:','');
+  if (clientName === null) return; // cancelled
+  const id = Date.now().toString(36);
+  savedLinks.push({
+    id,
+    name: clientName.trim() || 'Link ' + (savedLinks.length+1),
+    url,
+    created: new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}),
+    projName: document.getElementById('vmProjName').value.trim(),
+    sceneCount: vmScenes.length
   });
-  modal.dataset.action = action;
-  modal.classList.add('show');
+  persistLinks();
+  toast('Link guardado ✓');
+  renderLinksPanel();
 }
 
-function vmPickerClose() {
-  document.getElementById('vmPickerModal').classList.remove('show');
+function vmGenerateLink() {
+  saveVmData();
+  const url = vmBuildLink();
+  if (!url) return;
+  window.open(url,'_blank');
+  toast('Abriendo en nueva pestaña ✓');
 }
 
-async function vmPickerConfirm() {
-  const modal  = document.getElementById('vmPickerModal');
-  const action = modal.dataset.action;
-  const checked = [...document.querySelectorAll('.vmp-chk:checked')]
-    .map(c => vmScenes[+c.value]).filter(Boolean);
-  if (!checked.length) { toast('Selecciona al menos una escena'); return; }
-  vmPickerClose();
-
-  const longUrl = vmBuildLink(checked);
-  if (!longUrl) return;
-
-  if (action === 'open') {
-    window.open(longUrl, '_blank');
-    toast('Abriendo visor ✓');
-  } else if (action === 'copy') {
-    toast('Generando link corto…');
-    const short = await shortenUrl(longUrl);
-    if (navigator.clipboard) navigator.clipboard.writeText(short)
-      .then(()=>toast('Link copiado ✓ — ' + short.replace('https://',''))).catch(()=>prompt('Copia:', short));
-    else prompt('Copia:', short);
-  } else if (action === 'save') {
-    const clientName = prompt('Nombre del cliente:', '');
-    if (clientName === null) return;
-    toast('Generando link corto…');
-    const short = await shortenUrl(longUrl);
-    const id = Date.now().toString(36);
-    savedLinks.push({
-      id,
-      name: clientName.trim() || 'Link ' + (savedLinks.length+1),
-      url: longUrl,
-      shortUrl: short !== longUrl ? short : null,
-      created: new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}),
-      projName: document.getElementById('vmProjName').value.trim(),
-      sceneCount: checked.length,
-      sceneNames: checked.map(s=>s.name)
-    });
-    persistLinks();
-    renderLinksPanel();
-    toast('Link guardado ✓' + (short !== longUrl ? ' — ' + short.replace('https://','') : ''));
-  }
+function vmCopyLink() {
+  saveVmData();
+  const url = vmBuildLink();
+  if (!url) return;
+  if (navigator.clipboard) navigator.clipboard.writeText(url).then(()=>toast('Link copiado ✓')).catch(()=>prompt('Copia:',url));
+  else prompt('Copia:',url);
 }
 
-function vmSaveLink()     { vmOpenScenePicker('save'); }
-function vmGenerateLink() { vmOpenScenePicker('open'); }
-function vmCopyLink()     { vmOpenScenePicker('copy'); }
-
-async function copyLinkById(id) {
+function copyLinkById(id) {
   const lk = savedLinks.find(l=>l.id===id);
   if (!lk) return;
-  if (!lk.shortUrl) {
-    toast('Acortando link…');
-    lk.shortUrl = await shortenUrl(lk.url);
-    if (lk.shortUrl === lk.url) lk.shortUrl = null; // didn't shorten
-    persistLinks();
-  }
-  const toCopy = lk.shortUrl || lk.url;
-  if (navigator.clipboard) navigator.clipboard.writeText(toCopy)
-    .then(()=>toast('Link copiado ✓')).catch(()=>prompt('Copia:', toCopy));
-  else prompt('Copia:', toCopy);
+  if (navigator.clipboard) navigator.clipboard.writeText(lk.url).then(()=>toast('Link copiado ✓')).catch(()=>prompt('Copia:',lk.url));
+  else prompt('Copia:',lk.url);
 }
 
 function openLinkById(id) {
@@ -2482,13 +2424,11 @@ function renderLinksPanel() {
     mainRow.innerHTML = `
       <div class="vml-info" style="cursor:pointer;flex:1;" onclick="vmlToggleScenes('${lk.id}')">
         <div class="vml-name">${lk.name}</div>
-        <div class="vml-meta">${lk.projName||''} · ${sceneCount} escena${sceneCount!==1?'s':''} · ${lk.created}</div>
-        ${lk.shortUrl ? `<div style="font-size:9px;color:var(--accent);opacity:.7;margin-top:1px;">${lk.shortUrl.replace('https://','')}</div>` : ''}
-        <i class="ti ti-chevron-down" id="vmlChev_${lk.id}" style="font-size:9px;transition:transform .25s;"></i>
+        <div class="vml-meta">${lk.projName||''} · ${sceneCount} escena${sceneCount!==1?'s':''} · ${lk.created} <i class="ti ti-chevron-down" id="vmlChev_${lk.id}" style="font-size:9px;transition:transform .25s;"></i></div>
       </div>
       <div class="vml-actions">
         <button class="vml-btn" title="Abrir" onclick="openLinkById('${lk.id}')"><i class="ti ti-external-link"></i></button>
-        <button class="vml-btn" title="Copiar link" onclick="copyLinkById('${lk.id}')"><i class="ti ti-copy"></i></button>
+        <button class="vml-btn" title="Copiar" onclick="copyLinkById('${lk.id}')"><i class="ti ti-copy"></i></button>
         <button class="vml-btn" title="Renombrar" onclick="editLinkById('${lk.id}')"><i class="ti ti-pencil"></i></button>
         <button class="vml-btn del" title="Eliminar" onclick="deleteLinkById('${lk.id}')"><i class="ti ti-trash"></i></button>
       </div>`;
@@ -2599,60 +2539,38 @@ window.addEventListener('load', () => {
   renderLinksPanel();
 
   // ── MOBILE / iOS DETECTION ──
-  const _isIOS    = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const _isAndroid = /android/i.test(navigator.userAgent);
-  const _isMobile = _isIOS || _isAndroid ||
+  const _isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const _isMobile = _isIOS || /android/i.test(navigator.userAgent) ||
     (navigator.maxTouchPoints > 1 && !/macintosh/i.test(navigator.userAgent));
-
   if (_isMobile) {
     document.body.classList.add('is-mobile');
-    const cur   = document.getElementById('cur');
+    // Hide desktop cursor custom element on touch devices
+    const cur = document.getElementById('cur');
+    if (cur) cur.style.display = 'none';
     const vmCur = document.getElementById('vmCur');
-    if (cur)   cur.style.display   = 'none';
     if (vmCur) vmCur.style.display = 'none';
   }
-
-  // ── MOBILE BTMBAR POSITIONING ──
-  // Uses visualViewport to correctly track URL-bar height on iOS & Android.
-  // requestFullscreen is NOT used on mobile — we rely on 100dvh + this offset.
-  function _updateBarPositions() {
-    const vvh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    const ivh = window.innerHeight;
-    // Gap = height lost to browser chrome (URL bar, nav bar)
-    const gap = Math.max(0, ivh - vvh);
-
-    const bb  = document.getElementById('btmBar');
-    const vmbb = document.querySelector('#vmViewer .vm-btmbar');
-    const vtb  = document.querySelector('#vmViewer .vm-title-bar');
-    const vex  = document.querySelectorAll('#vmViewer .vm-exit-btn');
-
-    if (_isMobile) {
-      // Keep bars above the browser chrome
-      if (bb)   bb.style.bottom    = (gap + 8) + 'px';
-      if (vmbb) vmbb.style.bottom  = (gap + 8) + 'px';
-      if (vtb)  vtb.style.bottom   = (gap + 66) + 'px';
-      vex.forEach(b => b.style.bottom = (gap + 60) + 'px');
-    }
-  }
-
-  if (_isMobile) {
+  if (_isIOS) {
+    document.body.classList.add('is-ios');
+    // iOS Safari hides the URL bar after scroll; use visual viewport API for btmBar
+    const _resizeBar = () => {
+      const vvh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      const wh  = window.screen.height;
+      const safeBottom = Math.max(0, wh - vvh - 10);
+      // Push btmBar and vm-btmbar up by the URL bar height
+      const bb = document.getElementById('btmBar');
+      if (bb) bb.style.bottom = (18 + safeBottom) + 'px';
+      const vmbb = document.querySelector('.vm-btmbar');
+      if (vmbb) vmbb.style.bottom = safeBottom + 'px';
+      const vtb = document.querySelector('.vm-title-bar');
+      if (vtb) vtb.style.bottom = (68 + safeBottom) + 'px';
+    };
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', _updateBarPositions);
-      window.visualViewport.addEventListener('scroll', _updateBarPositions);
+      window.visualViewport.addEventListener('resize', _resizeBar);
+      window.visualViewport.addEventListener('scroll', _resizeBar);
     }
-    window.addEventListener('resize', _updateBarPositions);
-    // Run immediately and again after a short delay (iOS fires late)
-    _updateBarPositions();
-    setTimeout(_updateBarPositions, 300);
-    setTimeout(_updateBarPositions, 800);
-  }
-
-  // ── FULLSCREEN on mobile: hide the button, use pseudo-fullscreen instead ──
-  // iOS Safari never supports requestFullscreen. On mobile we make #visorMode
-  // cover 100dvh fixed — which is already done in CSS. The button is hidden.
-  if (_isMobile) {
-    const fsBtn = document.getElementById('vmBtnFs');
-    if (fsBtn) fsBtn.style.display = 'none';
+    window.addEventListener('resize', _resizeBar);
+    _resizeBar();
   }
 
   // Hide touch hint after 3s
