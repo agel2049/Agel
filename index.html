@@ -659,13 +659,12 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   pointer-events:none;
   letter-spacing:.08em;
   backdrop-filter:blur(8px);
-  /* Hidden by default — shows on hover */
-  opacity:0;
+  /* Always hidden — JS adds .visible on hover/touch */
+  opacity:0 !important;
   transition:opacity .22s, transform .22s;
 }
-.hs.scene-spot:hover .hs-scene-label,
-.hs.scene-spot.touched .hs-scene-label {
-  opacity:1;
+.hs-scene-label.visible {
+  opacity:1 !important;
   transform:translateX(-50%) translateY(0);
 }
 /* Zoom-in overlay for scene transition */
@@ -1581,25 +1580,34 @@ function renderHS(pi, si) {
     dot.style.cssText = `position:absolute;transform:translate(-50%,-50%);animation-delay:${j*.85}s;opacity:0;pointer-events:all;`;
 
     if (isScene) {
-      // Scene navigation spot — label only, no card
       const targetScene = PROJ[pi].scenes[h.targetScene];
       const label = document.createElement('div');
       label.className = 'hs-scene-label';
       label.textContent = targetScene ? targetScene.name : 'Escena';
       dot.appendChild(label);
-      // Touch: show label on first tap, navigate on second tap (or after 400ms)
+
+      // Show label on hover (desktop) / first tap (mobile)
+      dot.addEventListener('mouseenter', () => label.classList.add('visible'));
+      dot.addEventListener('mouseleave', () => label.classList.remove('visible'));
+
       let _ssFirstTap = false, _ssTimer = null;
       dot.addEventListener('touchstart', e => {
         e.stopPropagation();
         if (!_ssFirstTap) {
           _ssFirstTap = true;
-          dot.classList.add('touched');
-          _ssTimer = setTimeout(() => { _ssFirstTap = false; dot.classList.remove('touched'); }, 2200);
+          label.classList.add('visible');
+          _ssTimer = setTimeout(() => {
+            _ssFirstTap = false;
+            label.classList.remove('visible');
+          }, 2200);
         } else {
-          clearTimeout(_ssTimer); _ssFirstTap = false; dot.classList.remove('touched');
+          clearTimeout(_ssTimer);
+          _ssFirstTap = false;
+          label.classList.remove('visible');
           goToSceneSpot(h.targetScene, dot);
         }
       }, {passive:true});
+
       dot.addEventListener('click', e => {
         e.stopPropagation();
         goToSceneSpot(h.targetScene, dot);
