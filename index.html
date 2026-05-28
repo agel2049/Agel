@@ -648,8 +648,8 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .hs-scene-label {
   position:absolute;
   bottom:22px;left:50%;
-  transform:translateX(-50%);
-  background:rgba(8,8,16,.82);
+  transform:translateX(-50%) translateY(4px);
+  background:rgba(8,8,16,.88);
   border:1px solid rgba(80,180,255,.35);
   border-radius:6px;
   padding:3px 9px;
@@ -659,6 +659,14 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   pointer-events:none;
   letter-spacing:.08em;
   backdrop-filter:blur(8px);
+  /* Hidden by default — shows on hover */
+  opacity:0;
+  transition:opacity .22s, transform .22s;
+}
+.hs.scene-spot:hover .hs-scene-label,
+.hs.scene-spot.touched .hs-scene-label {
+  opacity:1;
+  transform:translateX(-50%) translateY(0);
 }
 /* Zoom-in overlay for scene transition */
 #sceneTransVeil {
@@ -673,19 +681,18 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .hsm-type-btn:hover{border-color:rgba(255,255,255,.2);color:var(--text);}
 
 /* ══ PSEUDO FULLSCREEN (mobile) ══ */
-/* Hides browser chrome by locking position + overscroll + covering with 100dvh */
 #visorMode.pseudo-fs {
   position: fixed !important;
-  top: 0 !important; left: 0 !important;
-  right: 0 !important; bottom: 0 !important;
-  height: 100dvh !important;
+  inset: 0 !important;
+  height: 100svh !important; /* small viewport height — excludes browser chrome */
   width: 100vw !important;
   z-index: 9999 !important;
   overscroll-behavior: none;
+  touch-action: none;
 }
-#visorMode.pseudo-fs .vm-topbar { opacity:0; pointer-events:none; }
-#visorMode.pseudo-fs:active .vm-topbar,
-#visorMode.pseudo-fs.fs-on:hover .vm-topbar { opacity:1; pointer-events:all; }
+/* In pseudo-fs, hide topbar but keep btmbar always visible */
+#visorMode.pseudo-fs .vm-topbar { opacity:0 !important; pointer-events:none !important; }
+#visorMode.pseudo-fs .vm-btmbar { opacity:1 !important; pointer-events:all !important; bottom:8px !important; }
 </style>
 </head>
 <body>
@@ -1580,6 +1587,19 @@ function renderHS(pi, si) {
       label.className = 'hs-scene-label';
       label.textContent = targetScene ? targetScene.name : 'Escena';
       dot.appendChild(label);
+      // Touch: show label on first tap, navigate on second tap (or after 400ms)
+      let _ssFirstTap = false, _ssTimer = null;
+      dot.addEventListener('touchstart', e => {
+        e.stopPropagation();
+        if (!_ssFirstTap) {
+          _ssFirstTap = true;
+          dot.classList.add('touched');
+          _ssTimer = setTimeout(() => { _ssFirstTap = false; dot.classList.remove('touched'); }, 2200);
+        } else {
+          clearTimeout(_ssTimer); _ssFirstTap = false; dot.classList.remove('touched');
+          goToSceneSpot(h.targetScene, dot);
+        }
+      }, {passive:true});
       dot.addEventListener('click', e => {
         e.stopPropagation();
         goToSceneSpot(h.targetScene, dot);
@@ -2367,7 +2387,10 @@ function vmLaunch() {
   document.getElementById('vmViewer').classList.add('show');
   document.getElementById('vmTitleLabel').textContent = pname;
   if (!vmRenderer) vmInitThree();
-  vmCurIdx = 0; vmBuildPips(); vmGoTo(0);
+  vmCurIdx = 0; vmBuildPips();
+  // Preload all scene textures in background for smooth navigation
+  vmPreloadAll();
+  vmGoTo(0);
 }
 
 function vmExitViewer() {
@@ -2375,6 +2398,9 @@ function vmExitViewer() {
   document.getElementById('vmViewer').classList.remove('show');
   if (vmAuto) vmToggleAuto();
   if (_vmHsRaf) { cancelAnimationFrame(_vmHsRaf); _vmHsRaf = null; }
+  // Free GPU textures
+  Object.values(vmTexCache).forEach(tex => tex && tex.dispose());
+  Object.keys(vmTexCache).forEach(k => delete vmTexCache[k]);
 }
 
 function vmInitThree() {
@@ -2501,9 +2527,23 @@ function vmUpdateCam() {
   vmCam.lookAt(Math.sin(phi)*Math.cos(th), Math.cos(phi), Math.sin(phi)*Math.sin(th));
 }
 
+// VM texture cache — avoids re-loading images on every scene change
+const vmTexCache = {};
+
+function vmPreloadAll() {
+  vmScenes.forEach((s, i) => {
+    if (!vmTexCache[i] && s.url) {
+      const loader = new THREE.TextureLoader(); loader.crossOrigin = 'anonymous';
+      loader.load(s.url, tex => {
+        tex.minFilter = THREE.LinearFilter; // reduces GPU memory + no mipmap generation
+        vmTexCache[i] = tex;
+      });
+    }
+  });
+}
+
 function vmGoTo(idx) {
   vmCurIdx = idx;
-  // FIX: reset drag state so mouse never gets "stuck" between scenes
   vmDn = false;
   const vmCurEl = document.getElementById('vmCur');
   if (vmCurEl) vmCurEl.classList.remove('drag');
@@ -2515,12 +2555,30 @@ function vmGoTo(idx) {
   document.getElementById('vmTitleBar').classList.add('show');
   document.querySelectorAll('.vm-pip').forEach((p,j) => p.classList.toggle('on', j===idx));
   vmLon=0; vmLat=0;
-  const loader = new THREE.TextureLoader(); loader.crossOrigin = 'anonymous';
-  vmSphere.material = new THREE.MeshBasicMaterial({ color: 0x080810 });
-  loader.load(s.url, tex => {
-    vmSphere.material = new THREE.MeshBasicMaterial({ map: tex });
+
+  // Use cached texture if available
+  if (vmTexCache[idx]) {
+    vmSphere.material = new THREE.MeshBasicMaterial({ map: vmTexCache[idx] });
     vmUpdateCam(); vmRenderVmHS(s);
-  }, undefined, () => toast('Error al cargar imagen'));
+    // Preload adjacent scenes in background
+    const next = (idx+1) % vmScenes.length;
+    const prev = (idx-1+vmScenes.length) % vmScenes.length;
+    [next, prev].forEach(i => {
+      if (!vmTexCache[i] && vmScenes[i]?.url) {
+        const l = new THREE.TextureLoader(); l.crossOrigin='anonymous';
+        l.load(vmScenes[i].url, tex => { tex.minFilter=THREE.LinearFilter; vmTexCache[i]=tex; });
+      }
+    });
+  } else {
+    vmSphere.material = new THREE.MeshBasicMaterial({ color: 0x080810 });
+    const loader = new THREE.TextureLoader(); loader.crossOrigin = 'anonymous';
+    loader.load(s.url, tex => {
+      tex.minFilter = THREE.LinearFilter;
+      vmTexCache[idx] = tex;
+      vmSphere.material = new THREE.MeshBasicMaterial({ map: tex });
+      vmUpdateCam(); vmRenderVmHS(s);
+    }, undefined, () => toast('Error al cargar imagen'));
+  }
 }
 
 function vmPrev() { vmGoTo((vmCurIdx - 1 + vmScenes.length) % vmScenes.length); }
@@ -2980,20 +3038,57 @@ window.addEventListener('load', () => {
     setTimeout(_updateBarPositions, 800);
   }
 
-  // ── FULLSCREEN on mobile: use pseudo-fullscreen (no requestFullscreen API) ──
-  // iOS Safari never supports requestFullscreen.
-  // We simulate it by adding .pseudo-fs to #visorMode which makes it cover the screen.
+  // ── FULLSCREEN on mobile ──
+  // iOS Safari: requestFullscreen doesn't exist. The only way to hide the URL bar
+  // is to (1) make the page body scrollable and (2) call window.scrollTo(0,1).
+  // We do this + set visorMode to position:fixed;z-index:9999;height:100vh
+  // Android Chrome: requestFullscreen works, use it.
   if (_isMobile) {
-    // Override vmToggleFullscreen for mobile
     window.vmToggleFullscreen = function() {
-      const vm = document.getElementById('visorMode');
+      const vm  = document.getElementById('visorMode');
       const btn = document.getElementById('vmBtnFs');
       const isOn = vm.classList.contains('pseudo-fs');
-      vm.classList.toggle('pseudo-fs', !isOn);
-      vm.classList.toggle('fs-on', !isOn);
-      if (btn) btn.innerHTML = isOn ? '<i class="ti ti-maximize"></i>' : '<i class="ti ti-minimize"></i>';
-      // Reposition bars after pseudo-fs
-      setTimeout(_updateBarPositions, 50);
+
+      if (_isAndroid && !isOn) {
+        // Android Chrome supports fullscreen
+        try {
+          if (vm.requestFullscreen)            vm.requestFullscreen();
+          else if (vm.webkitRequestFullscreen) vm.webkitRequestFullscreen();
+          vm.classList.add('pseudo-fs', 'fs-on');
+          if (btn) btn.innerHTML = '<i class="ti ti-minimize"></i>';
+          setTimeout(_updateBarPositions, 100);
+          return;
+        } catch(e) {}
+      }
+      if (_isAndroid && isOn) {
+        try {
+          if (document.exitFullscreen) document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        } catch(e) {}
+        vm.classList.remove('pseudo-fs', 'fs-on');
+        if (btn) btn.innerHTML = '<i class="ti ti-maximize"></i>';
+        setTimeout(_updateBarPositions, 100);
+        return;
+      }
+
+      // iOS: pseudo-fullscreen via scroll trick
+      if (!isOn) {
+        vm.classList.add('pseudo-fs', 'fs-on');
+        if (btn) btn.innerHTML = '<i class="ti ti-minimize"></i>';
+        // Force hide URL bar: temporarily make body scrollable and scroll
+        document.body.style.height = '101vh';
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => {
+          window.scrollTo(0, 1);
+          document.body.style.height = '';
+          document.body.style.overflow = '';
+          setTimeout(_updateBarPositions, 80);
+        }, 50);
+      } else {
+        vm.classList.remove('pseudo-fs', 'fs-on');
+        if (btn) btn.innerHTML = '<i class="ti ti-maximize"></i>';
+        setTimeout(_updateBarPositions, 50);
+      }
     };
   }
 
