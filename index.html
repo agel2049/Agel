@@ -671,6 +671,21 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 /* ══ HSM TYPE BUTTONS ══ */
 .hsm-type-btn{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:6px 10px;font-size:10px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .25s;display:flex;align-items:center;justify-content:center;gap:5px;}
 .hsm-type-btn:hover{border-color:rgba(255,255,255,.2);color:var(--text);}
+
+/* ══ PSEUDO FULLSCREEN (mobile) ══ */
+/* Hides browser chrome by locking position + overscroll + covering with 100dvh */
+#visorMode.pseudo-fs {
+  position: fixed !important;
+  top: 0 !important; left: 0 !important;
+  right: 0 !important; bottom: 0 !important;
+  height: 100dvh !important;
+  width: 100vw !important;
+  z-index: 9999 !important;
+  overscroll-behavior: none;
+}
+#visorMode.pseudo-fs .vm-topbar { opacity:0; pointer-events:none; }
+#visorMode.pseudo-fs:active .vm-topbar,
+#visorMode.pseudo-fs.fs-on:hover .vm-topbar { opacity:1; pointer-events:all; }
 </style>
 </head>
 <body>
@@ -1690,70 +1705,218 @@ function hsmEditHS(si, j) {
   hsmRenderAdd(document.getElementById('hsmBody'), si, j);
 }
 
-// ── ADD / EDIT TAB ──
+// ── ADD TAB: two permanent blocks ──
 function hsmRenderAdd(body, editSi, editJ) {
   cancelAddHS();
   const isEdit = editSi !== undefined && editJ !== undefined;
-  const h = isEdit ? PROJ[cP].scenes[editSi].hs[editJ] : null;
+  const h      = isEdit ? PROJ[cP].scenes[editSi].hs[editJ] : null;
   const scenes = PROJ[cP].scenes;
   const editType = isEdit ? (h.type || 'info') : 'info';
-  let sceneOpts  = scenes.map((s,i) => `<option value="${i}"${i===cS?' selected':''}}>${s.name}</option>`).join('');
-  let targetOpts = scenes.map((s,i) => `<option value="${i}"${isEdit&&h.targetScene===i?' selected':''}}>${s.name}</option>`).join('');
 
-  body.innerHTML = `
-    <div class="hsm-form">
-      <div class="hsm-form-title">${isEdit ? '<i class="ti ti-pencil"></i> Editar' : '<i class="ti ti-plus"></i> Nuevo hotspot'}</div>
-      <div class="hsm-lbl">Tipo</div>
-      <div style="display:flex;gap:6px;margin-bottom:10px;">
-        <button class="hsm-type-btn${editType==='info'?' active':''}" id="hsmTypeInfo" onclick="hsmSetType('info')" style="${editType==='info'?'border-color:rgba(184,157,116,.5);color:var(--accent);background:rgba(184,157,116,.12);':''}" >
-          <i class="ti ti-info-circle"></i> Información
-        </button>
-        <button class="hsm-type-btn${editType==='scene'?' active':''}" id="hsmTypeScene" onclick="hsmSetType('scene')" style="${editType==='scene'?'border-color:rgba(80,180,255,.5);color:rgba(80,180,255,.9);background:rgba(80,180,255,.1);':''}" >
-          <i class="ti ti-arrow-right-circle"></i> Ir a escena
-        </button>
-      </div>
-      ${!isEdit ? `<div class="hsm-lbl">Escena donde se agrega</div><select class="hsm-inp" id="hsmSceneSel" style="margin-bottom:8px;">${sceneOpts}</select>` : `<div style="font-size:10px;color:var(--accent);margin-bottom:8px;">Editando en: ${scenes[editSi].name}</div>`}
-      <div id="hsmInfoFields" style="display:${editType==='scene'?'none':'block'}">
+  const sceneOpts  = scenes.map((s,i) =>
+    `<option value="${i}"${i===cS?' selected':''}>${s.name}</option>`).join('');
+
+  // Target scene options — exclude nothing, user picks destination
+  const targetOpts = scenes.map((s,i) =>
+    `<option value="${i}"${(isEdit && h.targetScene===i)?' selected':''}>${s.name}</option>`).join('');
+
+  if (isEdit) {
+    // Edit mode: single form, detect type
+    body.innerHTML = `<div class="hsm-form">
+      <div class="hsm-form-title"><i class="ti ti-pencil"></i> Editando: ${h.title}</div>
+      <div style="font-size:10px;color:var(--accent);margin-bottom:10px;">En escena: ${scenes[editSi].name}</div>
+      ${editType === 'info' ? `
         <div class="hsm-lbl">Título *</div>
-        <input class="hsm-inp" id="hsmTitle" placeholder="Ej: Acabado de piso" value="${isEdit&&editType==='info'?h.title:''}">
-        <div class="hsm-lbl">Detalles (separados por comas)</div>
-        <input class="hsm-inp" id="hsmDetail" placeholder="Mármol travertino, 60×60" value="${isEdit&&h.details?h.details.join(', '):''}">
-        <div class="hsm-lbl">Imagen del material</div>
+        <input class="hsm-inp" id="hsmTitle" value="${h.title}">
+        <div class="hsm-lbl">Detalles</div>
+        <input class="hsm-inp" id="hsmDetail" value="${h.details?h.details.join(', '):''}">
+        <div class="hsm-lbl">Imagen (URL)</div>
         <div style="display:flex;gap:6px;margin-bottom:5px;">
-          <input class="hsm-inp" id="hsmImg" placeholder="URL de imagen" value="${isEdit&&h.img&&!h.img.startsWith('data:')?h.img:''}" oninput="hsmPreviewImg(this.value)" style="flex:1;">
-          <label style="flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:7px;padding:7px 10px;cursor:pointer;font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap;">
-            <i class="ti ti-upload"></i> Local<input type="file" accept="image/*" style="display:none;" onchange="hsmLoadLocalImg(event)">
+          <input class="hsm-inp" id="hsmImg" value="${h.img&&!h.img.startsWith('data:')?h.img:''}" oninput="hsmPreviewImg(this.value)" style="flex:1;">
+          <label style="flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:7px;padding:6px 9px;cursor:pointer;font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px;">
+            <i class="ti ti-upload"></i><input type="file" accept="image/*" style="display:none;" onchange="hsmLoadLocalImg(event)">
           </label>
         </div>
-        <img class="hsm-img-preview${isEdit&&h.img?' show':''}" id="hsmImgPreview" src="${isEdit&&h.img?h.img:''}" alt="">
-      </div>
-      <div id="hsmSceneFields" style="display:${editType==='scene'?'block':'none'}">
-        <div class="hsm-lbl">Escena de destino</div>
+        <img class="hsm-img-preview${h.img?' show':''}" id="hsmImgPreview" src="${h.img||''}" alt="">
+      ` : `
+        <div class="hsm-lbl">Escena destino</div>
         <select class="hsm-inp" id="hsmTargetScene">${targetOpts}</select>
-        <div style="font-size:10px;color:rgba(80,180,255,.6);margin-top:6px;line-height:1.6;"><i class="ti ti-info-circle"></i> Círculo azul brillante — clic hace zoom y cambia a la escena.</div>
-      </div>
+      `}
       <div class="hsm-grid" style="margin-top:10px;">
-        <div><div class="hsm-lbl">X %</div><input class="hsm-inp" id="hsmX" type="number" min="1" max="99" value="${isEdit?h.x:50}"></div>
-        <div><div class="hsm-lbl">Y %</div><input class="hsm-inp" id="hsmY" type="number" min="1" max="99" value="${isEdit?h.y:50}"></div>
+        <div><div class="hsm-lbl">X %</div><input class="hsm-inp" id="hsmX" type="number" min="1" max="99" value="${h.x}"></div>
+        <div><div class="hsm-lbl">Y %</div><input class="hsm-inp" id="hsmY" type="number" min="1" max="99" value="${h.y}"></div>
       </div>
-      <button class="hsm-save" onclick="hsmSave(${isEdit?editSi:'undefined'},${isEdit?editJ:'undefined'})">
-        <i class="ti ti-check"></i> ${isEdit?'Actualizar':'Guardar hotspot'}
-      </button>
-      ${!isEdit ? '<div class="hsm-hint"><i class="ti ti-map-pin"></i> Haz clic en el visor para auto-posicionar</div>' : ''}
+      <button class="hsm-save" onclick="hsmSave(${editSi},${editJ})"><i class="ti ti-check"></i> Actualizar</button>
     </div>`;
-  if (!isEdit && PROJ[cP].scenes[cS].img) startAddHS();
+    return;
+  }
+
+  // NEW mode: two separate blocks always visible
+  body.innerHTML = `
+    <!-- BLOCK 1: Hotspot de información -->
+    <div class="hsm-form" style="margin-bottom:12px;">
+      <div class="hsm-form-title" style="color:var(--accent);"><i class="ti ti-info-circle"></i> Nuevo hotspot de material</div>
+      <div class="hsm-lbl">Escena donde se agrega</div>
+      <select class="hsm-inp" id="hsmSceneSel" style="margin-bottom:7px;">${sceneOpts}</select>
+      <div class="hsm-lbl">Título *</div>
+      <input class="hsm-inp" id="hsmTitle" placeholder="Ej: Acabado de piso">
+      <div class="hsm-lbl">Detalles (separados por comas)</div>
+      <input class="hsm-inp" id="hsmDetail" placeholder="Mármol travertino, 60×60">
+      <div class="hsm-lbl">Imagen del material</div>
+      <div style="display:flex;gap:6px;margin-bottom:5px;">
+        <input class="hsm-inp" id="hsmImg" placeholder="URL de imagen" oninput="hsmPreviewImg(this.value)" style="flex:1;">
+        <label style="flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:7px;padding:6px 9px;cursor:pointer;font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap;">
+          <i class="ti ti-upload"></i> Local<input type="file" accept="image/*" style="display:none;" onchange="hsmLoadLocalImg(event)">
+        </label>
+      </div>
+      <img class="hsm-img-preview" id="hsmImgPreview" alt="">
+      <div class="hsm-grid" style="margin-top:8px;">
+        <div><div class="hsm-lbl">X %</div><input class="hsm-inp" id="hsmX" type="number" min="1" max="99" value="50"></div>
+        <div><div class="hsm-lbl">Y %</div><input class="hsm-inp" id="hsmY" type="number" min="1" max="99" value="50"></div>
+      </div>
+      <button class="hsm-save" onclick="hsmSaveInfo()"><i class="ti ti-check"></i> Guardar hotspot</button>
+      <div class="hsm-hint"><i class="ti ti-map-pin"></i> Haz clic en el visor para auto-posicionar</div>
+    </div>
+
+    <!-- BLOCK 2: SceneSpot de navegación -->
+    <div class="hsm-form" style="border-color:rgba(80,180,255,.25);background:rgba(80,180,255,.04);">
+      <div class="hsm-form-title" style="color:rgba(80,180,255,.9);"><i class="ti ti-arrow-right-circle"></i> Nuevo SceneSpot (navegar entre escenas)</div>
+      <div class="hsm-lbl">Escena donde se coloca el punto</div>
+      <select class="hsm-inp" id="hsmSSScene" style="margin-bottom:7px;">${sceneOpts}</select>
+      <div class="hsm-lbl">Escena de destino (a donde lleva)</div>
+      <select class="hsm-inp" id="hsmSSTarget">${targetOpts}</select>
+      <div style="font-size:10px;color:rgba(80,180,255,.55);margin:7px 0 9px;line-height:1.6;">
+        Aparece como un círculo azul brillante con pulso. Al hacer clic hace zoom y navega a la escena destino.
+      </div>
+      <div class="hsm-grid">
+        <div><div class="hsm-lbl">X %</div><input class="hsm-inp" id="hsmSSX" type="number" min="1" max="99" value="50"></div>
+        <div><div class="hsm-lbl">Y %</div><input class="hsm-inp" id="hsmSSY" type="number" min="1" max="99" value="50"></div>
+      </div>
+      <button class="hsm-save" onclick="hsmSaveSceneSpot()" style="background:rgba(80,180,255,.15);color:rgba(80,180,255,.9);border-color:rgba(80,180,255,.35);margin-top:10px;">
+        <i class="ti ti-arrow-right-circle"></i> Guardar SceneSpot
+      </button>
+      <div class="hsm-hint" style="color:rgba(80,180,255,.5);"><i class="ti ti-map-pin"></i> O haz clic en el visor para auto-posicionar el SceneSpot</div>
+    </div>`;
+
+  // Start click-to-place for info hotspot by default
+  if (PROJ[cP].scenes[cS].img) startAddHS();
 }
 
-function hsmSetType(type) {
-  const info  = document.getElementById('hsmInfoFields');
-  const scene = document.getElementById('hsmSceneFields');
-  if (info)  info.style.display  = type==='info'  ? 'block' : 'none';
-  if (scene) scene.style.display = type==='scene' ? 'block' : 'none';
-  const ib = document.getElementById('hsmTypeInfo');
-  const sb = document.getElementById('hsmTypeScene');
-  if(ib) ib.style.cssText = type==='info'  ? 'border-color:rgba(184,157,116,.5);color:var(--accent);background:rgba(184,157,116,.12);' : '';
-  if(sb) sb.style.cssText = type==='scene' ? 'border-color:rgba(80,180,255,.5);color:rgba(80,180,255,.9);background:rgba(80,180,255,.1);' : '';
+// Track which block is placing: 'info' or 'scene'
+let _hsmPlacingType = 'info';
+
+function startAddHS() {
+  _hsmPlacingType = 'info';
+  addHS = true;
+  curEl.classList.add('addmode');
+  document.getElementById('addHint').classList.add('show');
 }
+
+function startAddSceneSpot() {
+  _hsmPlacingType = 'scene';
+  addHS = true;
+  curEl.classList.add('addmode');
+  document.getElementById('addHint').classList.add('show');
+}
+
+// Override placeHSAt to route to correct fields
+function placeHSAt(e) {
+  const r = cv.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((e.clientX-r.left)/r.width)*2-1,
+   -((e.clientY-r.top)/r.height)*2+1
+  );
+  const ray = new THREE.Raycaster(); ray.setFromCamera(mouse, cam);
+  const hits = ray.intersectObject(sphere);
+  if (hits.length > 0) {
+    const pt = hits[0].point.normalize();
+    const xv = Math.max(1,Math.min(99,Math.round(((Math.atan2(pt.z,pt.x)+Math.PI)/(2*Math.PI))*100)));
+    const yv = Math.max(1,Math.min(99,Math.round(((Math.PI/2-Math.asin(Math.max(-1,Math.min(1,pt.y))))/Math.PI)*100)));
+    if (_hsmPlacingType === 'scene') {
+      const ex = document.getElementById('hsmSSX'); if(ex) ex.value = xv;
+      const ey = document.getElementById('hsmSSY'); if(ey) ey.value = yv;
+    } else {
+      const ex = document.getElementById('hsmX'); if(ex) ex.value = xv;
+      const ey = document.getElementById('hsmY'); if(ey) ey.value = yv;
+    }
+  }
+  cancelAddHS();
+}
+
+// Save info hotspot
+function hsmSaveInfo() {
+  const title   = (document.getElementById('hsmTitle')?.value||'').trim();
+  const detRaw  = document.getElementById('hsmDetail')?.value||'';
+  const details = detRaw.split(',').map(s=>s.trim()).filter(Boolean);
+  const prev    = document.getElementById('hsmImgPreview');
+  const localB64 = prev?.dataset?.localB64 || null;
+  const imgUrl  = localB64 || (document.getElementById('hsmImg')?.value||'').trim() || null;
+  const x = parseInt(document.getElementById('hsmX')?.value)||50;
+  const y = parseInt(document.getElementById('hsmY')?.value)||50;
+  const si = parseInt(document.getElementById('hsmSceneSel')?.value ?? cS);
+  if (!title) { toast('Escribe un título'); return; }
+  if (!PROJ[cP].scenes[si].img) { toast('Carga la panorámica de esa escena primero'); return; }
+  PROJ[cP].scenes[si].hs.push({ type:'info', x, y, title, details, img:imgUrl });
+  // Reset form
+  ['hsmTitle','hsmDetail','hsmImg'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  if (prev) { prev.classList.remove('show'); prev.dataset.localB64 = ''; }
+  cancelAddHS();
+  clearHS(); renderHS(cP, cS); buildList(); autoSave();
+  toast('Hotspot guardado ✓');
+  hsmRenderList(document.getElementById('hsmBody'));
+  hsmFilterScene(si);
+  // Go back to add tab so user can add more
+  _hsmTab = 'add'; hsmSyncTabs(); hsmRenderAdd(document.getElementById('hsmBody'));
+}
+
+// Save SceneSpot
+function hsmSaveSceneSpot() {
+  const si      = parseInt(document.getElementById('hsmSSScene')?.value ?? cS);
+  const target  = parseInt(document.getElementById('hsmSSTarget')?.value ?? 0);
+  const x = parseInt(document.getElementById('hsmSSX')?.value)||50;
+  const y = parseInt(document.getElementById('hsmSSY')?.value)||50;
+  if (!PROJ[cP].scenes[si].img) { toast('Carga la panorámica de esa escena primero'); return; }
+  if (si === target) { toast('La escena de origen y destino no pueden ser la misma'); return; }
+  const targetName = PROJ[cP].scenes[target]?.name || 'Escena';
+  PROJ[cP].scenes[si].hs.push({ type:'scene', x, y, title:targetName, details:[], img:null, targetScene:target });
+  cancelAddHS();
+  clearHS(); renderHS(cP, cS); buildList(); autoSave();
+  toast('SceneSpot guardado ✓');
+  hsmRenderList(document.getElementById('hsmBody'));
+  hsmFilterScene(si);
+  _hsmTab = 'add'; hsmSyncTabs(); hsmRenderAdd(document.getElementById('hsmBody'));
+}
+
+// hsmSave handles edits only now
+function hsmSave(editSiRaw, editJRaw) {
+  const editSi = parseInt(editSiRaw);
+  const editJ  = parseInt(editJRaw);
+  const h = PROJ[cP].scenes[editSi].hs[editJ];
+  const x = parseInt(document.getElementById('hsmX')?.value)||50;
+  const y = parseInt(document.getElementById('hsmY')?.value)||50;
+  if (h.type === 'scene') {
+    const target = parseInt(document.getElementById('hsmTargetScene')?.value ?? 0);
+    h.x = x; h.y = y; h.targetScene = target; h.title = PROJ[cP].scenes[target]?.name || 'Escena';
+  } else {
+    const title  = (document.getElementById('hsmTitle')?.value||'').trim();
+    const detRaw = document.getElementById('hsmDetail')?.value||'';
+    const prev   = document.getElementById('hsmImgPreview');
+    const b64    = prev?.dataset?.localB64 || null;
+    const img    = b64 || (document.getElementById('hsmImg')?.value||'').trim() || h.img;
+    if (!title) { toast('Escribe un título'); return; }
+    h.x=x; h.y=y; h.title=title;
+    h.details=detRaw.split(',').map(s=>s.trim()).filter(Boolean);
+    h.img=img||null;
+  }
+  PROJ[cP].scenes[editSi].hs[editJ] = h;
+  cancelAddHS(); clearHS(); renderHS(cP,cS); buildList(); autoSave();
+  toast('Hotspot actualizado ✓');
+  _hsmTab = 'list'; hsmSyncTabs();
+  hsmRenderList(document.getElementById('hsmBody'));
+  hsmFilterScene(editSi);
+}
+
+function hsmSetType() {} // no longer used
 
 // Load local image file → base64 for hotspot
 function hsmLoadLocalImg(e) {
@@ -1822,32 +1985,12 @@ function hsmSave(editSiRaw, editJRaw) {
   hsmFilterScene(si);
 }
 
-function startAddHS()  { addHS=true;  curEl.classList.add('addmode');    document.getElementById('addHint').classList.add('show'); }
-function cancelAddHS() { addHS=false; curEl.classList.remove('addmode'); document.getElementById('addHint').classList.remove('show'); }
-
-function placeHSAt(e) {
-  const r = cv.getBoundingClientRect();
-  const mouse = new THREE.Vector2(
-    ((e.clientX-r.left)/r.width)*2-1,
-   -((e.clientY-r.top)/r.height)*2+1
-  );
-  const ray = new THREE.Raycaster(); ray.setFromCamera(mouse, cam);
-  const hits = ray.intersectObject(sphere);
-  if (hits.length > 0) {
-    const pt = hits[0].point.normalize();
-    const xv = Math.max(1,Math.min(99,Math.round(((Math.atan2(pt.z,pt.x)+Math.PI)/(2*Math.PI))*100)));
-    const yv = Math.max(1,Math.min(99,Math.round(((Math.PI/2-Math.asin(Math.max(-1,Math.min(1,pt.y))))/Math.PI)*100)));
-    const ex = document.getElementById('hsmX'); if(ex) ex.value = xv;
-    const ey = document.getElementById('hsmY'); if(ey) ey.value = yv;
-  }
-  cancelAddHS();
-}
-
 // Compat shims
-function saveHS()        { hsmSave(); }
+function saveHS()        { hsmSaveInfo(); }
 function refreshHSList() { if(hsPanelVis) hsmRender(); }
 function delHS(i)        { hsmDelHS(cS,i); }
 function previewHsImg(url) { hsmPreviewImg(url); }
+function cancelAddHS()   { addHS=false; curEl.classList.remove('addmode'); const h=document.getElementById('addHint'); if(h)h.classList.remove('show'); }
 
 
 
@@ -2837,12 +2980,21 @@ window.addEventListener('load', () => {
     setTimeout(_updateBarPositions, 800);
   }
 
-  // ── FULLSCREEN on mobile: hide the button, use pseudo-fullscreen instead ──
-  // iOS Safari never supports requestFullscreen. On mobile we make #visorMode
-  // cover 100dvh fixed — which is already done in CSS. The button is hidden.
+  // ── FULLSCREEN on mobile: use pseudo-fullscreen (no requestFullscreen API) ──
+  // iOS Safari never supports requestFullscreen.
+  // We simulate it by adding .pseudo-fs to #visorMode which makes it cover the screen.
   if (_isMobile) {
-    const fsBtn = document.getElementById('vmBtnFs');
-    if (fsBtn) fsBtn.style.display = 'none';
+    // Override vmToggleFullscreen for mobile
+    window.vmToggleFullscreen = function() {
+      const vm = document.getElementById('visorMode');
+      const btn = document.getElementById('vmBtnFs');
+      const isOn = vm.classList.contains('pseudo-fs');
+      vm.classList.toggle('pseudo-fs', !isOn);
+      vm.classList.toggle('fs-on', !isOn);
+      if (btn) btn.innerHTML = isOn ? '<i class="ti ti-maximize"></i>' : '<i class="ti ti-minimize"></i>';
+      // Reposition bars after pseudo-fs
+      setTimeout(_updateBarPositions, 50);
+    };
   }
 
   // Hide touch hint after 3s
