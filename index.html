@@ -380,12 +380,21 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .ui-hidden { opacity:0!important; pointer-events:none!important; transition:opacity .5s; }
 .ui-visible { opacity:1!important; pointer-events:all!important; }
 /* VM fullscreen: same treatment */
+/* VM fullscreen: hide topbar + exit btn, keep btmbar visible */
 #visorMode.fs-on .vm-topbar,
-#visorMode.fs-on .vm-btmbar,
-#visorMode.fs-on .vm-exit-btn { opacity:0; pointer-events:none; transition:opacity .4s; }
+#visorMode.fs-on .vm-exit-btn { opacity:0; pointer-events:none; transition:opacity .5s; }
 #visorMode.fs-on:hover .vm-topbar,
-#visorMode.fs-on:hover .vm-btmbar,
 #visorMode.fs-on:hover .vm-exit-btn { opacity:1; pointer-events:all; }
+#visorMode.fs-on .vm-btmbar { opacity:1; pointer-events:all; }
+/* Native :fullscreen when visorMode IS the fullscreen element */
+#visorMode:fullscreen .vm-topbar,
+#visorMode:fullscreen .vm-exit-btn { opacity:0; pointer-events:none; transition:opacity .5s; }
+#visorMode:fullscreen:hover .vm-topbar,
+#visorMode:fullscreen:hover .vm-exit-btn { opacity:1; pointer-events:all; }
+#visorMode:-webkit-full-screen .vm-topbar,
+#visorMode:-webkit-full-screen .vm-exit-btn { opacity:0; pointer-events:none; }
+#visorMode:-webkit-full-screen:hover .vm-topbar,
+#visorMode:-webkit-full-screen:hover .vm-exit-btn { opacity:1; pointer-events:all; }
 
 /* ══ LIQUID GLASS DIALOGS ══
    Minimal refraction: backdrop-filter blur + chromatic edge + subtle tint
@@ -495,7 +504,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   #sidebar.hide { opacity:0; transform:translateX(-100%); }
 
   /* btmBar: full-width pill at bottom */
-  #btmBar { bottom:0; left:0; right:0; transform:none; border-radius:16px 16px 0 0; padding:0 14px; height:52px; width:100%; box-sizing:border-box; justify-content:space-around; }
+  #btmBar { bottom:8px; left:6px; right:6px; transform:none; border-radius:14px; padding:0 14px; height:50px; width:auto; box-sizing:border-box; justify-content:space-around; }
   #btmBar.hide { transform:translateY(60px); }
   .bb-sep { display:none; }
   .pips { max-width:100px; overflow:hidden; }
@@ -556,7 +565,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 
 /* VM Viewer mobile */
 @media (max-width: 768px) {
-  .vm-btmbar { border-radius:16px 16px 0 0; bottom:0; left:0; right:0; transform:none; width:100%; box-sizing:border-box; justify-content:space-around; height:auto; min-height:52px; padding:8px 12px; }
+  .vm-btmbar { border-radius:14px; bottom:8px; left:6px; right:6px; transform:none; width:auto; box-sizing:border-box; justify-content:space-around; height:50px; padding:0 12px; }
   .vm-btmbar .bb-sep { display:none; }
   .vm-pips { max-width:90px; overflow:hidden; }
   .vm-pip  { width:4px; height:4px; }
@@ -574,8 +583,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 
 /* Safe area for notched phones */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
-  #btmBar { padding-bottom:calc(10px + env(safe-area-inset-bottom)); height:auto; min-height:52px; }
-  #visorMode .vm-btmbar { padding-bottom:calc(10px + env(safe-area-inset-bottom)); height:auto; min-height:52px; }
+  #btmBar, #visorMode .vm-btmbar { padding-bottom:env(safe-area-inset-bottom,0px); }
 }
 
 /* ══ VM TWO-COLUMN HS PANEL ══ */
@@ -600,6 +608,69 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   .vm-col  { overflow-y:visible; }
   .vm-setup-header { padding:10px 14px 8px; }
 }
+
+/* ══ SCENE SPOT (navigation hotspot) ══ */
+.hs.scene-spot {
+  width:14px; height:14px;
+  background:rgba(80,160,255,0.0);
+  border:none;
+  box-shadow:none;
+}
+.hs.scene-spot::before {
+  content:'';
+  position:absolute;
+  top:50%;left:50%;
+  width:12px;height:12px;
+  border-radius:50%;
+  background:rgba(80,180,255,0.9);
+  transform:translate(-50%,-50%);
+  box-shadow:0 0 12px 4px rgba(80,180,255,0.55), 0 0 30px 8px rgba(80,180,255,0.2);
+  animation:scenePulse 2.2s ease-in-out infinite;
+}
+@keyframes scenePulse {
+  0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.9;}
+  50%{transform:translate(-50%,-50%) scale(1.35);opacity:.7;}
+}
+.hs.scene-spot::after {
+  content:'';
+  position:absolute;
+  top:50%;left:50%;
+  width:28px;height:28px;
+  border-radius:50%;
+  border:1.5px solid rgba(80,180,255,0.3);
+  transform:translate(-50%,-50%);
+  animation:sceneRing 2.2s ease-in-out infinite;
+}
+@keyframes sceneRing {
+  0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.5;}
+  50%{transform:translate(-50%,-50%) scale(1.2);opacity:.2;}
+}
+.hs-scene-label {
+  position:absolute;
+  bottom:22px;left:50%;
+  transform:translateX(-50%);
+  background:rgba(8,8,16,.82);
+  border:1px solid rgba(80,180,255,.35);
+  border-radius:6px;
+  padding:3px 9px;
+  font-size:9px;
+  color:rgba(80,180,255,.95);
+  white-space:nowrap;
+  pointer-events:none;
+  letter-spacing:.08em;
+  backdrop-filter:blur(8px);
+}
+/* Zoom-in overlay for scene transition */
+#sceneTransVeil {
+  position:absolute;inset:0;z-index:57;
+  background:radial-gradient(circle at var(--ox,50%) var(--oy,50%), rgba(80,180,255,.18) 0%, rgba(0,0,0,0) 60%);
+  opacity:0;pointer-events:none;transition:opacity .25s;
+}
+#sceneTransVeil.active { opacity:1; }
+
+/* ══ HSM TYPE BUTTONS ══ */
+.hsm-type-btn{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:6px 10px;font-size:10px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .25s;display:flex;align-items:center;justify-content:center;gap:5px;}
+.hsm-type-btn:hover{border-color:rgba(255,255,255,.2);color:var(--text);}
 </style>
 </head>
 <body>
@@ -607,6 +678,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   <div id="viewer360"><canvas id="panoCanvas"></canvas></div>
   <div class="grad"></div><div class="vig"></div>
   <div id="veil"></div>
+  <div id="sceneTransVeil"></div>
   <div class="sp-fill" id="spFill"></div>
   <div id="cur"></div>
 
@@ -841,6 +913,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
         <div class="vm-sep"></div>
         <span class="vm-name" id="vmTitleLabel">—</span>
       </header>
+      <div id="vmSceneTransVeil" style="position:absolute;inset:0;z-index:14;background:rgba(0,0,0,0);pointer-events:none;transition:background .3s;"></div>
       <div id="vmHsLayer" style="position:absolute;inset:0;z-index:15;pointer-events:none;"></div>
       <div class="vm-title-bar" id="vmTitleBar">
         <div class="vmt-n" id="vmTitleN">—</div>
@@ -1435,30 +1508,86 @@ function _tickHS() {
   _hsRaf = requestAnimationFrame(_tickHS);
 }
 
+// ── SCENE SPOT NAVIGATION ─────────────────────────────────────
+// Zooms in to the spot position then transitions to the target scene
+function goToSceneSpot(targetSi, dotEl) {
+  if (targetSi < 0 || targetSi >= PROJ[cP].scenes.length) return;
+  if (targetSi === cS) return;
+
+  // 1. Animate: zoom into spot (FOV narrows), then fade+switch
+  const veil = document.getElementById('sceneTransVeil');
+  const rect  = dotEl ? dotEl.getBoundingClientRect() : null;
+  if (veil && rect) {
+    const cx = ((rect.left + rect.width/2) / window.innerWidth * 100).toFixed(1) + '%';
+    const cy = ((rect.top + rect.height/2) / window.innerHeight * 100).toFixed(1) + '%';
+    veil.style.setProperty('--ox', cx);
+    veil.style.setProperty('--oy', cy);
+    veil.classList.add('active');
+  }
+
+  // 2. Zoom FOV in quickly
+  const startFov = fov;
+  const targetFov = Math.max(20, fov - 28);
+  const startT = Date.now();
+  const dur = 380;
+  function zoomTick() {
+    const t = Math.min(1, (Date.now()-startT)/dur);
+    const ease = 1 - Math.pow(1-t, 3);
+    fov = startFov + (targetFov - startFov) * ease;
+    cam.fov = fov; cam.updateProjectionMatrix();
+    if (t < 1) requestAnimationFrame(zoomTick);
+    else {
+      // 3. Fade and switch scene
+      fade(() => {
+        fov = startFov; cam.fov = fov; cam.updateProjectionMatrix();
+        if (veil) veil.classList.remove('active');
+        selScene(targetSi);
+      });
+    }
+  }
+  requestAnimationFrame(zoomTick);
+}
+
 function renderHS(pi, si) {
   if (_hsRaf) { cancelAnimationFrame(_hsRaf); _hsRaf = null; } _hsItems = [];
   const layer = document.getElementById('hsLayer');
   layer.innerHTML = ''; layer.style.pointerEvents = 'none';
   PROJ[pi].scenes[si].hs.forEach((h, j) => {
-    const dot  = document.createElement('div'); dot.className = 'hs';
+    const isScene = h.type === 'scene';
+    const dot = document.createElement('div');
+    dot.className = 'hs' + (isScene ? ' scene-spot' : '');
     dot.style.cssText = `position:absolute;transform:translate(-50%,-50%);animation-delay:${j*.85}s;opacity:0;pointer-events:all;`;
-    const card = document.createElement('div'); card.className = 'hs-card';
-    card.style.cssText = `position:absolute;${h.x>50?'right':'left'}:18px;top:-5px;`;
-    card.innerHTML =
-      (h.img ? `<img class="hc-img" src="${h.img}" alt="">` : '') +
-      `<div class="hc-body">` +
-      `<div class="hc-eye">${h.title}</div>` +
-      h.details.map(d => `<div class="hc-row">${d}</div>`).join('') +
-      `</div>` +
-      `<button class="hc-x" onclick="this.closest('.hs-card').classList.remove('open')"><i class="ti ti-x"></i></button>`;
-    dot.appendChild(card);
-    dot.addEventListener('mouseenter', () => curEl.classList.add('onhs'));
-    dot.addEventListener('mouseleave', () => curEl.classList.remove('onhs'));
-    dot.addEventListener('click', e => {
-      e.stopPropagation();
-      const was = card.classList.contains('open');
-      closeAllHS(); if (!was) card.classList.add('open');
-    });
+
+    if (isScene) {
+      // Scene navigation spot — label only, no card
+      const targetScene = PROJ[pi].scenes[h.targetScene];
+      const label = document.createElement('div');
+      label.className = 'hs-scene-label';
+      label.textContent = targetScene ? targetScene.name : 'Escena';
+      dot.appendChild(label);
+      dot.addEventListener('click', e => {
+        e.stopPropagation();
+        goToSceneSpot(h.targetScene, dot);
+      });
+    } else {
+      // Regular info hotspot
+      const card = document.createElement('div'); card.className = 'hs-card';
+      card.style.cssText = `position:absolute;${h.x>50?'right':'left'}:18px;top:-5px;`;
+      card.innerHTML =
+        (h.img ? `<img class="hc-img" src="${h.img}" alt="">` : '') +
+        `<div class="hc-body"><div class="hc-eye">${h.title}</div>` +
+        h.details.map(d => `<div class="hc-row">${d}</div>`).join('') +
+        `</div><button class="hc-x" onclick="this.closest('.hs-card').classList.remove('open')"><i class="ti ti-x"></i></button>`;
+      dot.appendChild(card);
+      dot.addEventListener('mouseenter', () => curEl.classList.add('onhs'));
+      dot.addEventListener('mouseleave', () => curEl.classList.remove('onhs'));
+      dot.addEventListener('click', e => {
+        e.stopPropagation();
+        const was = card.classList.contains('open');
+        closeAllHS(); if (!was) card.classList.add('open');
+      });
+    }
+
     layer.appendChild(dot);
     _hsItems.push({ dot, vec3: _pctToVec3(h.x, h.y) });
   });
@@ -1532,12 +1661,17 @@ function hsmBuildList(si) {
   }
   listEl.innerHTML = '';
   hs.forEach((h, j) => {
+    const isScene = h.type === 'scene';
     const item = document.createElement('div'); item.className = 'hsm-item';
-    const thumbHtml = h.img
-      ? `<img class="hsm-item-thumb" src="${h.img}" alt="" onerror="this.style.display='none'">`
-      : `<div class="hsm-item-thumb no-img"><i class="ti ti-photo-off"></i></div>`;
-    const det = h.details?.length ? h.details.join(', ') : '—';
-    item.innerHTML = `<div class="hsm-item-head">${thumbHtml}<div class="hsm-item-info"><div class="hsm-item-title">${h.title}</div><div class="hsm-item-meta">${det}</div></div><div class="hsm-item-actions"><button class="hsm-ibtn" title="Editar" onclick="hsmEditHS(${si},${j})"><i class="ti ti-pencil"></i></button><button class="hsm-ibtn del" title="Eliminar" onclick="hsmDelHS(${si},${j})"><i class="ti ti-trash"></i></button></div></div>`;
+    const thumbHtml = isScene
+      ? `<div class="hsm-item-thumb no-img" style="background:rgba(80,180,255,.1);border:1px solid rgba(80,180,255,.3);"><i class="ti ti-arrow-right-circle" style="color:rgba(80,180,255,.8);font-size:13px;"></i></div>`
+      : (h.img
+        ? `<img class="hsm-item-thumb" src="${h.img}" alt="" onerror="this.style.display='none'">`
+        : `<div class="hsm-item-thumb no-img"><i class="ti ti-photo-off"></i></div>`);
+    const metaText = isScene
+      ? `→ ${PROJ[cP].scenes[h.targetScene]?.name || '?'}`
+      : (h.details?.length ? h.details.join(', ') : '—');
+    item.innerHTML = `<div class="hsm-item-head">${thumbHtml}<div class="hsm-item-info"><div class="hsm-item-title">${isScene?'':''}${h.title}</div><div class="hsm-item-meta" style="${isScene?'color:rgba(80,180,255,.7);':''}">${metaText}</div></div><div class="hsm-item-actions"><button class="hsm-ibtn" title="Editar" onclick="hsmEditHS(${si},${j})"><i class="ti ti-pencil"></i></button><button class="hsm-ibtn del" title="Eliminar" onclick="hsmDelHS(${si},${j})"><i class="ti ti-trash"></i></button></div></div>`;
     listEl.appendChild(item);
   });
 }
@@ -1562,38 +1696,63 @@ function hsmRenderAdd(body, editSi, editJ) {
   const isEdit = editSi !== undefined && editJ !== undefined;
   const h = isEdit ? PROJ[cP].scenes[editSi].hs[editJ] : null;
   const scenes = PROJ[cP].scenes;
-
-  let sceneOpts = scenes.map((s,i) =>
-    `<option value="${i}"${i===cS?' selected':''}>${s.name}</option>`).join('');
+  const editType = isEdit ? (h.type || 'info') : 'info';
+  let sceneOpts  = scenes.map((s,i) => `<option value="${i}"${i===cS?' selected':''}}>${s.name}</option>`).join('');
+  let targetOpts = scenes.map((s,i) => `<option value="${i}"${isEdit&&h.targetScene===i?' selected':''}}>${s.name}</option>`).join('');
 
   body.innerHTML = `
     <div class="hsm-form">
-      <div class="hsm-form-title">${isEdit ? '<i class="ti ti-pencil"></i> Editar hotspot' : '<i class="ti ti-plus"></i> Nuevo hotspot'}</div>
-      ${!isEdit ? `<div class="hsm-lbl">Escena destino</div><select class="hsm-inp" id="hsmSceneSel">${sceneOpts}</select>` : `<div class="hsm-lbl" style="color:var(--accent)">Editando en: ${scenes[editSi].name}</div>`}
-      <div class="hsm-lbl">Título del material *</div>
-      <input class="hsm-inp" id="hsmTitle" placeholder="Ej: Acabado de piso" value="${isEdit?h.title:''}">
-      <div class="hsm-lbl">Detalles (separados por comas)</div>
-      <input class="hsm-inp" id="hsmDetail" placeholder="Mármol travertino, 60×60" value="${isEdit&&h.details?h.details.join(', '):''}">
-      <div class="hsm-lbl">Imagen del material</div>
-      <div style="display:flex;gap:6px;margin-bottom:5px;">
-        <input class="hsm-inp" id="hsmImg" placeholder="URL de imagen o sube un archivo ↓" value="${isEdit&&h.img&&!h.img.startsWith('data:')?h.img:''}" oninput="hsmPreviewImg(this.value)" style="flex:1;">
-        <label style="flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:7px;padding:7px 10px;cursor:pointer;font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px;transition:all .25s;white-space:nowrap;" onmouseover="this.style.borderColor='rgba(184,157,116,.4)'" onmouseout="this.style.borderColor='var(--border)'">
-          <i class="ti ti-upload"></i> Local
-          <input type="file" accept="image/*" style="display:none;" onchange="hsmLoadLocalImg(event)">
-        </label>
+      <div class="hsm-form-title">${isEdit ? '<i class="ti ti-pencil"></i> Editar' : '<i class="ti ti-plus"></i> Nuevo hotspot'}</div>
+      <div class="hsm-lbl">Tipo</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px;">
+        <button class="hsm-type-btn${editType==='info'?' active':''}" id="hsmTypeInfo" onclick="hsmSetType('info')" style="${editType==='info'?'border-color:rgba(184,157,116,.5);color:var(--accent);background:rgba(184,157,116,.12);':''}" >
+          <i class="ti ti-info-circle"></i> Información
+        </button>
+        <button class="hsm-type-btn${editType==='scene'?' active':''}" id="hsmTypeScene" onclick="hsmSetType('scene')" style="${editType==='scene'?'border-color:rgba(80,180,255,.5);color:rgba(80,180,255,.9);background:rgba(80,180,255,.1);':''}" >
+          <i class="ti ti-arrow-right-circle"></i> Ir a escena
+        </button>
       </div>
-      <img class="hsm-img-preview${isEdit&&h.img?' show':''}" id="hsmImgPreview" src="${isEdit&&h.img?h.img:''}" alt="">
-      <div class="hsm-grid">
-        <div><div class="hsm-lbl">X % (horizontal)</div><input class="hsm-inp" id="hsmX" type="number" min="1" max="99" value="${isEdit?h.x:50}"></div>
-        <div><div class="hsm-lbl">Y % (vertical)</div><input class="hsm-inp" id="hsmY" type="number" min="1" max="99" value="${isEdit?h.y:50}"></div>
+      ${!isEdit ? `<div class="hsm-lbl">Escena donde se agrega</div><select class="hsm-inp" id="hsmSceneSel" style="margin-bottom:8px;">${sceneOpts}</select>` : `<div style="font-size:10px;color:var(--accent);margin-bottom:8px;">Editando en: ${scenes[editSi].name}</div>`}
+      <div id="hsmInfoFields" style="display:${editType==='scene'?'none':'block'}">
+        <div class="hsm-lbl">Título *</div>
+        <input class="hsm-inp" id="hsmTitle" placeholder="Ej: Acabado de piso" value="${isEdit&&editType==='info'?h.title:''}">
+        <div class="hsm-lbl">Detalles (separados por comas)</div>
+        <input class="hsm-inp" id="hsmDetail" placeholder="Mármol travertino, 60×60" value="${isEdit&&h.details?h.details.join(', '):''}">
+        <div class="hsm-lbl">Imagen del material</div>
+        <div style="display:flex;gap:6px;margin-bottom:5px;">
+          <input class="hsm-inp" id="hsmImg" placeholder="URL de imagen" value="${isEdit&&h.img&&!h.img.startsWith('data:')?h.img:''}" oninput="hsmPreviewImg(this.value)" style="flex:1;">
+          <label style="flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:7px;padding:7px 10px;cursor:pointer;font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap;">
+            <i class="ti ti-upload"></i> Local<input type="file" accept="image/*" style="display:none;" onchange="hsmLoadLocalImg(event)">
+          </label>
+        </div>
+        <img class="hsm-img-preview${isEdit&&h.img?' show':''}" id="hsmImgPreview" src="${isEdit&&h.img?h.img:''}" alt="">
+      </div>
+      <div id="hsmSceneFields" style="display:${editType==='scene'?'block':'none'}">
+        <div class="hsm-lbl">Escena de destino</div>
+        <select class="hsm-inp" id="hsmTargetScene">${targetOpts}</select>
+        <div style="font-size:10px;color:rgba(80,180,255,.6);margin-top:6px;line-height:1.6;"><i class="ti ti-info-circle"></i> Círculo azul brillante — clic hace zoom y cambia a la escena.</div>
+      </div>
+      <div class="hsm-grid" style="margin-top:10px;">
+        <div><div class="hsm-lbl">X %</div><input class="hsm-inp" id="hsmX" type="number" min="1" max="99" value="${isEdit?h.x:50}"></div>
+        <div><div class="hsm-lbl">Y %</div><input class="hsm-inp" id="hsmY" type="number" min="1" max="99" value="${isEdit?h.y:50}"></div>
       </div>
       <button class="hsm-save" onclick="hsmSave(${isEdit?editSi:'undefined'},${isEdit?editJ:'undefined'})">
-        <i class="ti ti-check"></i> ${isEdit?'Actualizar hotspot':'Guardar hotspot'}
+        <i class="ti ti-check"></i> ${isEdit?'Actualizar':'Guardar hotspot'}
       </button>
-      ${!isEdit ? `<div class="hsm-hint"><i class="ti ti-map-pin"></i> Haz clic en el visor para auto-posicionar</div>` : ''}
+      ${!isEdit ? '<div class="hsm-hint"><i class="ti ti-map-pin"></i> Haz clic en el visor para auto-posicionar</div>' : ''}
     </div>`;
-
   if (!isEdit && PROJ[cP].scenes[cS].img) startAddHS();
+}
+
+function hsmSetType(type) {
+  const info  = document.getElementById('hsmInfoFields');
+  const scene = document.getElementById('hsmSceneFields');
+  if (info)  info.style.display  = type==='info'  ? 'block' : 'none';
+  if (scene) scene.style.display = type==='scene' ? 'block' : 'none';
+  const ib = document.getElementById('hsmTypeInfo');
+  const sb = document.getElementById('hsmTypeScene');
+  if(ib) ib.style.cssText = type==='info'  ? 'border-color:rgba(184,157,116,.5);color:var(--accent);background:rgba(184,157,116,.12);' : '';
+  if(sb) sb.style.cssText = type==='scene' ? 'border-color:rgba(80,180,255,.5);color:rgba(80,180,255,.9);background:rgba(80,180,255,.1);' : '';
 }
 
 // Load local image file → base64 for hotspot
@@ -1625,24 +1784,36 @@ function hsmSave(editSiRaw, editJRaw) {
   const isEdit = editSiRaw !== undefined && editSiRaw !== 'undefined';
   const editSi = isEdit ? parseInt(editSiRaw) : undefined;
   const editJ  = isEdit ? parseInt(editJRaw)  : undefined;
-  const title   = (document.getElementById('hsmTitle')?.value||'').trim();
-  const detRaw  = document.getElementById('hsmDetail')?.value||'';
-  const details = detRaw.split(',').map(s=>s.trim()).filter(Boolean);
-  // Image: prefer local b64, then URL field
-  const prev   = document.getElementById('hsmImgPreview');
-  const localB64 = prev?.dataset?.localB64 || null;
-  const urlVal   = (document.getElementById('hsmImg')?.value||'').trim();
-  const imgUrl   = localB64 || urlVal || null;
+
+  // Detect type from visible fields
+  const sceneFields = document.getElementById('hsmSceneFields');
+  const type = (sceneFields && sceneFields.style.display !== 'none') ? 'scene' : 'info';
+
   const x = parseInt(document.getElementById('hsmX')?.value)||50;
   const y = parseInt(document.getElementById('hsmY')?.value)||50;
   const si = isEdit ? editSi : parseInt(document.getElementById('hsmSceneSel')?.value ?? cS);
 
-  if (!title) { toast('Escribe un título para el hotspot'); return; }
+  let obj;
+  if (type === 'scene') {
+    const targetScene = parseInt(document.getElementById('hsmTargetScene')?.value ?? 0);
+    const targetName  = PROJ[cP].scenes[targetScene]?.name || 'Escena';
+    obj = { type:'scene', x, y, title: targetName, details:[], img:null, targetScene };
+  } else {
+    const title   = (document.getElementById('hsmTitle')?.value||'').trim();
+    const detRaw  = document.getElementById('hsmDetail')?.value||'';
+    const details = detRaw.split(',').map(s=>s.trim()).filter(Boolean);
+    const prev    = document.getElementById('hsmImgPreview');
+    const localB64 = prev?.dataset?.localB64 || null;
+    const urlVal  = (document.getElementById('hsmImg')?.value||'').trim();
+    const imgUrl  = localB64 || urlVal || null;
+    if (!title) { toast('Escribe un título para el hotspot'); return; }
+    obj = { type:'info', x, y, title, details, img: imgUrl };
+  }
+
   if (!PROJ[cP].scenes[si].img) { toast('Carga la panorámica de esa escena primero'); return; }
 
-  const obj = { x, y, title, details, img: imgUrl };
   if (isEdit) { PROJ[cP].scenes[si].hs[editJ] = obj; toast('Hotspot actualizado ✓'); }
-  else        { PROJ[cP].scenes[si].hs.push(obj);    toast('Hotspot guardado ✓'); }
+  else        { PROJ[cP].scenes[si].hs.push(obj);    toast(type==='scene'?'Punto de navegación guardado ✓':'Hotspot guardado ✓'); }
 
   cancelAddHS();
   clearHS(); renderHS(cP, cS); buildList(); autoSave();
@@ -2126,28 +2297,39 @@ function vmInitThree() {
   }, {passive:false});
 
   // Touch: drag + pinch-to-zoom + inertia
+  // Attach to document-level to capture all touches even if finger moves over UI elements
   let _vt2=false, _vInitDist=0, _vInitFov=55;
-  vmCv.addEventListener('touchstart', e => {
-    e.preventDefault(); vmStopInertia(); _vmVLon=0; _vmVLat=0;
+  const vmTouchTarget = document.getElementById('visorMode');
+
+  vmTouchTarget.addEventListener('touchstart', e => {
+    // Only handle if touch originated on canvas or viewer (not on btmbar buttons)
+    const tag = e.target.tagName;
+    if (tag === 'BUTTON' || tag === 'SELECT' || tag === 'INPUT') return;
+    e.preventDefault();
+    vmStopInertia(); _vmVLon=0; _vmVLat=0;
     if(e.touches.length===2){
-      _vt2=true;
+      _vt2=true; vmDn=false;
       const dx=e.touches[0].clientX-e.touches[1].clientX;
       const dy=e.touches[0].clientY-e.touches[1].clientY;
       _vInitDist=Math.sqrt(dx*dx+dy*dy); _vInitFov=vmFov;
     } else {
-      vmDn=true; vmLx=e.touches[0].clientX; vmLy=e.touches[0].clientY; _vmLastT=Date.now();
+      _vt2=false; vmDn=true;
+      vmLx=e.touches[0].clientX; vmLy=e.touches[0].clientY; _vmLastT=Date.now();
     }
   }, {passive:false});
-  vmCv.addEventListener('touchmove', e => {
+
+  vmTouchTarget.addEventListener('touchmove', e => {
+    const tag = e.target.tagName;
+    if (tag === 'BUTTON' || tag === 'SELECT' || tag === 'INPUT') return;
     e.preventDefault();
-    if(e.touches.length===2&&_vt2){
+    if(e.touches.length===2 && _vt2){
       const dx=e.touches[0].clientX-e.touches[1].clientX;
       const dy=e.touches[0].clientY-e.touches[1].clientY;
       vmFov=Math.min(100,Math.max(20,_vInitFov*(_vInitDist/Math.sqrt(dx*dx+dy*dy))));
       vmCam.fov=vmFov; vmCam.updateProjectionMatrix();
       document.getElementById('vmFovLabel').textContent=Math.round(vmFov)+'°';
-    } else if(vmDn&&e.touches.length===1){
-      const nx=e.touches[0].clientX,ny=e.touches[0].clientY;
+    } else if(vmDn && e.touches.length===1){
+      const nx=e.touches[0].clientX, ny=e.touches[0].clientY;
       const dt=Math.max(1,Date.now()-_vmLastT);
       const dlon=-(nx-vmLx)*.06, dlat=(ny-vmLy)*.06;
       vmLon+=dlon; vmLat+=dlat;
@@ -2155,10 +2337,11 @@ function vmInitThree() {
       vmLx=nx; vmLy=ny; _vmLastT=Date.now(); vmUpdateCam();
     }
   }, {passive:false});
-  vmCv.addEventListener('touchend', e => {
+
+  vmTouchTarget.addEventListener('touchend', e => {
     if(e.touches.length===0){ vmDn=false; _vt2=false; vmStartInertia(); }
-    else if(e.touches.length===1){ _vt2=false; vmLx=e.touches[0].clientX; vmLy=e.touches[0].clientY; }
-  });
+    else if(e.touches.length===1){ _vt2=false; vmDn=true; vmLx=e.touches[0].clientX; vmLy=e.touches[0].clientY; _vmLastT=Date.now(); }
+  }, {passive:true});
 
   // Resize observer — keeps renderer sharp on resize/fullscreen
   new ResizeObserver(() => {
@@ -2209,19 +2392,25 @@ function vmToggleAuto() {
 
 // ── FULLSCREEN (visor de cliente) ─────────────────────────
 function vmToggleFullscreen() {
-  const el = document.getElementById('visorMode');
-  const btn = document.getElementById('vmBtnFs');
+  const el  = document.getElementById('visorMode');
   const isFs = !!document.fullscreenElement || !!document.webkitFullscreenElement;
   if (!isFs) {
+    // Request fullscreen on the visorMode element itself
     try {
-      if (el.requestFullscreen)       el.requestFullscreen();
+      if (el.requestFullscreen)            el.requestFullscreen();
       else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-    } catch(e) {}
+      // Also apply fs-on immediately for browsers that delay the event
+      setTimeout(() => el.classList.add('fs-on'), 50);
+    } catch(e) {
+      // Fallback: just apply fs-on class (pseudo-fullscreen via CSS)
+      el.classList.add('fs-on');
+    }
   } else {
     try {
-      if (document.exitFullscreen)        document.exitFullscreen();
-      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      if (document.exitFullscreen)             document.exitFullscreen();
+      else if (document.webkitExitFullscreen)  document.webkitExitFullscreen();
     } catch(e) {}
+    el.classList.remove('fs-on');
   }
 }
 
@@ -2341,47 +2530,106 @@ function vmBuildLinkForScene(pi, si) {
 }
 
 // Guardar link con nombre de cliente
-function vmSaveLink() {
+// ── SHORT LINKS via TinyURL ──────────────────────────────────────
+// Free CORS-friendly API, no key required
+async function shortenUrl(longUrl) {
+  try {
+    const res = await fetch('https://tinyurl.com/api-create.php?url=' + encodeURIComponent(longUrl));
+    if (!res.ok) throw new Error('api error');
+    const short = (await res.text()).trim();
+    if (short.startsWith('https://tinyurl.com/')) return short;
+    throw new Error('bad response');
+  } catch(e) {
+    return longUrl; // fallback silently
+  }
+}
+
+// ── SCENE PICKER MODAL ──────────────────────────────────────────
+function vmOpenScenePicker(action) {
   saveVmData();
-  const url = vmBuildLink();
-  if (!url) return;
-  const clientName = prompt('Nombre del cliente o identificador del link:','');
-  if (clientName === null) return; // cancelled
-  const id = Date.now().toString(36);
-  savedLinks.push({
-    id,
-    name: clientName.trim() || 'Link ' + (savedLinks.length+1),
-    url,
-    created: new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}),
-    projName: document.getElementById('vmProjName').value.trim(),
-    sceneCount: vmScenes.length
+  if (!vmScenes.length) { toast('Agrega al menos una escena primero'); return; }
+  const modal = document.getElementById('vmPickerModal');
+  const list  = document.getElementById('vmPickerList');
+  const title = document.getElementById('vmPickerTitle');
+  title.textContent = action === 'save' ? 'Guardar link para cliente' :
+                      action === 'open' ? 'Abrir visor en nueva pestaña' : 'Copiar link';
+  list.innerHTML = '';
+  vmScenes.forEach((s, i) => {
+    const row = document.createElement('label');
+    row.className = 'vmp-row';
+    row.innerHTML =
+      `<input type="checkbox" class="vmp-chk" value="${i}" checked>` +
+      `<span class="vmp-thumb" style="background-image:url('${s.url}')"></span>` +
+      `<span class="vmp-info"><b>${s.name}</b><small>${s.meta||''}</small></span>`;
+    list.appendChild(row);
   });
-  persistLinks();
-  toast('Link guardado ✓');
-  renderLinksPanel();
+  modal.dataset.action = action;
+  modal.classList.add('show');
 }
 
-function vmGenerateLink() {
-  saveVmData();
-  const url = vmBuildLink();
-  if (!url) return;
-  window.open(url,'_blank');
-  toast('Abriendo en nueva pestaña ✓');
+function vmPickerClose() {
+  document.getElementById('vmPickerModal').classList.remove('show');
 }
 
-function vmCopyLink() {
-  saveVmData();
-  const url = vmBuildLink();
-  if (!url) return;
-  if (navigator.clipboard) navigator.clipboard.writeText(url).then(()=>toast('Link copiado ✓')).catch(()=>prompt('Copia:',url));
-  else prompt('Copia:',url);
+async function vmPickerConfirm() {
+  const modal  = document.getElementById('vmPickerModal');
+  const action = modal.dataset.action;
+  const checked = [...document.querySelectorAll('.vmp-chk:checked')]
+    .map(c => vmScenes[+c.value]).filter(Boolean);
+  if (!checked.length) { toast('Selecciona al menos una escena'); return; }
+  vmPickerClose();
+
+  const longUrl = vmBuildLink(checked);
+  if (!longUrl) return;
+
+  if (action === 'open') {
+    window.open(longUrl, '_blank');
+    toast('Abriendo visor ✓');
+  } else if (action === 'copy') {
+    toast('Generando link corto…');
+    const short = await shortenUrl(longUrl);
+    if (navigator.clipboard) navigator.clipboard.writeText(short)
+      .then(()=>toast('Link copiado ✓ — ' + short.replace('https://',''))).catch(()=>prompt('Copia:', short));
+    else prompt('Copia:', short);
+  } else if (action === 'save') {
+    const clientName = prompt('Nombre del cliente:', '');
+    if (clientName === null) return;
+    toast('Generando link corto…');
+    const short = await shortenUrl(longUrl);
+    const id = Date.now().toString(36);
+    savedLinks.push({
+      id,
+      name: clientName.trim() || 'Link ' + (savedLinks.length+1),
+      url: longUrl,
+      shortUrl: short !== longUrl ? short : null,
+      created: new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}),
+      projName: document.getElementById('vmProjName').value.trim(),
+      sceneCount: checked.length,
+      sceneNames: checked.map(s=>s.name)
+    });
+    persistLinks();
+    renderLinksPanel();
+    toast('Link guardado ✓' + (short !== longUrl ? ' — ' + short.replace('https://','') : ''));
+  }
 }
 
-function copyLinkById(id) {
+function vmSaveLink()     { vmOpenScenePicker('save'); }
+function vmGenerateLink() { vmOpenScenePicker('open'); }
+function vmCopyLink()     { vmOpenScenePicker('copy'); }
+
+async function copyLinkById(id) {
   const lk = savedLinks.find(l=>l.id===id);
   if (!lk) return;
-  if (navigator.clipboard) navigator.clipboard.writeText(lk.url).then(()=>toast('Link copiado ✓')).catch(()=>prompt('Copia:',lk.url));
-  else prompt('Copia:',lk.url);
+  if (!lk.shortUrl) {
+    toast('Acortando link…');
+    lk.shortUrl = await shortenUrl(lk.url);
+    if (lk.shortUrl === lk.url) lk.shortUrl = null; // didn't shorten
+    persistLinks();
+  }
+  const toCopy = lk.shortUrl || lk.url;
+  if (navigator.clipboard) navigator.clipboard.writeText(toCopy)
+    .then(()=>toast('Link copiado ✓')).catch(()=>prompt('Copia:', toCopy));
+  else prompt('Copia:', toCopy);
 }
 
 function openLinkById(id) {
@@ -2424,11 +2672,13 @@ function renderLinksPanel() {
     mainRow.innerHTML = `
       <div class="vml-info" style="cursor:pointer;flex:1;" onclick="vmlToggleScenes('${lk.id}')">
         <div class="vml-name">${lk.name}</div>
-        <div class="vml-meta">${lk.projName||''} · ${sceneCount} escena${sceneCount!==1?'s':''} · ${lk.created} <i class="ti ti-chevron-down" id="vmlChev_${lk.id}" style="font-size:9px;transition:transform .25s;"></i></div>
+        <div class="vml-meta">${lk.projName||''} · ${sceneCount} escena${sceneCount!==1?'s':''} · ${lk.created}</div>
+        ${lk.shortUrl ? `<div style="font-size:9px;color:var(--accent);opacity:.7;margin-top:1px;">${lk.shortUrl.replace('https://','')}</div>` : ''}
+        <i class="ti ti-chevron-down" id="vmlChev_${lk.id}" style="font-size:9px;transition:transform .25s;"></i>
       </div>
       <div class="vml-actions">
         <button class="vml-btn" title="Abrir" onclick="openLinkById('${lk.id}')"><i class="ti ti-external-link"></i></button>
-        <button class="vml-btn" title="Copiar" onclick="copyLinkById('${lk.id}')"><i class="ti ti-copy"></i></button>
+        <button class="vml-btn" title="Copiar link" onclick="copyLinkById('${lk.id}')"><i class="ti ti-copy"></i></button>
         <button class="vml-btn" title="Renombrar" onclick="editLinkById('${lk.id}')"><i class="ti ti-pencil"></i></button>
         <button class="vml-btn del" title="Eliminar" onclick="deleteLinkById('${lk.id}')"><i class="ti ti-trash"></i></button>
       </div>`;
@@ -2539,38 +2789,60 @@ window.addEventListener('load', () => {
   renderLinksPanel();
 
   // ── MOBILE / iOS DETECTION ──
-  const _isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const _isMobile = _isIOS || /android/i.test(navigator.userAgent) ||
+  const _isIOS    = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const _isAndroid = /android/i.test(navigator.userAgent);
+  const _isMobile = _isIOS || _isAndroid ||
     (navigator.maxTouchPoints > 1 && !/macintosh/i.test(navigator.userAgent));
+
   if (_isMobile) {
     document.body.classList.add('is-mobile');
-    // Hide desktop cursor custom element on touch devices
-    const cur = document.getElementById('cur');
-    if (cur) cur.style.display = 'none';
+    const cur   = document.getElementById('cur');
     const vmCur = document.getElementById('vmCur');
+    if (cur)   cur.style.display   = 'none';
     if (vmCur) vmCur.style.display = 'none';
   }
-  if (_isIOS) {
-    document.body.classList.add('is-ios');
-    // iOS Safari hides the URL bar after scroll; use visual viewport API for btmBar
-    const _resizeBar = () => {
-      const vvh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-      const wh  = window.screen.height;
-      const safeBottom = Math.max(0, wh - vvh - 10);
-      // Push btmBar and vm-btmbar up by the URL bar height
-      const bb = document.getElementById('btmBar');
-      if (bb) bb.style.bottom = (18 + safeBottom) + 'px';
-      const vmbb = document.querySelector('.vm-btmbar');
-      if (vmbb) vmbb.style.bottom = safeBottom + 'px';
-      const vtb = document.querySelector('.vm-title-bar');
-      if (vtb) vtb.style.bottom = (68 + safeBottom) + 'px';
-    };
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', _resizeBar);
-      window.visualViewport.addEventListener('scroll', _resizeBar);
+
+  // ── MOBILE BTMBAR POSITIONING ──
+  // Uses visualViewport to correctly track URL-bar height on iOS & Android.
+  // requestFullscreen is NOT used on mobile — we rely on 100dvh + this offset.
+  function _updateBarPositions() {
+    const vvh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    const ivh = window.innerHeight;
+    // Gap = height lost to browser chrome (URL bar, nav bar)
+    const gap = Math.max(0, ivh - vvh);
+
+    const bb  = document.getElementById('btmBar');
+    const vmbb = document.querySelector('#vmViewer .vm-btmbar');
+    const vtb  = document.querySelector('#vmViewer .vm-title-bar');
+    const vex  = document.querySelectorAll('#vmViewer .vm-exit-btn');
+
+    if (_isMobile) {
+      // Keep bars above the browser chrome
+      if (bb)   bb.style.bottom    = (gap + 8) + 'px';
+      if (vmbb) vmbb.style.bottom  = (gap + 8) + 'px';
+      if (vtb)  vtb.style.bottom   = (gap + 66) + 'px';
+      vex.forEach(b => b.style.bottom = (gap + 60) + 'px');
     }
-    window.addEventListener('resize', _resizeBar);
-    _resizeBar();
+  }
+
+  if (_isMobile) {
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', _updateBarPositions);
+      window.visualViewport.addEventListener('scroll', _updateBarPositions);
+    }
+    window.addEventListener('resize', _updateBarPositions);
+    // Run immediately and again after a short delay (iOS fires late)
+    _updateBarPositions();
+    setTimeout(_updateBarPositions, 300);
+    setTimeout(_updateBarPositions, 800);
+  }
+
+  // ── FULLSCREEN on mobile: hide the button, use pseudo-fullscreen instead ──
+  // iOS Safari never supports requestFullscreen. On mobile we make #visorMode
+  // cover 100dvh fixed — which is already done in CSS. The button is hidden.
+  if (_isMobile) {
+    const fsBtn = document.getElementById('vmBtnFs');
+    if (fsBtn) fsBtn.style.display = 'none';
   }
 
   // Hide touch hint after 3s
