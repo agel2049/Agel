@@ -692,6 +692,13 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 /* In pseudo-fs, hide topbar but keep btmbar always visible */
 #visorMode.pseudo-fs .vm-topbar { opacity:0 !important; pointer-events:none !important; }
 #visorMode.pseudo-fs .vm-btmbar { opacity:1 !important; pointer-events:all !important; bottom:8px !important; }
+
+/* ══ SUPABASE UPLOAD UI ══ */
+.upl-progress{width:100%;height:3px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;margin-top:10px;display:none;}
+.upl-progress.show{display:block;}
+.upl-progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),#5DCAA5);border-radius:99px;width:0%;transition:width .3s;}
+.upl-status{font-size:10px;color:var(--muted);margin-top:6px;letter-spacing:.05em;min-height:14px;}
+.upl-sb-badge{display:inline-flex;align-items:center;gap:4px;font-size:9px;color:#5DCAA5;opacity:.7;margin-top:4px;letter-spacing:.08em;}
 </style>
 </head>
 <body>
@@ -759,8 +766,13 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
       <div class="upl-i"><i class="ti ti-photo-up"></i></div>
       <div class="upl-t">Carga una panorámica</div>
       <div class="upl-s">Equirectangular · JPG PNG WEBP<br>Proporción 2:1 recomendada</div>
+      <div class="upl-sb-badge"><i class="ti ti-cloud-upload"></i> Supabase — hasta 50 MB, calidad original</div>
       <button class="upl-cta">Seleccionar imagen</button>
     </div>
+    <div class="upl-progress" id="uplProgress">
+      <div class="upl-progress-bar" id="uplProgressBar"></div>
+    </div>
+    <div class="upl-status" id="uplStatus"></div>
   </div>
 
   <div id="hsLayer"></div>
@@ -1009,6 +1021,55 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 // loaded{} es solo caché de texturas Three.js en memoria.
 // ════════════════════════════════════════════════════════════
 
+// ══ SUPABASE CONFIG ══════════════════════════════════════════════
+const SUPA_URL    = 'https://ajvijnvmvniafevcrqfj.supabase.co';
+const SUPA_ANON   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqdmlqbnZtdm5pYWZldmNycWZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMjM3MjYsImV4cCI6MjA5NTU5OTcyNn0.2U2umxWVOLN3QElhnV9-j3QY2-ALzU6aGpxyN7MRZUw';
+const SUPA_BUCKET = 'panoramas';
+
+// Upload a File to Supabase Storage — returns public URL, calls onProgress(0-100)
+async function supaUpload(file, onProgress) {
+  const ext  = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const safe = file.name.replace(/\.[^.]+$/, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60);
+  const path = `${Date.now()}_${safe}.${ext}`;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${SUPA_URL}/storage/v1/object/${SUPA_BUCKET}/${path}`);
+    xhr.setRequestHeader('Authorization', `Bearer ${SUPA_ANON}`);
+    xhr.setRequestHeader('apikey', SUPA_ANON);
+    xhr.setRequestHeader('x-upsert', 'true');
+    xhr.setRequestHeader('Content-Type', file.type || 'image/jpeg');
+    if (onProgress) {
+      xhr.upload.addEventListener('progress', e => {
+        if (e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100));
+      });
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(`${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${path}`);
+      } else {
+        reject(new Error(`Supabase ${xhr.status}: ${xhr.responseText}`));
+      }
+    };
+    xhr.onerror = () => reject(new Error('Error de red al subir'));
+    xhr.send(file);
+  });
+}
+
+// Delete a file from Supabase by its public URL
+async function supaDelete(publicUrl) {
+  try {
+    const path = publicUrl.split(`/object/public/${SUPA_BUCKET}/`)[1];
+    if (!path) return;
+    await fetch(`${SUPA_URL}/storage/v1/object/${SUPA_BUCKET}/${path}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${SUPA_ANON}`, 'apikey': SUPA_ANON }
+    });
+  } catch(e) { console.warn('supaDelete:', e); }
+}
+
 // ── DEFAULTS ──
 const PROJ_DEFAULT = [
   {
@@ -1109,7 +1170,12 @@ function saveData() {
   try {
     const slim = PROJ.map(p => ({
       ...p,
-      scenes: p.scenes.map(s => ({ ...s, img: null, thumb: null }))
+      scenes: p.scenes.map(s => ({
+        ...s,
+        img:   null,   // never store full b64/blob URL in localStorage
+        thumb: null,   // stored in IDB separately
+        // supaUrl IS preserved — it's just a short URL string, not the image itself
+      }))
     }));
     localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 4, cP, cS, proj: slim }));
   } catch(e) { console.error('Meta save failed:', e); }
@@ -1157,35 +1223,49 @@ function resetAllData() {
 
 // Rebuild all textures from IndexedDB after page load
 function rebuildTextures() {
-  let count = 0;
+  showSceneLoading(true);
   const tasks = [];
   PROJ.forEach((p, pi) => {
     p.scenes.forEach((s, si) => {
-      tasks.push(
-        idbGet(`img_${pi}_${si}`).then(b64 => {
-          if (!b64) return;
-          count++;
-          PROJ[pi].scenes[si].img = b64; // restore in-memory ref
+      tasks.push((async () => {
+        // Prefer Supabase URL (no IDB needed, always fresh)
+        if (s.supaUrl) {
+          PROJ[pi].scenes[si].img = s.supaUrl;
           const loader = new THREE.TextureLoader();
-          loader.load(b64, tex => {
-            texCache[k(pi, si)] = tex;
-            if (pi === cP && si === cS && sphere) {
+          loader.load(s.supaUrl, tex => {
+            texCache[k(pi,si)] = tex;
+            if (pi===cP && si===cS && sphere) {
+              if (sphere.material) sphere.material.dispose();
               sphere.material = new THREE.MeshBasicMaterial({ map: tex });
               document.getElementById('upl').classList.add('hide');
-              renderHS(cP, cS);
+              renderHS(cP,cS);
             }
           });
-          return idbGet(`thumb_${pi}_${si}`).then(th => {
-            if (th) setThumb(`sph${pi}_${si}`, th);
-          });
-        })
-      );
+          const th = await idbGet(`thumb_${pi}_${si}`).catch(()=>null);
+          if (th) { PROJ[pi].scenes[si].thumb=th; setThumb(`sph${pi}_${si}`,th); }
+          return;
+        }
+        // Fallback: local IndexedDB blob
+        const blob = await idbGet(`img_${pi}_${si}`).catch(()=>null);
+        if (!blob) return;
+        const src = (blob instanceof Blob) ? URL.createObjectURL(blob) : blob;
+        PROJ[pi].scenes[si].img = src;
+        const loader = new THREE.TextureLoader();
+        loader.load(src, tex => {
+          texCache[k(pi,si)] = tex;
+          if (pi===cP && si===cS && sphere) {
+            if (sphere.material) sphere.material.dispose();
+            sphere.material = new THREE.MeshBasicMaterial({ map: tex });
+            document.getElementById('upl').classList.add('hide');
+            renderHS(cP,cS);
+          }
+        });
+        const th = await idbGet(`thumb_${pi}_${si}`).catch(()=>null);
+        if (th) { PROJ[pi].scenes[si].thumb=th; setThumb(`sph${pi}_${si}`,th); }
+      })());
     });
   });
-  Promise.all(tasks).then(() => {
-    if (count > 0) toast(`${count} panorámica${count>1?'s':''} restaurada${count>1?'s':''} ✓`);
-  });
-  return count; // approximate, actual loading is async
+  Promise.all(tasks).then(()=>showSceneLoading(false)).catch(()=>showSceneLoading(false));
 }
 
 // Dispose textures far from current scene
@@ -1321,36 +1401,80 @@ function updateFovLabel() { document.getElementById('fovLabel').textContent = Ma
 function zoomIn()  { fov = Math.max(20, fov - 8); cam.fov = fov; cam.updateProjectionMatrix(); updateFovLabel(); }
 function zoomOut() { fov = Math.min(100, fov + 8); cam.fov = fov; cam.updateProjectionMatrix(); updateFovLabel(); }
 
-// ── LOAD PANORAMA (FileReader → b64 → IndexedDB + PROJ → texCache → render) ──
+// ── LOAD PANORAMA — Upload to Supabase (original quality), fallback to IndexedDB ──
 function loadPano(e) {
-  const f = e.target.files[0]; if (!f) return;
+  const file = e.target.files[0]; if (!file) return;
+  e.target.value = '';
+  const sizeMB = (file.size / 1024 / 1024).toFixed(1);
   document.getElementById('upl').classList.add('hide');
-  toast('Cargando imagen...');
-  const reader = new FileReader();
-  reader.onload = function() {
-    const b64 = reader.result;
-    // Store reference in memory
-    PROJ[cP].scenes[cS].img   = b64;
-    PROJ[cP].scenes[cS].thumb = b64;
-    // Persist image to IndexedDB (no size limit problems)
-    saveImageIDB(cP, cS, b64);
-    saveThumbIDB(cP, cS, b64);
-    // Build Three.js texture
+  showSceneLoading(true);
+
+  const progressWrap = document.getElementById('uplProgress');
+  const progressBar  = document.getElementById('uplProgressBar');
+  const statusEl     = document.getElementById('uplStatus');
+  if (progressWrap) progressWrap.classList.add('show');
+  if (statusEl) statusEl.textContent = `Subiendo ${sizeMB} MB a Supabase…`;
+
+  supaUpload(file, pct => {
+    if (progressBar) progressBar.style.width = pct + '%';
+    if (statusEl) statusEl.textContent = `Subiendo ${sizeMB} MB… ${pct}%`;
+  })
+  .then(publicUrl => {
+    if (progressWrap) progressWrap.classList.remove('show');
+    if (statusEl) statusEl.textContent = '';
+    _applyPanoUrl(file, publicUrl);
+  })
+  .catch(err => {
+    console.warn('Supabase upload failed, using local IndexedDB:', err);
+    if (progressWrap) progressWrap.classList.remove('show');
+    if (statusEl) { statusEl.textContent = '⚠ Sin conexión — guardado local'; setTimeout(() => statusEl.textContent='', 3500); }
+    toast('Sin conexión a Supabase — guardando local');
+    _applyPanoLocal(file);
+  });
+}
+
+// Apply a Supabase-hosted panorama URL
+function _applyPanoUrl(file, url) {
+  PROJ[cP].scenes[cS].img     = url;
+  PROJ[cP].scenes[cS].supaUrl = url;
+  _makeThumb(file, tb => {
+    PROJ[cP].scenes[cS].thumb = tb;
+    idbSet(`thumb_${cP}_${cS}`, tb);
+    setThumb(`sph${cP}_${cS}`, tb);
+  });
+  const loader = new THREE.TextureLoader();
+  loader.load(url, tex => {
+    if (texCache[k(cP,cS)]) texCache[k(cP,cS)].dispose();
+    texCache[k(cP,cS)] = tex;
+    sphere.material = new THREE.MeshBasicMaterial({ map: tex });
+    lon=0; lat=0; updateCam(); renderHS(cP,cS); updateClientCount();
+    showSceneLoading(false);
+    toast(`☁ Subida a Supabase ✓ — ${(file.size/1024/1024).toFixed(1)} MB, calidad original`);
+    autoSave();
+  }, undefined, () => { showSceneLoading(false); toast('Error al cargar desde Supabase'); });
+}
+
+// Apply a panorama locally via IndexedDB (Supabase fallback)
+function _applyPanoLocal(file) {
+  idbSet(`img_${cP}_${cS}`, file).then(() => {
+    const objUrl = URL.createObjectURL(file);
+    PROJ[cP].scenes[cS].img = objUrl;
+    _makeThumb(file, tb => {
+      PROJ[cP].scenes[cS].thumb = tb;
+      idbSet(`thumb_${cP}_${cS}`, tb);
+      setThumb(`sph${cP}_${cS}`, tb);
+    });
     const loader = new THREE.TextureLoader();
-    loader.load(b64, tex => {
+    loader.load(objUrl, tex => {
       if (texCache[k(cP,cS)]) texCache[k(cP,cS)].dispose();
       texCache[k(cP,cS)] = tex;
       sphere.material = new THREE.MeshBasicMaterial({ map: tex });
-      lon = 0; lat = 0; updateCam();
-      renderHS(cP, cS);
-      setThumb(`sph${cP}_${cS}`, b64);
-      updateClientCount();
-      toast('Panorámica guardada ✓');
-      autoSave(); // saves metadata (names, hotspots, etc.)
+      lon=0; lat=0; updateCam(); renderHS(cP,cS); updateClientCount();
+      showSceneLoading(false);
+      toast('Panorámica guardada localmente ✓');
+      autoSave();
     });
-  };
-  reader.readAsDataURL(f);
-  e.target.value = '';
+  }).catch(() => { showSceneLoading(false); toast('Error al guardar imagen'); });
 }
 
 function setThumb(id, src) {
@@ -1449,32 +1573,52 @@ function selScene(si) {
     });
     document.getElementById('upl').classList.add('hide');
   } else {
-    // Try loading from IndexedDB
-    idbGet(`img_${cP}_${si}`).then(b64 => {
-      if (b64) {
-        PROJ[cP].scenes[si].img = b64;
-        document.getElementById('upl').classList.add('hide');
-        toast('Cargando escena...');
-        fade(() => {
-          const loader = new THREE.TextureLoader();
-          loader.load(b64, tex => {
-            texCache[k(cP,si)] = tex;
-            sphere.material = new THREE.MeshBasicMaterial({ map: tex });
-            lon=0; lat=0; updateCam(); renderHS(cP,si); manageTextures();
+    // Try Supabase URL first, then IndexedDB
+    const supaUrl = PROJ[cP].scenes[si].supaUrl;
+    if (supaUrl) {
+      document.getElementById('upl').classList.add('hide');
+      showSceneLoading(true);
+      fade(() => {
+        const loader = new THREE.TextureLoader();
+        loader.load(supaUrl, tex => {
+          if (texCache[k(cP,si)]) texCache[k(cP,si)].dispose();
+          texCache[k(cP,si)] = tex;
+          PROJ[cP].scenes[si].img = supaUrl;
+          sphere.material = new THREE.MeshBasicMaterial({ map: tex });
+          lon=0; lat=0; updateCam(); renderHS(cP,si); manageTextures();
+          showSceneLoading(false);
+        }, undefined, () => { showSceneLoading(false); toast('Error al cargar desde Supabase'); });
+      });
+    } else {
+      idbGet(`img_${cP}_${si}`).then(blob => {
+        if (blob) {
+          const src = (blob instanceof Blob) ? URL.createObjectURL(blob) : blob;
+          PROJ[cP].scenes[si].img = src;
+          document.getElementById('upl').classList.add('hide');
+          showSceneLoading(true);
+          fade(() => {
+            const loader = new THREE.TextureLoader();
+            loader.load(src, tex => {
+              if (texCache[k(cP,si)]) texCache[k(cP,si)].dispose();
+              texCache[k(cP,si)] = tex;
+              sphere.material = new THREE.MeshBasicMaterial({ map: tex });
+              lon=0; lat=0; updateCam(); renderHS(cP,si); manageTextures();
+              showSceneLoading(false);
+            }, undefined, () => { showSceneLoading(false); toast('Error al cargar escena'); });
           });
-        });
-      } else {
+        } else {
+          fade(() => {
+            sphere.material = new THREE.MeshBasicMaterial({ color: 0x080810 });
+            document.getElementById('upl').classList.remove('hide');
+          });
+        }
+      }).catch(() => {
         fade(() => {
           sphere.material = new THREE.MeshBasicMaterial({ color: 0x080810 });
           document.getElementById('upl').classList.remove('hide');
         });
-      }
-    }).catch(() => {
-      fade(() => {
-        sphere.material = new THREE.MeshBasicMaterial({ color: 0x080810 });
-        document.getElementById('upl').classList.remove('hide');
       });
-    });
+    }
   }
 }
 
