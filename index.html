@@ -1280,6 +1280,20 @@ function resetAllData() {
     db.transaction(IDB_STORE, 'readwrite').objectStore(IDB_STORE).clear();
   }).finally(() => location.reload());
 }
+function showSceneLoading(show) {
+  const veil = document.getElementById('veil');
+  const bar  = document.querySelector('.sp-fill');
+  if (show) {
+    if (veil) veil.classList.add('on');
+    if (bar)  bar.style.width = '60%';
+  } else {
+    if (bar)  bar.style.width = '100%';
+    setTimeout(() => {
+      if (veil) veil.classList.remove('on');
+      if (bar)  bar.style.width = '0%';
+    }, 400);
+  }
+}
 
 // Rebuild all textures from IndexedDB after page load
 function rebuildTextures() {
