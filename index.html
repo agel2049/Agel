@@ -699,6 +699,26 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .upl-progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),#5DCAA5);border-radius:99px;width:0%;transition:width .3s;}
 .upl-status{font-size:10px;color:var(--muted);margin-top:6px;letter-spacing:.05em;min-height:14px;}
 .upl-sb-badge{display:inline-flex;align-items:center;gap:4px;font-size:9px;color:#5DCAA5;opacity:.7;margin-top:4px;letter-spacing:.08em;}
+
+/* ══ SUPABASE FILE GRID ══ */
+.vm-supa-item{border:2px solid transparent;border-radius:9px;overflow:hidden;cursor:pointer;transition:all .22s;position:relative;aspect-ratio:2/1;background:rgba(255,255,255,.05);}
+.vm-supa-item:hover{border-color:rgba(184,157,116,.5);transform:scale(1.02);}
+.vm-supa-item.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
+.vm-supa-item img{width:100%;height:100%;object-fit:cover;display:block;}
+.vm-supa-item .vm-supa-name{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.72);font-size:8px;color:rgba(255,255,255,.7);padding:3px 5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.vm-supa-item .vm-supa-check{position:absolute;top:4px;right:4px;width:16px;height:16px;border-radius:50%;background:var(--accent);display:none;align-items:center;justify-content:center;font-size:9px;color:#000;}
+.vm-supa-item.selected .vm-supa-check{display:flex;}
+
+/* ══ EDITOR SCENE ROW ══ */
+.vm-editor-scene-row{display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;transition:all .2s;}
+.vm-editor-scene-row:hover{border-color:rgba(184,157,116,.3);}
+.vm-editor-scene-row img{width:44px;height:28px;object-fit:cover;border-radius:5px;flex-shrink:0;}
+.vmesc-info{flex:1;min-width:0;}
+.vmesc-n{font-size:10px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.vmesc-m{font-size:9px;color:var(--muted);}
+.vmesc-add{background:rgba(184,157,116,.1);border:1px solid rgba(184,157,116,.25);color:var(--accent);border-radius:6px;padding:4px 8px;font-size:9px;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;transition:all .2s;}
+.vmesc-add:hover{background:rgba(184,157,116,.25);}
+.vmesc-add.added{background:rgba(93,202,165,.1);border-color:rgba(93,202,165,.3);color:#5DCAA5;}
 </style>
 </head>
 <body>
@@ -893,13 +913,53 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 
           <div class="vm-card" style="margin-top:10px;">
             <div class="vm-col-eye">Escenas</div>
-            <div class="vm-row" style="margin-bottom:6px;">
-              <input class="vm-inp" id="vmSceneName" placeholder="Nombre">
-              <input class="vm-inp" id="vmSceneMeta" placeholder="Nivel / área">
+
+            <!-- Tabs -->
+            <div style="display:flex;gap:3px;margin-bottom:10px;background:rgba(0,0,0,.2);border-radius:8px;padding:3px;">
+              <button style="flex:1;background:rgba(255,255,255,.08);border:none;color:var(--text);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:5px 4px;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:4px;" id="vmTabManual" onclick="vmSwitchTab('manual')"><i class="ti ti-link"></i> URL</button>
+              <button style="flex:1;background:transparent;border:none;color:var(--muted);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:5px 4px;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:4px;" id="vmTabSupa" onclick="vmSwitchTab('supa')"><i class="ti ti-cloud"></i> Supabase</button>
+              <button style="flex:1;background:transparent;border:none;color:var(--muted);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:5px 4px;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:4px;" id="vmTabEditor" onclick="vmSwitchTab('editor')"><i class="ti ti-layout-grid"></i> Editor</button>
             </div>
-            <input class="vm-inp" id="vmSceneUrl" placeholder="URL panorámica (Cloudinary, CDN…)">
-            <button class="vm-add-btn" onclick="vmAddScene()" style="margin-top:7px;"><i class="ti ti-plus"></i> Agregar escena</button>
-            <div class="vm-scenes-list" id="vmScenesList" style="margin-top:10px;"></div>
+
+            <!-- TAB: Manual URL -->
+            <div id="vmPanelManual">
+              <div class="vm-row" style="margin-bottom:6px;">
+                <input class="vm-inp" id="vmSceneName" placeholder="Nombre">
+                <input class="vm-inp" id="vmSceneMeta" placeholder="Nivel / área">
+              </div>
+              <input class="vm-inp" id="vmSceneUrl" placeholder="URL panorámica (Cloudinary, CDN…)">
+              <button class="vm-add-btn" onclick="vmAddScene()" style="margin-top:7px;"><i class="ti ti-plus"></i> Agregar escena</button>
+            </div>
+
+            <!-- TAB: Supabase browser -->
+            <div id="vmPanelSupa" style="display:none;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <span style="font-size:10px;color:var(--muted);">Bucket <b style="color:var(--accent)">panoramas</b></span>
+                <button onclick="vmLoadSupaFiles()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px;" title="Recargar"><i class="ti ti-refresh"></i></button>
+              </div>
+              <div id="vmSupaGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:260px;overflow-y:auto;scrollbar-width:none;"></div>
+              <div id="vmSupaStatus" style="font-size:10px;color:var(--muted);text-align:center;padding:10px 0;display:none;"></div>
+              <div id="vmSupaNameRow" style="display:none;margin-top:8px;background:rgba(184,157,116,.06);border:1px solid rgba(184,157,116,.2);border-radius:9px;padding:10px;">
+                <div style="font-size:9px;color:var(--accent);margin-bottom:6px;letter-spacing:.1em;text-transform:uppercase;">Agregar escena</div>
+                <div class="vm-row" style="margin-bottom:5px;">
+                  <input class="vm-inp" id="vmSupaSceneName" placeholder="Nombre de escena">
+                  <input class="vm-inp" id="vmSupaSceneMeta" placeholder="Nivel / área">
+                </div>
+                <div style="display:flex;gap:5px;">
+                  <button onclick="vmConfirmSupaScene()" class="vm-add-btn" style="flex:1;"><i class="ti ti-check"></i> Agregar</button>
+                  <button onclick="vmCancelSupaScene()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:6px 10px;cursor:pointer;font-size:11px;font-family:'Inter',sans-serif;"><i class="ti ti-x"></i></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB: From editor -->
+            <div id="vmPanelEditor" style="display:none;">
+              <div style="font-size:10px;color:var(--muted);margin-bottom:8px;line-height:1.5;">Escenas del editor subidas a Supabase — hotspots incluidos automáticamente</div>
+              <div id="vmEditorSceneList" style="display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto;scrollbar-width:none;"></div>
+              <div style="font-size:9px;color:rgba(184,157,116,.45);margin-top:7px;line-height:1.5;">Las escenas locales (sin Supabase) no se pueden compartir por link.</div>
+            </div>
+
+            <div id="vmScenesList" style="margin-top:10px;display:flex;flex-direction:column;gap:5px;"></div>
           </div>
 
           <div class="vm-card" style="margin-top:10px;">
@@ -1330,16 +1390,26 @@ app.addEventListener('mouseleave', () => curEl.classList.remove('vis'));
 // ── MOUSE DRAG ──
 cv.onmousedown = e => {
   if (addHS) { placeHSAt(e); return; }
-  dn = true; lx = e.clientX; ly = e.clientY; curEl.classList.add('drag');
+  dn = true; lx = e.clientX; ly = e.clientY;
+  _lastT = Date.now(); _velLon = 0; _velLat = 0;
+  curEl.classList.add('drag'); stopInertia();
 };
 cv.onmousemove = e => {
   if (!dn) return;
-  lon -= (e.clientX - lx) * 0.06;
-  lat += (e.clientY - ly) * 0.06;
-  lx = e.clientX; ly = e.clientY; updateCam();
+  const dx = e.clientX - lx, dy = e.clientY - ly;
+  lon -= dx * 0.06;
+  lat += dy * 0.06;
+  // Rolling average velocity — stable across all frame rates, no DPI adjustment
+  const dt = Math.max(4, Date.now() - _lastT);
+  const cap = Math.min(dt, 32);
+  _velLon = _velLon * 0.6 + (-dx * 0.06) * (16 / cap) * 0.4;
+  _velLat = _velLat * 0.6 + ( dy * 0.06) * (16 / cap) * 0.4;
+  _velLon = Math.max(-4, Math.min(4, _velLon));
+  _velLat = Math.max(-2, Math.min(2, _velLat));
+  lx = e.clientX; ly = e.clientY; _lastT = Date.now(); updateCam();
 };
-cv.onmouseup   = () => { dn = false; curEl.classList.remove('drag'); };
-cv.onmouseleave = () => { dn = false; curEl.classList.remove('drag'); };
+cv.onmouseup   = () => { dn = false; curEl.classList.remove('drag'); startInertia(); };
+cv.onmouseleave = () => { dn = false; curEl.classList.remove('drag'); startInertia(); };
 
 cv.addEventListener('wheel', e => {
   e.preventDefault();
@@ -1356,8 +1426,8 @@ function stopInertia() { if (_inertiaRaf) { cancelAnimationFrame(_inertiaRaf); _
 function startInertia() {
   stopInertia();
   (function tick() {
-    _velLon *= 0.92; _velLat *= 0.92;
-    if (Math.abs(_velLon) < 0.01 && Math.abs(_velLat) < 0.01) return;
+    _velLon *= 0.88; _velLat *= 0.88;
+    if (Math.abs(_velLon) < 0.008 && Math.abs(_velLat) < 0.008) return;
     lon += _velLon; lat += _velLat; updateCam();
     _inertiaRaf = requestAnimationFrame(tick);
   })();
@@ -1387,7 +1457,11 @@ cv.addEventListener('touchmove', e => {
     const dt = Math.max(1, Date.now() - _lastT);
     const dlon = (lx - nx) * 0.06, dlat = (ny - ly) * 0.06;
     lon += dlon; lat += dlat;
-    _velLon = dlon * (16/dt); _velLat = dlat * (16/dt);
+    const _tDt = Math.min(dt, 32);
+    _velLon = _velLon * 0.5 + dlon * (16/_tDt) * 0.5;
+    _velLat = _velLat * 0.5 + dlat * (16/_tDt) * 0.5;
+    _velLon = Math.max(-4, Math.min(4, _velLon));
+    _velLat = Math.max(-2, Math.min(2, _velLat));
     lx = nx; ly = ny; _lastT = Date.now(); updateCam();
   }
 }, { passive: false });
@@ -2050,7 +2124,7 @@ function hsmSaveSceneSpot() {
   if (!PROJ[cP].scenes[si].img) { toast('Carga la panorámica de esa escena primero'); return; }
   if (si === target) { toast('La escena de origen y destino no pueden ser la misma'); return; }
   const targetName = PROJ[cP].scenes[target]?.name || 'Escena';
-  PROJ[cP].scenes[si].hs.push({ type:'scene', x, y, title:targetName, details:[], img:null, targetScene:target });
+  PROJ[cP].scenes[si].hs.push({ type:'scene', x, y, title:targetName, details:[], img:null, targetScene:target, targetSceneName:targetName });
   cancelAddHS();
   clearHS(); renderHS(cP, cS); buildList(); autoSave();
   toast('SceneSpot guardado ✓');
@@ -2068,7 +2142,8 @@ function hsmSave(editSiRaw, editJRaw) {
   const y = parseInt(document.getElementById('hsmY')?.value)||50;
   if (h.type === 'scene') {
     const target = parseInt(document.getElementById('hsmTargetScene')?.value ?? 0);
-    h.x = x; h.y = y; h.targetScene = target; h.title = PROJ[cP].scenes[target]?.name || 'Escena';
+    const _tn = PROJ[cP].scenes[target]?.name || 'Escena';
+    h.x = x; h.y = y; h.targetScene = target; h.targetSceneName = _tn; h.title = _tn;
   } else {
     const title  = (document.getElementById('hsmTitle')?.value||'').trim();
     const detRaw = document.getElementById('hsmDetail')?.value||'';
@@ -2132,7 +2207,7 @@ function hsmSave(editSiRaw, editJRaw) {
   if (type === 'scene') {
     const targetScene = parseInt(document.getElementById('hsmTargetScene')?.value ?? 0);
     const targetName  = PROJ[cP].scenes[targetScene]?.name || 'Escena';
-    obj = { type:'scene', x, y, title: targetName, details:[], img:null, targetScene };
+    obj = { type:'scene', x, y, title: targetName, details:[], img:null, targetScene, targetSceneName: targetName };
   } else {
     const title   = (document.getElementById('hsmTitle')?.value||'').trim();
     const detRaw  = document.getElementById('hsmDetail')?.value||'';
@@ -2383,6 +2458,164 @@ function closeVisorMode() {
   if (vmAuto) vmToggleAuto();
 }
 
+// ════════════════════════════════════════════════════
+// VM SCENE TABS — Supabase browser + Editor picker
+// ════════════════════════════════════════════════════
+
+let _vmSelectedSupaFile = null; // { name, url }
+
+function vmSwitchTab(tab) {
+  ['manual','supa','editor'].forEach(t => {
+    const panel = document.getElementById('vmPanel' + t.charAt(0).toUpperCase() + t.slice(1));
+    const btn   = document.getElementById('vmTab'   + t.charAt(0).toUpperCase() + t.slice(1));
+    if (panel) panel.style.display = t===tab ? '' : 'none';
+    if (btn) {
+      btn.style.background = t===tab ? 'rgba(255,255,255,.08)' : 'transparent';
+      btn.style.color      = t===tab ? 'var(--text)' : 'var(--muted)';
+    }
+  });
+  if (tab === 'supa')   vmLoadSupaFiles();
+  if (tab === 'editor') vmLoadEditorScenes();
+}
+
+// ── Supabase file browser ──
+async function vmLoadSupaFiles() {
+  const grid   = document.getElementById('vmSupaGrid');
+  const status = document.getElementById('vmSupaStatus');
+  const nameRow = document.getElementById('vmSupaNameRow');
+  if (!grid) return;
+  grid.innerHTML = '';
+  if (nameRow) nameRow.style.display = 'none';
+  _vmSelectedSupaFile = null;
+  status.style.display = 'block';
+  status.textContent = 'Cargando imágenes…';
+
+  try {
+    const res = await fetch(`${SUPA_URL}/storage/v1/object/list/${SUPA_BUCKET}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SUPA_ANON}`,
+        'apikey': SUPA_ANON,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ prefix: '', limit: 200, offset: 0, sortBy: { column: 'created_at', order: 'desc' } })
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    const files = await res.json();
+    status.style.display = 'none';
+
+    const imgFiles = files.filter(f => f.name && /\.(jpe?g|png|webp|avif)$/i.test(f.name));
+    if (!imgFiles.length) {
+      status.style.display = 'block';
+      status.textContent = 'No hay imágenes en el bucket todavía. Sube una panorámica desde el editor primero.';
+      return;
+    }
+
+    imgFiles.forEach(f => {
+      const url  = `${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${f.name}`;
+      const item = document.createElement('div');
+      item.className = 'vm-supa-item';
+      item.innerHTML = `
+        <img src="${url}" alt="${f.name}" loading="lazy" onerror="this.parentElement.style.background='rgba(255,100,100,.1)'">
+        <div class="vm-supa-name">${f.name.replace(/^\d+_/, '').replace(/_/g,' ')}</div>
+        <div class="vm-supa-check"><i class="ti ti-check" style="font-size:9px;"></i></div>`;
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.vm-supa-item').forEach(i => i.classList.remove('selected'));
+        item.classList.add('selected');
+        _vmSelectedSupaFile = { name: f.name, url };
+        // Pre-fill scene name from filename
+        const cleanName = f.name.replace(/^\d+_/, '').replace(/\.[^.]+$/, '').replace(/_/g,' ');
+        const nameInp = document.getElementById('vmSupaSceneName');
+        if (nameInp && !nameInp.value) nameInp.value = cleanName.slice(0,32);
+        if (nameRow) nameRow.style.display = 'block';
+        nameRow.scrollIntoView({ behavior:'smooth', block:'nearest' });
+      });
+      grid.appendChild(item);
+    });
+  } catch(e) {
+    status.style.display = 'block';
+    status.textContent = `Error: ${e.message}. Verifica que el bucket "panoramas" sea público.`;
+    console.error('Supabase list error:', e);
+  }
+}
+
+function vmConfirmSupaScene() {
+  if (!_vmSelectedSupaFile) { toast('Selecciona una imagen primero'); return; }
+  const name = (document.getElementById('vmSupaSceneName')?.value||'').trim() || _vmSelectedSupaFile.name.replace(/^\d+_/,'').replace(/\.[^.]+$/,'').slice(0,32);
+  const meta = (document.getElementById('vmSupaSceneMeta')?.value||'').trim();
+  vmScenes.push({ name, meta, url: _vmSelectedSupaFile.url, hs: [] });
+  vmRenderScenesList(); saveVmData();
+  // Reset
+  _vmSelectedSupaFile = null;
+  document.querySelectorAll('.vm-supa-item').forEach(i => i.classList.remove('selected'));
+  const nameRow = document.getElementById('vmSupaNameRow');
+  if (nameRow) nameRow.style.display = 'none';
+  document.getElementById('vmSupaSceneName').value = '';
+  document.getElementById('vmSupaSceneMeta').value = '';
+  toast(`"${name}" agregada ✓`);
+}
+
+function vmCancelSupaScene() {
+  _vmSelectedSupaFile = null;
+  document.querySelectorAll('.vm-supa-item').forEach(i => i.classList.remove('selected'));
+  const nameRow = document.getElementById('vmSupaNameRow');
+  if (nameRow) nameRow.style.display = 'none';
+}
+
+// ── Editor scene picker ──
+function vmLoadEditorScenes() {
+  const list = document.getElementById('vmEditorSceneList');
+  if (!list) return;
+  list.innerHTML = '';
+  let found = 0;
+  PROJ.forEach((p, pi) => {
+    p.scenes.forEach((s, si) => {
+      if (!s.supaUrl) return;
+      found++;
+      const alreadyAdded = !!vmScenes.find(v => v.url === s.supaUrl);
+      const hsCnt = (s.hs||[]).length;
+      const ssCnt = (s.hs||[]).filter(h=>h.type==='scene').length;
+      const row = document.createElement('div');
+      row.className = 'vm-editor-scene-row';
+      row.innerHTML = `
+        ${s.thumb ? `<img src="${s.thumb}" alt="">` : `<div style="width:44px;height:28px;border-radius:5px;background:rgba(255,255,255,.08);flex-shrink:0;"></div>`}
+        <div class="vmesc-info">
+          <div class="vmesc-n">${s.name}</div>
+          <div class="vmesc-m">${p.name}${s.meta?' · '+s.meta:''}</div>
+          ${hsCnt ? `<div style="font-size:8px;color:var(--muted);margin-top:1px;">${hsCnt} hotspot${hsCnt!==1?'s':''}${ssCnt?' · '+ssCnt+' SceneSpot'+( ssCnt!==1?'s':''):''}</div>` : ''}
+        </div>
+        <button class="vmesc-add${alreadyAdded?' added':''}" onclick="${alreadyAdded?'toast(\'Ya agregada\')':'vmAddFromEditor('+pi+','+si+')'}">
+          ${alreadyAdded ? '<i class="ti ti-check"></i> Agregada' : '<i class="ti ti-plus"></i> Agregar'}
+        </button>`;
+      list.appendChild(row);
+    });
+  });
+  if (!found) {
+    list.innerHTML = '<div style="font-size:10px;color:var(--muted);text-align:center;padding:14px 0;line-height:1.7;">No hay escenas con imagen en Supabase.<br><span style="opacity:.6;">Sube panorámicas desde el editor primero.</span></div>';
+  }
+}
+
+function vmAddFromEditor(pi, si) {
+  const s = PROJ[pi].scenes[si];
+  if (!s.supaUrl) { toast('Esta escena no tiene URL en Supabase'); return; }
+  if (vmScenes.find(v => v.url === s.supaUrl)) { toast('Esta escena ya está en el visor'); return; }
+
+  // Deep copy hotspots and ensure all SceneSpots have targetSceneName
+  const hsCopy = (s.hs || []).map(h => {
+    if (h.type === 'scene') {
+      const targetName = h.targetSceneName || PROJ[pi].scenes[h.targetScene]?.name || h.title || 'Escena';
+      return { ...h, targetSceneName: targetName };
+    }
+    return { ...h };
+  });
+
+  vmScenes.push({ name: s.name, meta: s.meta || '', url: s.supaUrl, hs: hsCopy });
+  vmRenderScenesList(); saveVmData();
+  toast(`"${s.name}" agregada con ${hsCopy.length} hotspot${hsCopy.length!==1?'s':''} ✓`);
+  vmLoadEditorScenes(); // refresh to show "added" state
+}
+
+
 function vmAddScene() {
   const name = document.getElementById('vmSceneName').value.trim();
   const meta = document.getElementById('vmSceneMeta').value.trim();
@@ -2588,8 +2821,8 @@ function vmInitThree() {
   function vmStartInertia() {
     vmStopInertia();
     (function tick(){
-      _vmVLon*=0.91; _vmVLat*=0.91;
-      if(Math.abs(_vmVLon)<0.005&&Math.abs(_vmVLat)<0.005)return;
+      _vmVLon*=0.88; _vmVLat*=0.88;
+      if(Math.abs(_vmVLon)<0.008&&Math.abs(_vmVLat)<0.008)return;
       vmLon+=_vmVLon; vmLat+=_vmVLat; vmUpdateCam();
       _vmIRaf=requestAnimationFrame(tick);
     })();
@@ -2605,7 +2838,11 @@ function vmInitThree() {
     const dt=Math.max(1,Date.now()-_vmLastT);
     const dlon=-(e.clientX-vmLx)*.06, dlat=(e.clientY-vmLy)*.06;
     vmLon+=dlon; vmLat+=dlat;
-    _vmVLon=dlon*(16/dt); _vmVLat=dlat*(16/dt);
+    const _vDt = Math.min(dt, 32);
+    _vmVLon = _vmVLon*0.6 + dlon*(16/_vDt)*0.4;
+    _vmVLat = _vmVLat*0.6 + dlat*(16/_vDt)*0.4;
+    _vmVLon = Math.max(-4, Math.min(4, _vmVLon));
+    _vmVLat = Math.max(-2, Math.min(2, _vmVLat));
     vmLx=e.clientX; vmLy=e.clientY; _vmLastT=Date.now(); vmUpdateCam();
   };
   vmCv.onmouseup   = () => { vmDn=false; vmCurEl.classList.remove('drag'); vmStartInertia(); };
@@ -2654,7 +2891,11 @@ function vmInitThree() {
       const dt=Math.max(1,Date.now()-_vmLastT);
       const dlon=-(nx-vmLx)*.06, dlat=(ny-vmLy)*.06;
       vmLon+=dlon; vmLat+=dlat;
-      _vmVLon=dlon*(16/dt); _vmVLat=dlat*(16/dt);
+      const _vtDt = Math.min(dt, 32);
+      _vmVLon = _vmVLon*0.5 + dlon*(16/_vtDt)*0.5;
+      _vmVLat = _vmVLat*0.5 + dlat*(16/_vtDt)*0.5;
+      _vmVLon = Math.max(-4, Math.min(4, _vmVLon));
+      _vmVLat = Math.max(-2, Math.min(2, _vmVLat));
       vmLx=nx; vmLy=ny; _vmLastT=Date.now(); vmUpdateCam();
     }
   }, {passive:false});
@@ -2788,6 +3029,20 @@ function _vmOnFsChange() {
 // (listeners registered inside togglePres / _applyPres block above)
 
 // VM Hotspots — layer stays pointer-events:none; only dots handle events
+// Resolve SceneSpot target index by name (robust to reordering)
+// Falls back to stored numeric index if name not found
+function _vmResolveTarget(h) {
+  if (!h) return 0;
+  // Try to find by name first
+  if (h.targetSceneName) {
+    const idx = vmScenes.findIndex(s => s.name === h.targetSceneName);
+    if (idx !== -1) return idx;
+  }
+  // Fallback to stored index
+  const fallback = typeof h.targetScene === 'number' ? h.targetScene : 0;
+  return Math.max(0, Math.min(fallback, vmScenes.length - 1));
+}
+
 function vmRenderVmHS(s) {
   if (_vmHsRaf) { cancelAnimationFrame(_vmHsRaf); _vmHsRaf=null; } _vmHsItems=[];
   const layer = document.getElementById('vmHsLayer'); if (!layer) return;
@@ -2805,7 +3060,9 @@ function vmRenderVmHS(s) {
       const label = document.createElement('div');
       label.className = 'hs-scene-label';
       // Find target scene name from vmScenes
-      const targetName = vmScenes[h.targetScene]?.name || h.title || 'Escena';
+      // Resolve target by name first (portable across scene orders), then by index
+      const _resolvedIdx = _vmResolveTarget(h);
+      const targetName = vmScenes[_resolvedIdx]?.name || h.targetSceneName || h.title || 'Escena';
       label.textContent = targetName;
       dot.appendChild(label);
 
@@ -2828,13 +3085,13 @@ function vmRenderVmHS(s) {
           clearTimeout(_vssTimer);
           _vssFirstTap = false;
           label.classList.remove('visible');
-          vmGoToScene(h.targetScene, dot);
+          vmGoToScene(_vmResolveTarget(h), dot);
         }
       }, {passive:true});
 
       dot.addEventListener('click', e => {
         e.stopPropagation();
-        vmGoToScene(h.targetScene, dot);
+        vmGoToScene(_vmResolveTarget(h), dot);
       });
 
     } else {
