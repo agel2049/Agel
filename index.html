@@ -2649,29 +2649,75 @@ function vmRenderVmHS(s) {
   const layer = document.getElementById('vmHsLayer'); if (!layer) return;
   layer.innerHTML=''; layer.style.pointerEvents='none';
   if (!s.hs || !s.hs.length) return;
+
   s.hs.forEach((h, j) => {
-    const dot = document.createElement('div'); dot.className='hs';
-    dot.style.cssText=`position:absolute;transform:translate(-50%,-50%);animation-delay:${j*.85}s;opacity:0;pointer-events:all;`;
-    const card=document.createElement('div'); card.className='hs-card';
-    card.style.cssText=`position:absolute;${(h.x||50)>50?'right':'left'}:18px;top:-5px;`;
-    card.innerHTML=
-      (h.img ? `<img class="hc-img" src="${h.img}" alt="" crossorigin="anonymous">` : '') +
-      `<div class="hc-body">` +
-      `<div class="hc-eye">${h.title||'Info'}</div>`+
-      (h.details||[]).map(d=>`<div class="hc-row">${d}</div>`).join('')+
-      `</div>`+
-      `<button class="hc-x" onclick="this.closest('.hs-card').classList.remove('open')"><i class="ti ti-x"></i></button>`;
-    dot.appendChild(card);
-    dot.addEventListener('click', e => {
-      e.stopPropagation();
-      const was=card.classList.contains('open');
-      document.querySelectorAll('#vmHsLayer .hs-card').forEach(c=>c.classList.remove('open'));
-      if(!was)card.classList.add('open');
-    });
+    const isScene = h.type === 'scene';
+    const dot = document.createElement('div');
+    dot.className = 'hs' + (isScene ? ' scene-spot' : '');
+    dot.style.cssText = `position:absolute;transform:translate(-50%,-50%);animation-delay:${j*.85}s;opacity:0;pointer-events:all;`;
+
+    if (isScene) {
+      // ── SceneSpot in VM viewer ──
+      const label = document.createElement('div');
+      label.className = 'hs-scene-label';
+      // Find target scene name from vmScenes
+      const targetName = vmScenes[h.targetScene]?.name || h.title || 'Escena';
+      label.textContent = targetName;
+      dot.appendChild(label);
+
+      // Desktop hover
+      dot.addEventListener('mouseenter', () => label.classList.add('visible'));
+      dot.addEventListener('mouseleave', () => label.classList.remove('visible'));
+
+      // Mobile: first tap shows label, second tap navigates
+      let _vssFirstTap = false, _vssTimer = null;
+      dot.addEventListener('touchstart', e => {
+        e.stopPropagation();
+        if (!_vssFirstTap) {
+          _vssFirstTap = true;
+          label.classList.add('visible');
+          _vssTimer = setTimeout(() => {
+            _vssFirstTap = false;
+            label.classList.remove('visible');
+          }, 2200);
+        } else {
+          clearTimeout(_vssTimer);
+          _vssFirstTap = false;
+          label.classList.remove('visible');
+          vmGoToScene(h.targetScene, dot);
+        }
+      }, {passive:true});
+
+      dot.addEventListener('click', e => {
+        e.stopPropagation();
+        vmGoToScene(h.targetScene, dot);
+      });
+
+    } else {
+      // ── Info hotspot in VM viewer ──
+      const card = document.createElement('div'); card.className='hs-card';
+      card.style.cssText=`position:absolute;${(h.x||50)>50?'right':'left'}:18px;top:-5px;`;
+      card.innerHTML=
+        (h.img ? `<img class="hc-img" src="${h.img}" alt="" crossorigin="anonymous">` : '') +
+        `<div class="hc-body">` +
+        `<div class="hc-eye">${h.title||'Info'}</div>`+
+        (h.details||[]).map(d=>`<div class="hc-row">${d}</div>`).join('')+
+        `</div>`+
+        `<button class="hc-x" onclick="this.closest('.hs-card').classList.remove('open')"><i class="ti ti-x"></i></button>`;
+      dot.appendChild(card);
+      dot.addEventListener('click', e => {
+        e.stopPropagation();
+        const was=card.classList.contains('open');
+        document.querySelectorAll('#vmHsLayer .hs-card').forEach(c=>c.classList.remove('open'));
+        if(!was) card.classList.add('open');
+      });
+    }
+
     layer.appendChild(dot);
-    const x=h.x||((j+1)/(s.hs.length+1)*100), y=h.y||50;
-    _vmHsItems.push({dot,vec3:_pctToVec3(x,y)});
+    const x = h.x||((j+1)/(s.hs.length+1)*100), y = h.y||50;
+    _vmHsItems.push({dot, vec3:_pctToVec3(x,y)});
   });
+
   (function tick(){
     if(!vmCam||!document.getElementById('vmCanvas'))return;
     const rect=document.getElementById('vmCanvas').getBoundingClientRect();
@@ -2684,6 +2730,48 @@ function vmRenderVmHS(s) {
     });
     _vmHsRaf=requestAnimationFrame(tick);
   })();
+}
+
+// Navigate to a scene by index in VM viewer with zoom transition
+function vmGoToScene(targetIdx, dotEl) {
+  if (targetIdx === undefined || targetIdx === null) return;
+  if (targetIdx < 0 || targetIdx >= vmScenes.length) return;
+  if (targetIdx === vmCurIdx) return;
+
+  // Zoom in toward the spot
+  const startFov = vmFov;
+  const endFov   = Math.max(20, vmFov - 26);
+  const startT   = Date.now();
+  const dur      = 360;
+
+  // Veil flash
+  const veil = document.getElementById('vmSceneTransVeil');
+  if (veil) {
+    veil.style.transition = 'none';
+    veil.style.background = 'rgba(0,0,0,0)';
+  }
+
+  function zoomTick() {
+    const t    = Math.min(1, (Date.now()-startT)/dur);
+    const ease = 1 - Math.pow(1-t, 3);
+    vmFov = startFov + (endFov-startFov)*ease;
+    vmCam.fov = vmFov; vmCam.updateProjectionMatrix();
+    if (t < 1) { requestAnimationFrame(zoomTick); return; }
+    // Fade to black then load scene
+    if (veil) {
+      veil.style.transition = 'background .25s';
+      veil.style.background = 'rgba(0,0,0,0.85)';
+    }
+    setTimeout(() => {
+      vmFov = startFov; vmCam.fov = vmFov; vmCam.updateProjectionMatrix();
+      if (veil) {
+        veil.style.transition = 'background .3s';
+        veil.style.background = 'rgba(0,0,0,0)';
+      }
+      vmGoTo(targetIdx);
+    }, 270);
+  }
+  requestAnimationFrame(zoomTick);
 }
 
 // VM Persistence
