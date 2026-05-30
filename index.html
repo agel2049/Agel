@@ -228,7 +228,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .vm-setup.hide{opacity:0;pointer-events:none;}
 .vm-setup-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 10px;border-bottom:1px solid var(--border);flex-shrink:0;}
 .vm-setup-htitle{font-size:11px;font-weight:500;color:var(--text);letter-spacing:.12em;text-transform:uppercase;}
-.vm-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:14px 18px;overflow:hidden;flex:1;min-height:0;}
+.vm-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;padding:14px 18px;overflow:hidden;flex:1;min-height:0;}
 .vm-col{display:flex;flex-direction:column;overflow-y:auto;scrollbar-width:none;gap:0;}
 .vm-col::-webkit-scrollbar{display:none;}
 .vm-col-eye{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;}
@@ -612,7 +612,6 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   .vm-col  { overflow-y:visible; }
   .vm-setup-header { padding:10px 14px 8px; }
 }
-
 /* ══ SCENE SPOT (navigation hotspot) ══ */
 .hs.scene-spot {
   width:14px; height:14px;
@@ -750,6 +749,129 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .smgr-del-btn:disabled{opacity:.3;cursor:not-allowed;}
 .smgr-sel-all{background:transparent;border:none;color:var(--muted);font-size:10px;cursor:pointer;font-family:'Inter',sans-serif;text-align:left;padding:0;transition:color .2s;}
 .smgr-sel-all:hover{color:var(--text);}
+
+/* ══════════════════════════════════════════════════
+   OPENING SCREEN — video background + call to action
+   ══════════════════════════════════════════════════ */
+#vmOpening {
+  position: absolute; inset: 0; z-index: 30;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  overflow: hidden; background: #0D0D0D;
+  opacity: 0; pointer-events: none;
+  transition: opacity .7s var(--ease);
+}
+#vmOpening.show { opacity: 1; pointer-events: all; }
+#vmOpening.hide { opacity: 0; pointer-events: none; }
+
+/* Video layer */
+#vmOpeningVideo {
+  position: absolute; inset: 0; z-index: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: center;
+}
+/* Dark vignette over video */
+#vmOpening::after {
+  content: ''; position: absolute; inset: 0; z-index: 1;
+  background: radial-gradient(ellipse at center,
+    rgba(0,0,0,.25) 0%, rgba(0,0,0,.65) 100%);
+}
+/* Content above video */
+.vm-opening-content {
+  position: relative; z-index: 2;
+  text-align: center; padding: 24px;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 0;
+}
+.vm-opening-logo {
+  margin-bottom: 28px; opacity: .85;
+}
+.vm-opening-title {
+  font-size: clamp(28px, 6vw, 72px);
+  font-weight: 300; color: #fff;
+  letter-spacing: .06em;
+  line-height: 1.1;
+  text-shadow: 0 4px 40px rgba(0,0,0,.6);
+  margin: 0 0 12px;
+}
+.vm-opening-sub {
+  font-size: clamp(11px, 1.8vw, 16px);
+  color: rgba(255,255,255,.5);
+  letter-spacing: .2em; text-transform: uppercase;
+  margin-bottom: 48px;
+}
+/* Liquid glass CTA button */
+.vm-opening-btn {
+  position: relative;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.18);
+  color: #fff;
+  font-size: 12px; letter-spacing: .22em; text-transform: uppercase;
+  padding: 14px 42px; border-radius: 99px;
+  cursor: pointer; font-family: 'Inter', sans-serif;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 0 0 0.5px rgba(255,255,255,.06) inset,
+              0 8px 32px rgba(0,0,0,.3);
+  transition: all .35s var(--ease);
+  overflow: hidden;
+}
+.vm-opening-btn::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit;
+  background: linear-gradient(135deg,
+    rgba(255,255,255,.12) 0%, rgba(255,255,255,.0) 60%);
+  pointer-events: none;
+}
+.vm-opening-btn:hover {
+  background: rgba(255,255,255,.16);
+  border-color: rgba(255,255,255,.35);
+  box-shadow: 0 0 0 0.5px rgba(255,255,255,.1) inset,
+              0 12px 48px rgba(0,0,0,.4);
+  transform: translateY(-2px);
+}
+.vm-opening-btn:active { transform: translateY(0); }
+.vm-opening-btn i { margin-right: 8px; }
+
+/* Progress bar under video */
+.vm-opening-progress {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 2px; background: rgba(255,255,255,.08); z-index: 3;
+}
+.vm-opening-progress-bar {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--accent), #5DCAA5);
+  transition: width .3s linear;
+}
+
+/* ── SETUP: Opening card ── */
+.vm-opening-card { }
+.vm-vid-drop {
+  border: 1.5px dashed var(--border); border-radius: 10px;
+  padding: 18px 12px; text-align: center;
+  cursor: pointer; transition: border-color .25s;
+  margin-bottom: 8px;
+}
+.vm-vid-drop:hover { border-color: rgba(184,157,116,.5); }
+.vm-vid-drop i { font-size: 24px; color: var(--muted); display: block; margin-bottom: 6px; }
+.vm-vid-drop-t { font-size: 11px; color: var(--text); margin-bottom: 3px; }
+.vm-vid-drop-s { font-size:9px; color: var(--muted); }
+.vm-vid-thumb {
+  width: 100%; aspect-ratio: 16/9; object-fit: cover;
+  border-radius: 8px; display: none;
+  border: 1px solid var(--border); margin-bottom: 8px;
+}
+.vm-vid-thumb.show { display: block; }
+.vm-vid-progress { width:100%; height:3px; background:rgba(255,255,255,.08); border-radius:99px; overflow:hidden; margin-top:6px; display:none; }
+.vm-vid-progress.show { display:block; }
+.vm-vid-progress-bar { height:100%; background:linear-gradient(90deg,var(--accent),#5DCAA5); border-radius:99px; width:0%; transition:width .3s; }
+.vm-vid-status { font-size:9px; color:var(--muted); margin-top:4px; min-height:12px; }
+
+@media (max-width: 768px) {
+  .vm-cols { grid-template-columns: 1fr; }
+  .vm-opening-title { font-size: 28px; }
+  .vm-opening-btn { padding: 12px 32px; font-size: 11px; }
+}
 </style>
 </head>
 <body>
@@ -1037,10 +1159,56 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
           </div>
         </div>
 
+        <!-- COL 3: Opening / portada -->
+        <div class="vm-col">
+          <div class="vm-card vm-opening-card">
+            <div class="vm-col-eye"><i class="ti ti-player-play" style="margin-right:4px;"></i>Portada de apertura</div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.6;">Video en bucle que el cliente ve antes de entrar a las escenas 360.</div>
+            <input type="file" id="vmVidFile" accept="video/mp4,video/webm" style="display:none;" onchange="vmHandleVideo(event)">
+            <video class="vm-vid-thumb" id="vmVidThumb" autoplay muted loop playsinline></video>
+            <div class="vm-vid-drop" onclick="document.getElementById('vmVidFile').click()" id="vmVidDrop">
+              <i class="ti ti-video-plus"></i>
+              <div class="vm-vid-drop-t">Subir video de portada</div>
+              <div class="vm-vid-drop-s">MP4 · WebM · hasta 500 MB</div>
+            </div>
+            <div class="vm-vid-progress" id="vmVidProgress"><div class="vm-vid-progress-bar" id="vmVidProgressBar"></div></div>
+            <div class="vm-vid-status" id="vmVidStatus"></div>
+            <div class="vm-lbl" style="margin-top:10px;">Título principal</div>
+            <input class="vm-inp" id="vmOpeningTitle" placeholder="Ej: Torre Mirador" oninput="vmSaveOpeningMeta()">
+            <div class="vm-lbl">Subtítulo</div>
+            <input class="vm-inp" id="vmOpeningSub" placeholder="Ej: Grupo Inmobiliario Orión" oninput="vmSaveOpeningMeta()">
+            <div class="vm-lbl">Texto del botón</div>
+            <input class="vm-inp" id="vmOpeningBtn" placeholder="Comenzar recorrido" oninput="vmSaveOpeningMeta()">
+            <button id="vmVidRemoveBtn" onclick="vmRemoveVideo()" style="display:none;margin-top:8px;width:100%;background:rgba(226,75,74,.08);color:#E24B4A;border:1px solid rgba(226,75,74,.2);border-radius:7px;padding:6px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;"><i class="ti ti-trash"></i> Quitar video</button>
+            <div style="font-size:9px;color:rgba(184,157,116,.45);margin-top:8px;line-height:1.6;">El video se guarda en Supabase e incluye en el link automáticamente.</div>
+          </div>
+        </div>
+
       </div>
     </div>
 
-    <!-- VIEWER SCREEN -->
+    <!-- OPENING SCREEN (shown when client opens the link) -->
+    <div id="vmOpening">
+      <video id="vmOpeningVideo" autoplay muted loop playsinline></video>
+      <div class="vm-opening-content">
+        <div class="vm-opening-logo">
+          <svg width="40" height="40" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs><linearGradient id="lgAop" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="rgba(255,255,255,0.28)"/><stop offset="100%" stop-color="rgba(184,157,116,0.18)"/></linearGradient></defs>
+            <path d="M24 4 L44 42 H4 Z" fill="url(#lgAop)" stroke="rgba(255,255,255,0.2)" stroke-width="1" stroke-linejoin="round"/>
+            <path d="M14 30 H34" stroke="rgba(255,255,255,0.6)" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="vm-opening-title" id="vmOpeningTitleDisplay">—</div>
+        <div class="vm-opening-sub"   id="vmOpeningSubDisplay">—</div>
+        <button class="vm-opening-btn" onclick="vmStartFromOpening()">
+          <i class="ti ti-arrow-right"></i>
+          <span id="vmOpeningBtnDisplay">Comenzar recorrido</span>
+        </button>
+      </div>
+      <div class="vm-opening-progress">
+        <div class="vm-opening-progress-bar" id="vmOpeningProgressBar"></div>
+      </div>
+    </div>
     <div class="vm-viewer" id="vmViewer">
       <canvas id="vmCanvas"></canvas>
       <div class="vm-overlay-grad"></div>
@@ -3313,11 +3481,12 @@ function vmGoToScene(targetIdx, dotEl) {
 function saveVmData() {
   try {
     localStorage.setItem('agelarq_vm', JSON.stringify({
-      scenes: vmScenes,
-      projName: document.getElementById('vmProjName').value,
-      projSub:  document.getElementById('vmProjSub').value
+      scenes:   vmScenes,
+      projName: document.getElementById('vmProjName')?.value,
+      projSub:  document.getElementById('vmProjSub')?.value,
+      opening:  _vmGetOpeningConfig()
     }));
-  } catch(e){}
+  } catch(e) { console.warn('saveVmData:', e); }
 }
 function loadVmData() {
   try {
@@ -3325,10 +3494,11 @@ function loadVmData() {
     if (!saved) return;
     const d = JSON.parse(saved);
     vmScenes = d.scenes||[];
-    if (d.projName) document.getElementById('vmProjName').value=d.projName;
-    if (d.projSub)  document.getElementById('vmProjSub').value=d.projSub;
+    if (d.projName) document.getElementById('vmProjName').value = d.projName;
+    if (d.projSub)  document.getElementById('vmProjSub').value  = d.projSub;
+    if (d.opening)  _vmSetOpeningConfig(d.opening);
     vmRenderScenesList();
-  } catch(e){}
+  } catch(e) { console.warn('loadVmData:', e); }
 }
 
 // ════════════════════════════════════════════════════
@@ -3374,7 +3544,9 @@ function _cleanHsForLink(hs) {
 
 async function vmSaveConfigToSupa(scenes, pname, psub) {
   const id  = Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-  const cfg = { v:2, p: pname, sub: psub, scenes: scenes.map(s => ({
+  // Include opening config if set
+  const opening = _vmGetOpeningConfig();
+  const cfg = { v:2, p: pname, sub: psub, opening, scenes: scenes.map(s => ({
     name: s.name,
     meta: s.meta || '',
     url:  s.url,
@@ -3806,6 +3978,164 @@ async function smgrDeleteSelected() {
 }
 
 
+// ════════════════════════════════════════════════════
+// OPENING SCREEN — video portada
+// ════════════════════════════════════════════════════
+
+// State: stored in localStorage alongside vmData
+let _vmOpeningVideoUrl = null; // Supabase URL of the uploaded video
+
+function _vmGetOpeningConfig() {
+  return {
+    videoUrl: _vmOpeningVideoUrl || null,
+    title:    document.getElementById('vmOpeningTitle')?.value.trim() || '',
+    sub:      document.getElementById('vmOpeningSub')?.value.trim()   || '',
+    btnText:  document.getElementById('vmOpeningBtn')?.value.trim()   || 'Comenzar recorrido'
+  };
+}
+
+function _vmSetOpeningConfig(cfg) {
+  if (!cfg) return;
+  _vmOpeningVideoUrl = cfg.videoUrl || null;
+  const t = document.getElementById('vmOpeningTitle'); if (t) t.value = cfg.title  || '';
+  const s = document.getElementById('vmOpeningSub');   if (s) s.value = cfg.sub    || '';
+  const b = document.getElementById('vmOpeningBtn');   if (b) b.value = cfg.btnText|| '';
+  if (_vmOpeningVideoUrl) _vmShowVidThumb(_vmOpeningVideoUrl);
+}
+
+function vmSaveOpeningMeta() { saveVmData(); }
+
+// Upload video to Supabase
+async function vmHandleVideo(e) {
+  const file = e.target.files[0]; if (!file) return;
+  e.target.value = '';
+  const sizeMB = (file.size/1024/1024).toFixed(1);
+  const ext    = file.name.split('.').pop().toLowerCase();
+  const safe   = file.name.replace(/\.[^.]+$/,'').normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,50);
+  const path   = `videos/${Date.now()}_${safe}.${ext}`;
+
+  const prog  = document.getElementById('vmVidProgress');
+  const bar   = document.getElementById('vmVidProgressBar');
+  const status= document.getElementById('vmVidStatus');
+  const drop  = document.getElementById('vmVidDrop');
+  prog.classList.add('show');
+  if (status) status.textContent = `Subiendo ${sizeMB} MB…`;
+  if (drop)   drop.style.display = 'none';
+
+  try {
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${SUPA_URL}/storage/v1/object/${SUPA_BUCKET}/${path}`);
+      xhr.setRequestHeader('Authorization', `Bearer ${SUPA_ANON}`);
+      xhr.setRequestHeader('apikey', SUPA_ANON);
+      xhr.setRequestHeader('x-upsert', 'true');
+      xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
+      xhr.upload.addEventListener('progress', ev => {
+        if (ev.lengthComputable) {
+          const pct = Math.round(ev.loaded/ev.total*100);
+          if (bar) bar.style.width = pct + '%';
+          if (status) status.textContent = `Subiendo ${sizeMB} MB… ${pct}%`;
+        }
+      });
+      xhr.onload = () => xhr.status < 300 ? resolve() : reject(new Error(xhr.status + ' ' + xhr.responseText));
+      xhr.onerror = () => reject(new Error('Error de red'));
+      xhr.send(file);
+    });
+
+    _vmOpeningVideoUrl = `${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${path}`;
+    if (status) status.textContent = '✓ Video listo';
+    prog.classList.remove('show');
+    _vmShowVidThumb(_vmOpeningVideoUrl);
+    saveVmData();
+    toast('Video de portada subido ✓');
+  } catch(err) {
+    prog.classList.remove('show');
+    if (status) status.textContent = '⚠ Error al subir video';
+    if (drop) drop.style.display = '';
+    console.error('vmHandleVideo:', err);
+    toast('Error al subir video — verifica tu conexión');
+  }
+}
+
+function _vmShowVidThumb(url) {
+  const thumb = document.getElementById('vmVidThumb');
+  const drop  = document.getElementById('vmVidDrop');
+  const rmBtn = document.getElementById('vmVidRemoveBtn');
+  if (thumb) { thumb.src = url; thumb.classList.add('show'); }
+  if (drop)  drop.style.display = 'none';
+  if (rmBtn) rmBtn.style.display = '';
+}
+
+function vmRemoveVideo() {
+  _vmOpeningVideoUrl = null;
+  const thumb = document.getElementById('vmVidThumb');
+  const drop  = document.getElementById('vmVidDrop');
+  const rmBtn = document.getElementById('vmVidRemoveBtn');
+  const status= document.getElementById('vmVidStatus');
+  if (thumb) { thumb.src = ''; thumb.classList.remove('show'); }
+  if (drop)  drop.style.display = '';
+  if (rmBtn) rmBtn.style.display = 'none';
+  if (status)status.textContent = '';
+  saveVmData();
+  toast('Video de portada eliminado');
+}
+
+// ── SHOW OPENING when client opens the link ──
+function vmShowOpening(cfg) {
+  const opening = document.getElementById('vmOpening');
+  const vid     = document.getElementById('vmOpeningVideo');
+  if (!opening) return;
+
+  // Set texts
+  const titleEl = document.getElementById('vmOpeningTitleDisplay');
+  const subEl   = document.getElementById('vmOpeningSubDisplay');
+  const btnEl   = document.getElementById('vmOpeningBtnDisplay');
+  if (titleEl) titleEl.textContent = cfg.title   || document.getElementById('vmProjName')?.value || '';
+  if (subEl)   subEl.textContent   = cfg.sub     || document.getElementById('vmProjSub')?.value  || '';
+  if (btnEl)   btnEl.textContent   = cfg.btnText || 'Comenzar recorrido';
+
+  // Load video
+  if (cfg.videoUrl && vid) {
+    vid.src = cfg.videoUrl;
+    vid.load();
+    // Animate progress bar in sync with video
+    vid.addEventListener('timeupdate', () => {
+      if (!vid.duration) return;
+      const bar = document.getElementById('vmOpeningProgressBar');
+      if (bar) bar.style.width = (vid.currentTime / vid.duration * 100) + '%';
+    });
+  }
+
+  opening.classList.add('show');
+}
+
+// ── Start viewer from opening screen ──
+function vmStartFromOpening() {
+  const opening = document.getElementById('vmOpening');
+  const vid     = document.getElementById('vmOpeningVideo');
+
+  // Fade out opening screen
+  if (opening) {
+    opening.style.opacity = '0';
+    opening.style.transition = 'opacity .8s';
+    setTimeout(() => {
+      opening.style.display = 'none';
+      opening.classList.remove('show');
+    }, 800);
+  }
+  if (vid) { vid.pause(); vid.src = ''; }
+
+  // Show the viewer (was pre-initialized in background)
+  setTimeout(() => {
+    document.getElementById('vmViewer').classList.add('show');
+  }, 300);
+}
+
+// Override _launchVisorWithScenes to check for opening config
+// (defined inline in the load event, we patch it here)
+let _vmOpeningCfg = null;
+
 // ── INIT ──
 window.addEventListener('load', () => {
   // Safety: always remove intro even if an error occurs below
@@ -3832,17 +4162,29 @@ window.addEventListener('load', () => {
   const _params = new URLSearchParams(window.location.search);
   if (_params.get('visor') === '1') {
 
-    function _launchVisorWithScenes(pname, psub, scenes) {
+    function _launchVisorWithScenes(pname, psub, scenes, openingCfg) {
       if (!scenes.length) return;
       vmScenes = scenes;
       document.getElementById('vmProjName').value = pname;
       document.getElementById('vmProjSub').value  = psub;
       document.getElementById('visorMode').classList.add('show');
       document.getElementById('vmSetup').classList.add('hide');
-      document.getElementById('vmViewer').classList.add('show');
       document.getElementById('vmTitleLabel').textContent = pname;
       document.querySelectorAll('.vm-exit-btn').forEach(b => b.style.display='none');
-      vmInitThree(); vmBuildPips(); vmGoTo(0);
+
+      vmInitThree(); vmBuildPips();
+
+      // Show opening screen if video configured, else go straight to viewer
+      if (openingCfg && openingCfg.videoUrl) {
+        _vmOpeningCfg = openingCfg;
+        vmShowOpening(openingCfg);
+        // Pre-load first scene in background while opening plays
+        vmGoTo(0);
+        // Hide the viewer until user clicks the button (vmStartFromOpening shows it)
+      } else {
+        document.getElementById('vmViewer').classList.add('show');
+        vmGoTo(0);
+      }
     }
 
     const cfgId = _params.get('id');
@@ -3852,7 +4194,7 @@ window.addEventListener('load', () => {
         const pname  = cfg.p   || 'Proyecto';
         const psub   = cfg.sub || '';
         const scenes = (cfg.scenes||[]).filter(s => s.url);
-        _launchVisorWithScenes(pname, psub, scenes);
+        _launchVisorWithScenes(pname, psub, scenes, cfg.opening || null);
       }).catch(err => {
         console.error('Failed to load visor config:', err);
         document.getElementById('visorMode').classList.add('show');
