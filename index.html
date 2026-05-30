@@ -1280,20 +1280,6 @@ function resetAllData() {
     db.transaction(IDB_STORE, 'readwrite').objectStore(IDB_STORE).clear();
   }).finally(() => location.reload());
 }
-function showSceneLoading(show) {
-  const veil = document.getElementById('veil');
-  const bar  = document.querySelector('.sp-fill');
-  if (show) {
-    if (veil) veil.classList.add('on');
-    if (bar)  bar.style.width = '60%';
-  } else {
-    if (bar)  bar.style.width = '100%';
-    setTimeout(() => {
-      if (veil) veil.classList.remove('on');
-      if (bar)  bar.style.width = '0%';
-    }, 400);
-  }
-}
 
 // Rebuild all textures from IndexedDB after page load
 function rebuildTextures() {
@@ -1488,6 +1474,24 @@ cv.addEventListener('touchend', e => {
 function updateFovLabel() { document.getElementById('fovLabel').textContent = Math.round(fov) + '°'; }
 function zoomIn()  { fov = Math.max(20, fov - 8); cam.fov = fov; cam.updateProjectionMatrix(); updateFovLabel(); }
 function zoomOut() { fov = Math.min(100, fov + 8); cam.fov = fov; cam.updateProjectionMatrix(); updateFovLabel(); }
+
+// Generate compact thumbnail (max 400px) as base64 — only for scene list UI
+function _makeThumb(file, cb) {
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  img.onload = () => {
+    const MAX = 400;
+    const ratio = Math.min(MAX / img.width, MAX / img.height, 1);
+    const c = document.createElement('canvas');
+    c.width  = Math.round(img.width  * ratio);
+    c.height = Math.round(img.height * ratio);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url);
+    cb(c.toDataURL('image/jpeg', 0.72));
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); cb(null); };
+  img.src = url;
+}
 
 // ── LOAD PANORAMA — Upload to Supabase (original quality), fallback to IndexedDB ──
 function loadPano(e) {
@@ -3458,6 +3462,13 @@ function downloadCurrentSceneViewer() { toast('Usa "Generar link" para compartir
 
 // ── INIT ──
 window.addEventListener('load', () => {
+  // Safety: always remove intro even if an error occurs below
+  const _removeIntro = () => {
+    const intro = document.getElementById('intro');
+    if (intro) { intro.classList.add('out'); setTimeout(()=>{ if(intro.parentNode)intro.remove(); },900); }
+  };
+
+  try {
   loadLinks();
   const restored = loadData();
   initThree();
@@ -3606,11 +3617,12 @@ window.addEventListener('load', () => {
   // Hide touch hint after 3s
   setTimeout(() => { const th=document.getElementById('touchHint'); if(th)th.classList.add('fade'); }, 3000);
 
-  // Show intro then remove
-  setTimeout(() => {
-    const intro = document.getElementById('intro');
-    if (intro) { intro.classList.add('out'); setTimeout(()=>{ if(intro.parentNode)intro.remove(); },900); }
-  }, 1400);
+  } catch(err) {
+    console.error('Init error:', err);
+  }
+
+  // Always remove intro — regardless of errors above
+  setTimeout(_removeIntro, 1400);
 });
 
 </script>
