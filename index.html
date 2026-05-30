@@ -1574,17 +1574,36 @@ function loadPano(e) {
   });
 }
 
-// Load texture from a URL using fetch→blob — bypasses Three.js CORS limitation
+// Load texture from any public URL using HTML Image element
+// Avoids CORS issues with Three.js TextureLoader — img tags work with all public buckets
 function _loadTexFromUrl(url) {
-  return fetch(url)
-    .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
-    .then(blob => {
-      const objUrl = URL.createObjectURL(blob);
-      return new Promise((res, rej) => {
-        const loader = new THREE.TextureLoader();
-        loader.load(objUrl, tex => { URL.revokeObjectURL(objUrl); res(tex); }, undefined, rej);
-      });
-    });
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const tex = new THREE.Texture(img);
+        tex.needsUpdate = true;
+        tex.minFilter = THREE.LinearFilter; // no mipmaps = less GPU memory
+        resolve(tex);
+      } catch(e) { reject(e); }
+    };
+    img.onerror = () => {
+      // Final fallback: try without crossOrigin (works if server sends no CORS headers)
+      const img2 = new Image();
+      img2.onload = () => {
+        try {
+          const tex = new THREE.Texture(img2);
+          tex.needsUpdate = true;
+          tex.minFilter = THREE.LinearFilter;
+          resolve(tex);
+        } catch(e) { reject(e); }
+      };
+      img2.onerror = () => reject(new Error('Image load failed: ' + url));
+      img2.src = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
+    };
+    img.src = url;
+  });
 }
 
 // Apply a Supabase-hosted panorama (pi/si captured at call time)
@@ -2610,19 +2629,22 @@ async function vmLoadSupaFiles() {
     }
 
     imgFiles.forEach(f => {
-      const url  = `${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${f.name}`;
+      const url      = `${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${f.name}`;
+      // Use Supabase image transform API for a tiny 160px thumbnail — no full image loaded
+      const thumbUrl = `${SUPA_URL}/storage/v1/render/image/public/${SUPA_BUCKET}/${f.name}?width=160&quality=60`;
       const item = document.createElement('div');
       item.className = 'vm-supa-item';
+      const cleanName = f.name.replace(/^\d+_/, '').replace(/\.[^.]+$/, '').replace(/_/g,' ');
       item.innerHTML = `
-        <img src="${url}" alt="${f.name}" loading="lazy" onerror="this.parentElement.style.background='rgba(255,100,100,.1)'">
-        <div class="vm-supa-name">${f.name.replace(/^\d+_/, '').replace(/_/g,' ')}</div>
+        <img src="${thumbUrl}" alt="${cleanName}" loading="lazy"
+             onerror="this.src='${url}';this.onerror=null;"
+             style="width:100%;aspect-ratio:2/1;object-fit:cover;display:block;">
+        <div class="vm-supa-name">${cleanName}</div>
         <div class="vm-supa-check"><i class="ti ti-check" style="font-size:9px;"></i></div>`;
       item.addEventListener('click', () => {
         document.querySelectorAll('.vm-supa-item').forEach(i => i.classList.remove('selected'));
         item.classList.add('selected');
         _vmSelectedSupaFile = { name: f.name, url };
-        // Pre-fill scene name from filename
-        const cleanName = f.name.replace(/^\d+_/, '').replace(/\.[^.]+$/, '').replace(/_/g,' ');
         const nameInp = document.getElementById('vmSupaSceneName');
         if (nameInp && !nameInp.value) nameInp.value = cleanName.slice(0,32);
         if (nameRow) nameRow.style.display = 'block';
@@ -2676,7 +2698,7 @@ function vmLoadEditorScenes() {
       const row = document.createElement('div');
       row.className = 'vm-editor-scene-row';
       row.innerHTML = `
-        ${s.thumb ? `<img src="${s.thumb}" alt="">` : `<div style="width:44px;height:28px;border-radius:5px;background:rgba(255,255,255,.08);flex-shrink:0;"></div>`}
+        <div style="width:44px;height:28px;border-radius:5px;background:rgba(184,157,116,.12);border:1px solid rgba(184,157,116,.2);flex-shrink:0;display:flex;align-items:center;justify-content:center;"><i class="ti ti-360" style="font-size:14px;color:var(--accent);opacity:.7;"></i></div>
         <div class="vmesc-info">
           <div class="vmesc-n">${s.name}</div>
           <div class="vmesc-m">${p.name}${s.meta?' · '+s.meta:''}</div>
@@ -2737,7 +2759,7 @@ function vmRenderScenesList() {
     row.className = 'vm-scene-item';
     row.id = `vmSceneRow_${i}`;
     row.innerHTML =
-      `<img class="vm-scene-thumb" src="${s.url}" onerror="this.style.opacity=0.2">` +
+      `<div class="vm-scene-thumb" style="display:flex;align-items:center;justify-content:center;background:rgba(184,157,116,.1);border:1px solid rgba(184,157,116,.2);"><i class="ti ti-360" style="font-size:16px;color:var(--accent);opacity:.8;"></i></div>` +
       `<div class="vm-scene-info">
         <div class="vm-scene-n">${s.name}</div>
         <div class="vm-scene-m">${s.meta||''}</div>
@@ -3592,22 +3614,26 @@ async function smgrLoad() {
     const totalMB = (_smgrFiles.reduce((a,f) => a+f.size, 0) / 1024 / 1024).toFixed(1);
     stats.textContent = `${_smgrFiles.length} archivo${_smgrFiles.length!==1?'s':''} · ${totalMB} MB usados`;
 
+    // Text-only list — no thumbnail images (avoid loading 50MB files as thumbs)
+    grid.style.gridTemplateColumns = '1fr';
     _smgrFiles.forEach((f, i) => {
       const item = document.createElement('div');
       item.className = 'smgr-item';
       item.dataset.idx = i;
+      item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;';
       const sizeMB = (f.size/1024/1024).toFixed(1);
       const cleanName = f.name.replace(/^\d+_/, '').replace(/\.[^.]+$/, '').replace(/_/g,' ');
+      const ext = f.name.split('.').pop().toUpperCase();
       item.innerHTML = `
-        <div class="smgr-sel-chk"><i class="ti ti-check" style="font-size:9px;"></i></div>
-        <img src="${f.url}" alt="${cleanName}" loading="lazy" onerror="this.style.opacity=0.2">
-        <div class="smgr-item-foot">
-          <div class="smgr-item-name" title="${f.name}">${cleanName}</div>
-          <div class="smgr-item-size">${sizeMB}MB</div>
+        <div class="smgr-sel-chk" style="position:relative;width:16px;height:16px;flex-shrink:0;border-radius:4px;background:rgba(226,75,74,.8);display:none;align-items:center;justify-content:center;font-size:9px;color:#fff;"><i class="ti ti-check"></i></div>
+        <div style="width:28px;height:28px;border-radius:5px;background:rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--muted);flex-shrink:0;letter-spacing:.05em;">${ext}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:10px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${f.name}">${cleanName}</div>
+          <div style="font-size:9px;color:var(--muted);">${sizeMB} MB</div>
         </div>`;
       item.addEventListener('click', () => {
-        if (_smgrSelected.has(i)) { _smgrSelected.delete(i); item.classList.remove('selected'); }
-        else                      { _smgrSelected.add(i);    item.classList.add('selected');    }
+        if (_smgrSelected.has(i)) { _smgrSelected.delete(i); item.classList.remove('selected'); item.querySelector('.smgr-sel-chk').style.display='none'; }
+        else                      { _smgrSelected.add(i);    item.classList.add('selected');    item.querySelector('.smgr-sel-chk').style.display='flex'; }
         smgrUpdateFooter();
       });
       grid.appendChild(item);
