@@ -3344,15 +3344,44 @@ function persistLinks() {
   try { localStorage.setItem(LINKS_KEY, JSON.stringify(savedLinks)); } catch(e){}
 }
 
+// Check if a URL is safe for sharing (not base64/blob)
+function _isSharableUrl(url) {
+  if (!url) return false;
+  if (url.startsWith('data:')) return false;  // base64 — huge
+  if (url.startsWith('blob:')) return false;  // local blob — won't work for others
+  return true;
+}
+
+// Strip un-shareable image refs from a hotspot list
+function _cleanHsForLink(hs) {
+  return (hs||[]).map(h => ({
+    ...h,
+    img: _isSharableUrl(h.img) ? h.img : null  // remove local/base64 images from hs
+  }));
+}
+
 function vmBuildLink(scenesOverride) {
   const pname = document.getElementById('vmProjName').value.trim()||'Proyecto';
   const psub  = document.getElementById('vmProjSub').value.trim()||'';
   const src   = scenesOverride || vmScenes;
   if (!src.length) { toast('Agrega al menos una escena al Visor de Cliente'); return null; }
-  const sp = src.map(s => {
-    const hsStr = JSON.stringify(s.hs||[]);
-    return encodeURIComponent(s.name)+'::'+encodeURIComponent(s.meta)+'::'+encodeURIComponent(s.url)+'::'+encodeURIComponent(hsStr);
+
+  // Filter out scenes with non-shareable URLs (base64/blob)
+  const shareable = src.filter(s => _isSharableUrl(s.url));
+  if (!shareable.length) {
+    toast('Las escenas deben tener URL de Supabase o CDN para compartir. Las imágenes locales no se pueden incluir en links.');
+    return null;
+  }
+  if (shareable.length < src.length) {
+    toast(`⚠ ${src.length - shareable.length} escena(s) omitidas — solo se comparten las que tienen URL de Supabase`);
+  }
+
+  const sp = shareable.map(s => {
+    const cleanHs = _cleanHsForLink(s.hs);
+    const hsStr   = JSON.stringify(cleanHs);
+    return encodeURIComponent(s.name)+'::'+encodeURIComponent(s.meta||'')+'::'+encodeURIComponent(s.url)+'::'+encodeURIComponent(hsStr);
   }).join('|');
+
   return window.location.href.split('?')[0].split('#')[0]+'?visor=1&p='+encodeURIComponent(pname)+'&sub='+encodeURIComponent(psub)+'&scenes='+sp;
 }
 
@@ -3387,12 +3416,15 @@ function vmOpenScenePicker(action) {
                       action === 'open' ? 'Abrir visor en nueva pestaña' : 'Copiar link';
   list.innerHTML = '';
   vmScenes.forEach((s, i) => {
+    const isCloud = _isSharableUrl(s.url);
     const row = document.createElement('label');
     row.className = 'vmp-row';
     row.innerHTML =
-      `<input type="checkbox" class="vmp-chk" value="${i}" checked>` +
-      `<span class="vmp-thumb" style="background-image:url('${s.url}')"></span>` +
-      `<span class="vmp-info"><b>${s.name}</b><small>${s.meta||''}</small></span>`;
+      `<input type="checkbox" class="vmp-chk" value="${i}" ${isCloud ? 'checked' : 'disabled'}>`+
+      `<span class="vmp-thumb" style="background-image:url('${isCloud ? s.url : ''}');background-color:rgba(255,255,255,.06);"></span>`+
+      `<span class="vmp-info"><b>${s.name}</b><small>${s.meta||''}</small></span>`+
+      `<span style="font-size:9px;padding:2px 6px;border-radius:4px;flex-shrink:0;${isCloud ? 'color:#5DCAA5;background:rgba(93,202,165,.1);' : 'color:#E24B4A;background:rgba(226,75,74,.1);'}">`+
+      `${isCloud ? '<i class="ti ti-cloud"></i> Supabase' : '<i class="ti ti-alert-triangle"></i> Local'}</span>`;
     list.appendChild(row);
   });
   modal.dataset.action = action;
@@ -3409,6 +3441,14 @@ async function vmPickerConfirm() {
   const checked = [...document.querySelectorAll('.vmp-chk:checked')]
     .map(c => vmScenes[+c.value]).filter(Boolean);
   if (!checked.length) { toast('Selecciona al menos una escena'); return; }
+
+  // Warn if any selected scene has a local URL
+  const hasLocal = checked.some(s => !_isSharableUrl(s.url));
+  if (hasLocal) {
+    const ok = confirm('⚠ Una o más escenas tienen imágenes locales que no se pueden compartir por link. Se omitirán automáticamente. ¿Continuar?');
+    if (!ok) return;
+  }
+
   vmPickerClose();
 
   const longUrl = vmBuildLink(checked);
