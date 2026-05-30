@@ -530,7 +530,11 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   #cpanel { right:0; left:0; top:52px; width:auto; margin:8px; border-radius:14px; }
 
   /* Scene loading */
-  #sceneLoading { z-index:58; }
+  #sceneLoading{position:absolute;inset:0;z-index:58;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(13,13,13,.72);opacity:0;pointer-events:none;transition:opacity .3s;}
+  #sceneLoading.show{opacity:1;}
+  .sl-ring{width:32px;height:32px;border-radius:50%;border:2px solid rgba(184,157,116,.18);border-top-color:var(--accent);animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .sl-txt{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);}
 
   /* visorMode panels */
   #visorMode .vm-setup-card { max-width:100%; margin:0; border-radius:0; }
@@ -754,6 +758,10 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   <div class="grad"></div><div class="vig"></div>
   <div id="veil"></div>
   <div id="sceneTransVeil"></div>
+  <div id="sceneLoading">
+    <div class="sl-ring"></div>
+    <div class="sl-txt">Cargando escena</div>
+  </div>
   <div class="sp-fill" id="spFill"></div>
   <div id="cur"></div>
 
@@ -1324,6 +1332,12 @@ function resetAllData() {
   openIDB().then(db => {
     db.transaction(IDB_STORE, 'readwrite').objectStore(IDB_STORE).clear();
   }).finally(() => location.reload());
+}
+
+// Show/hide scene loading spinner
+function showSceneLoading(on) {
+  const el = document.getElementById('sceneLoading');
+  if (el) el.classList.toggle('show', !!on);
 }
 
 // Rebuild all textures from IndexedDB after page load
