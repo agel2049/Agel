@@ -3347,42 +3347,93 @@ function persistLinks() {
 // Check if a URL is safe for sharing (not base64/blob)
 function _isSharableUrl(url) {
   if (!url) return false;
-  if (url.startsWith('data:')) return false;  // base64 — huge
-  if (url.startsWith('blob:')) return false;  // local blob — won't work for others
+  if (url.startsWith('data:')) return false;
+  if (url.startsWith('blob:')) return false;
   return true;
 }
 
-// Strip un-shareable image refs from a hotspot list
 function _cleanHsForLink(hs) {
-  return (hs||[]).map(h => ({
-    ...h,
-    img: _isSharableUrl(h.img) ? h.img : null  // remove local/base64 images from hs
-  }));
+  // Keep only essential hotspot data — NO images, no huge fields
+  return (hs||[]).map(h => {
+    const clean = { type: h.type, x: h.x, y: h.y, title: h.title };
+    if (h.type === 'scene') {
+      clean.targetScene     = h.targetScene;
+      clean.targetSceneName = h.targetSceneName;
+    } else {
+      // Info hotspot: keep details, only keep img if it's a short cloud URL
+      if (h.details && h.details.length) clean.details = h.details;
+      if (_isSharableUrl(h.img)) clean.img = h.img;
+    }
+    return clean;
+  });
 }
 
-function vmBuildLink(scenesOverride) {
-  const pname = document.getElementById('vmProjName').value.trim()||'Proyecto';
-  const psub  = document.getElementById('vmProjSub').value.trim()||'';
+// ── SUPABASE-BASED LINK SYSTEM ──────────────────────────────────
+// Saves viewer config as JSON to Supabase, shares only a short ID in URL.
+// Falls back to compact inline URL if Supabase unavailable.
+
+async function vmSaveConfigToSupa(scenes, pname, psub) {
+  const id  = Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  const cfg = { v:2, p: pname, sub: psub, scenes: scenes.map(s => ({
+    name: s.name,
+    meta: s.meta || '',
+    url:  s.url,
+    hs:   _cleanHsForLink(s.hs)
+  }))};
+  const json = JSON.stringify(cfg);
+  const blob = new Blob([json], { type: 'application/json' });
+  const path = `configs/${id}.json`;
+  const res  = await fetch(`${SUPA_URL}/storage/v1/object/${SUPA_BUCKET}/${path}`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${SUPA_ANON}`, 'apikey': SUPA_ANON, 'x-upsert': 'true', 'Content-Type': 'application/json' },
+    body: blob
+  });
+  if (!res.ok) throw new Error(`Supabase config save: ${res.status}`);
+  return id;
+}
+
+async function vmLoadConfigFromSupa(id) {
+  const path = `configs/${id}.json`;
+  const res  = await fetch(`${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${path}`);
+  if (!res.ok) throw new Error('Config not found');
+  return await res.json();
+}
+
+function vmBuildCompactUrl(scenes, pname, psub, base) {
+  // Compact fallback: only name::meta::url — NO hotspots in URL
+  const sp = scenes.map(s =>
+    encodeURIComponent(s.name) + '::'
+    + encodeURIComponent(s.meta||'')+'::'
+    + encodeURIComponent(s.url)
+  ).join('|');
+  return base + '?visor=1&p=' + encodeURIComponent(pname) + '&sub=' + encodeURIComponent(psub) + '&scenes=' + sp;
+}
+
+async function vmBuildLink(scenesOverride) {
+  const pname = (document.getElementById('vmProjName')?.value||'Proyecto').trim();
+  const psub  = (document.getElementById('vmProjSub')?.value||'').trim();
   const src   = scenesOverride || vmScenes;
   if (!src.length) { toast('Agrega al menos una escena al Visor de Cliente'); return null; }
 
-  // Filter out scenes with non-shareable URLs (base64/blob)
   const shareable = src.filter(s => _isSharableUrl(s.url));
   if (!shareable.length) {
-    toast('Las escenas deben tener URL de Supabase o CDN para compartir. Las imágenes locales no se pueden incluir en links.');
-    return null;
+    toast('Las escenas necesitan URL de Supabase para compartirse'); return null;
   }
-  if (shareable.length < src.length) {
-    toast(`⚠ ${src.length - shareable.length} escena(s) omitidas — solo se comparten las que tienen URL de Supabase`);
+  if (shareable.length < src.length)
+    toast(`⚠ ${src.length - shareable.length} escena(s) local(es) omitida(s)`);
+
+  const base = window.location.href.split('?')[0].split('#')[0];
+
+  try {
+    // Try saving full config (with hotspots) to Supabase — short ID in URL
+    const id  = await vmSaveConfigToSupa(shareable, pname, psub);
+    const url = base + '?visor=1&id=' + id;
+    return url;
+  } catch(e) {
+    console.warn('Supabase config save failed, using compact URL:', e);
+    // Fallback: compact URL without hotspots — still short
+    return vmBuildCompactUrl(shareable, pname, psub, base);
   }
-
-  const sp = shareable.map(s => {
-    const cleanHs = _cleanHsForLink(s.hs);
-    const hsStr   = JSON.stringify(cleanHs);
-    return encodeURIComponent(s.name)+'::'+encodeURIComponent(s.meta||'')+'::'+encodeURIComponent(s.url)+'::'+encodeURIComponent(hsStr);
-  }).join('|');
-
-  return window.location.href.split('?')[0].split('#')[0]+'?visor=1&p='+encodeURIComponent(pname)+'&sub='+encodeURIComponent(psub)+'&scenes='+sp;
 }
 
 function vmBuildLinkForScene(pi, si) {
@@ -3442,16 +3493,16 @@ async function vmPickerConfirm() {
     .map(c => vmScenes[+c.value]).filter(Boolean);
   if (!checked.length) { toast('Selecciona al menos una escena'); return; }
 
-  // Warn if any selected scene has a local URL
   const hasLocal = checked.some(s => !_isSharableUrl(s.url));
   if (hasLocal) {
-    const ok = confirm('⚠ Una o más escenas tienen imágenes locales que no se pueden compartir por link. Se omitirán automáticamente. ¿Continuar?');
+    const ok = confirm('⚠ Una o más escenas tienen imágenes locales y se omitirán. ¿Continuar?');
     if (!ok) return;
   }
 
   vmPickerClose();
 
-  const longUrl = vmBuildLink(checked);
+  toast('Generando link…');
+  const longUrl = await vmBuildLink(checked);
   if (!longUrl) return;
 
   if (action === 'open') {
@@ -3780,25 +3831,51 @@ window.addEventListener('load', () => {
   // Handle shared visor link (?visor=1)
   const _params = new URLSearchParams(window.location.search);
   if (_params.get('visor') === '1') {
-    const pname = decodeURIComponent(_params.get('p')||'Proyecto');
-    const psub  = decodeURIComponent(_params.get('sub')||'');
-    const scenesRaw = _params.get('scenes')||'';
-    if (scenesRaw) {
-      const parsed = scenesRaw.split('|').map(s => {
-        const parts = s.split('::');
-        let hs = []; try { hs=JSON.parse(decodeURIComponent(parts[3]||'[]')); }catch(e){}
-        return { name:decodeURIComponent(parts[0]||'Escena'), meta:decodeURIComponent(parts[1]||''), url:decodeURIComponent(parts[2]||''), hs };
-      }).filter(s => s.url);
-      if (parsed.length > 0) {
-        vmScenes = parsed;
-        document.getElementById('vmProjName').value = pname;
-        document.getElementById('vmProjSub').value  = psub;
+
+    function _launchVisorWithScenes(pname, psub, scenes) {
+      if (!scenes.length) return;
+      vmScenes = scenes;
+      document.getElementById('vmProjName').value = pname;
+      document.getElementById('vmProjSub').value  = psub;
+      document.getElementById('visorMode').classList.add('show');
+      document.getElementById('vmSetup').classList.add('hide');
+      document.getElementById('vmViewer').classList.add('show');
+      document.getElementById('vmTitleLabel').textContent = pname;
+      document.querySelectorAll('.vm-exit-btn').forEach(b => b.style.display='none');
+      vmInitThree(); vmBuildPips(); vmGoTo(0);
+    }
+
+    const cfgId = _params.get('id');
+    if (cfgId) {
+      // ── NEW FORMAT: load config JSON from Supabase ──
+      vmLoadConfigFromSupa(cfgId).then(cfg => {
+        const pname  = cfg.p   || 'Proyecto';
+        const psub   = cfg.sub || '';
+        const scenes = (cfg.scenes||[]).filter(s => s.url);
+        _launchVisorWithScenes(pname, psub, scenes);
+      }).catch(err => {
+        console.error('Failed to load visor config:', err);
         document.getElementById('visorMode').classList.add('show');
-        document.getElementById('vmSetup').classList.add('hide');
-        document.getElementById('vmViewer').classList.add('show');
-        document.getElementById('vmTitleLabel').textContent = pname;
-        document.querySelectorAll('.vm-exit-btn').forEach(b => b.style.display='none');
-        vmInitThree(); vmBuildPips(); vmGoTo(0);
+        document.getElementById('vmSetup').classList.remove('hide');
+        document.querySelector('.vm-back')?.style.setProperty('display','none');
+        const errEl = document.createElement('div');
+        errEl.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--muted);font-size:13px;line-height:2;';
+        errEl.innerHTML = '<i class="ti ti-alert-triangle" style="font-size:32px;color:#E24B4A;display:block;margin-bottom:10px;"></i>Link expirado o no disponible.<br><small>Solicita un nuevo link al arquitecto.</small>';
+        document.getElementById('visorMode').appendChild(errEl);
+      });
+    } else {
+      // ── LEGACY FORMAT: ?scenes=name::meta::url (no hotspots) ──
+      const pname     = decodeURIComponent(_params.get('p')||'Proyecto');
+      const psub      = decodeURIComponent(_params.get('sub')||'');
+      const scenesRaw = _params.get('scenes')||'';
+      if (scenesRaw) {
+        const parsed = scenesRaw.split('|').map(s => {
+          const parts = s.split('::');
+          let hs = [];
+          try { hs = JSON.parse(decodeURIComponent(parts[3]||'[]')); } catch(e) {}
+          return { name: decodeURIComponent(parts[0]||'Escena'), meta: decodeURIComponent(parts[1]||''), url: decodeURIComponent(parts[2]||''), hs };
+        }).filter(s => s.url && _isSharableUrl(s.url));
+        _launchVisorWithScenes(pname, psub, parsed);
       }
     }
   }
