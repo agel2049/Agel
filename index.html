@@ -719,6 +719,33 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .vmesc-add{background:rgba(184,157,116,.1);border:1px solid rgba(184,157,116,.25);color:var(--accent);border-radius:6px;padding:4px 8px;font-size:9px;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;transition:all .2s;}
 .vmesc-add:hover{background:rgba(184,157,116,.25);}
 .vmesc-add.added{background:rgba(93,202,165,.1);border-color:rgba(93,202,165,.3);color:#5DCAA5;}
+
+/* ══ SUPABASE MANAGER PANEL ══ */
+#supaManager{position:absolute;left:0;top:0;bottom:0;width:340px;z-index:50;background:rgba(10,10,14,.95);border-right:1px solid var(--border);display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .38s var(--ease);}
+#supaManager.show{transform:translateX(0);}
+.smgr-header{padding:14px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.smgr-title{font-size:11px;font-weight:500;color:var(--text);letter-spacing:.1em;text-transform:uppercase;display:flex;align-items:center;gap:7px;}
+.smgr-close{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:15px;display:flex;padding:2px;}
+.smgr-close:hover{color:var(--text);}
+.smgr-stats{padding:10px 16px;font-size:10px;color:var(--muted);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.smgr-body{flex:1;overflow-y:auto;padding:12px 14px;scrollbar-width:none;}
+.smgr-body::-webkit-scrollbar{display:none;}
+.smgr-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.smgr-item{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:9px;overflow:hidden;position:relative;transition:border-color .2s;}
+.smgr-item:hover{border-color:rgba(255,255,255,.14);}
+.smgr-item.selected{border-color:rgba(226,75,74,.5);background:rgba(226,75,74,.06);}
+.smgr-item img{width:100%;aspect-ratio:2/1;object-fit:cover;display:block;}
+.smgr-item-foot{padding:5px 7px;display:flex;align-items:center;justify-content:space-between;gap:4px;}
+.smgr-item-name{font-size:8px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+.smgr-item-size{font-size:8px;color:rgba(255,255,255,.25);flex-shrink:0;}
+.smgr-sel-chk{position:absolute;top:5px;left:5px;width:16px;height:16px;border-radius:4px;background:rgba(226,75,74,.8);display:none;align-items:center;justify-content:center;font-size:9px;color:#fff;}
+.smgr-item.selected .smgr-sel-chk{display:flex;}
+.smgr-foot{padding:10px 14px;border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:6px;}
+.smgr-del-btn{width:100%;background:rgba(226,75,74,.12);color:#E24B4A;border:1px solid rgba(226,75,74,.3);border-radius:8px;padding:8px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:all .3s;display:flex;align-items:center;justify-content:center;gap:6px;}
+.smgr-del-btn:hover:not(:disabled){background:rgba(226,75,74,.25);}
+.smgr-del-btn:disabled{opacity:.3;cursor:not-allowed;}
+.smgr-sel-all{background:transparent;border:none;color:var(--muted);font-size:10px;cursor:pointer;font-family:'Inter',sans-serif;text-align:left;padding:0;transition:color .2s;}
+.smgr-sel-all:hover{color:var(--text);}
 </style>
 </head>
 <body>
@@ -762,6 +789,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
       <button class="tba" id="btnSb" onclick="toggleSb()"><i class="ti ti-layout-sidebar"></i></button>
       <button class="tba" id="btnHS" onclick="toggleHSPanel()" title="Hotspots"><i class="ti ti-map-pin"></i></button>
       <button class="tba" id="btnCP" onclick="toggleCP()" title="Cliente"><i class="ti ti-user"></i></button>
+      <button class="tba" id="btnSupa" onclick="toggleSupaManager()" title="Supabase Storage" style="color:#5DCAA5;"><i class="ti ti-cloud"></i></button>
       <button class="tba" id="btnVisor" onclick="openVisorMode()" title="Visor cliente"><i class="ti ti-eye"></i></button>
       <button class="tba pres" id="btnPres" onclick="togglePres()">Presentar</button>
     </div>
@@ -887,6 +915,23 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
     </div>
   </div>
 
+
+  <!-- ══ SUPABASE MANAGER ══ -->
+  <div id="supaManager">
+    <div class="smgr-header">
+      <div class="smgr-title"><i class="ti ti-cloud" style="color:#5DCAA5;"></i> Supabase — panoramas</div>
+      <button class="smgr-close" onclick="toggleSupaManager()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="smgr-stats" id="smgrStats">Cargando…</div>
+    <div class="smgr-body">
+      <div class="smgr-grid" id="smgrGrid"></div>
+      <div id="smgrStatus" style="font-size:10px;color:var(--muted);text-align:center;padding:16px 0;display:none;"></div>
+    </div>
+    <div class="smgr-foot">
+      <button class="smgr-sel-all" onclick="smgrToggleAll()" id="smgrSelAllBtn">Seleccionar todas</button>
+      <button class="smgr-del-btn" id="smgrDelBtn" disabled onclick="smgrDeleteSelected()"><i class="ti ti-trash"></i> Eliminar seleccionadas (<span id="smgrDelCount">0</span>)</button>
+    </div>
+  </div>
 
   <!-- ══ VISOR MODE ══ -->
   <div id="visorMode">
@@ -1292,15 +1337,17 @@ function rebuildTextures() {
         if (s.supaUrl) {
           PROJ[pi].scenes[si].img = s.supaUrl;
           const loader = new THREE.TextureLoader();
-          loader.load(s.supaUrl, tex => {
-            texCache[k(pi,si)] = tex;
-            if (pi===cP && si===cS && sphere) {
+          // Use fetch→blob to bypass Three.js CORS limitation
+        const _capPi=pi, _capSi=si;
+        _loadTexFromUrl(s.supaUrl).then(tex => {
+            texCache[k(_capPi,_capSi)] = tex;
+            if (_capPi===cP && _capSi===cS && sphere) {
               if (sphere.material) sphere.material.dispose();
               sphere.material = new THREE.MeshBasicMaterial({ map: tex });
               document.getElementById('upl').classList.add('hide');
               renderHS(cP,cS);
             }
-          });
+          }).catch(err => console.warn('rebuildTextures supaUrl error:', err));
           const th = await idbGet(`thumb_${pi}_${si}`).catch(()=>null);
           if (th) { PROJ[pi].scenes[si].thumb=th; setThumb(`sph${pi}_${si}`,th); }
           return;
@@ -1493,10 +1540,12 @@ function _makeThumb(file, cb) {
   img.src = url;
 }
 
-// ── LOAD PANORAMA — Upload to Supabase (original quality), fallback to IndexedDB ──
+// ── LOAD PANORAMA — Upload to Supabase, load via blob URL (avoids CORS with TextureLoader) ──
 function loadPano(e) {
   const file = e.target.files[0]; if (!file) return;
   e.target.value = '';
+  // Capture scene index NOW — user might navigate away during upload
+  const _pi = cP, _si = cS;
   const sizeMB = (file.size / 1024 / 1024).toFixed(1);
   document.getElementById('upl').classList.add('hide');
   showSceneLoading(true);
@@ -1514,54 +1563,81 @@ function loadPano(e) {
   .then(publicUrl => {
     if (progressWrap) progressWrap.classList.remove('show');
     if (statusEl) statusEl.textContent = '';
-    _applyPanoUrl(file, publicUrl);
+    _applyPanoUrl(file, publicUrl, _pi, _si);
   })
   .catch(err => {
     console.warn('Supabase upload failed, using local IndexedDB:', err);
     if (progressWrap) progressWrap.classList.remove('show');
     if (statusEl) { statusEl.textContent = '⚠ Sin conexión — guardado local'; setTimeout(() => statusEl.textContent='', 3500); }
     toast('Sin conexión a Supabase — guardando local');
-    _applyPanoLocal(file);
+    _applyPanoLocal(file, _pi, _si);
   });
 }
 
-// Apply a Supabase-hosted panorama URL
-function _applyPanoUrl(file, url) {
-  PROJ[cP].scenes[cS].img     = url;
-  PROJ[cP].scenes[cS].supaUrl = url;
+// Load texture from a URL using fetch→blob — bypasses Three.js CORS limitation
+function _loadTexFromUrl(url) {
+  return fetch(url)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
+    .then(blob => {
+      const objUrl = URL.createObjectURL(blob);
+      return new Promise((res, rej) => {
+        const loader = new THREE.TextureLoader();
+        loader.load(objUrl, tex => { URL.revokeObjectURL(objUrl); res(tex); }, undefined, rej);
+      });
+    });
+}
+
+// Apply a Supabase-hosted panorama (pi/si captured at call time)
+function _applyPanoUrl(file, url, pi, si) {
+  PROJ[pi].scenes[si].img     = url;
+  PROJ[pi].scenes[si].supaUrl = url;
+
+  // Thumbnail (small, local only)
   _makeThumb(file, tb => {
-    PROJ[cP].scenes[cS].thumb = tb;
-    idbSet(`thumb_${cP}_${cS}`, tb);
-    setThumb(`sph${cP}_${cS}`, tb);
-  });
-  const loader = new THREE.TextureLoader();
-  loader.load(url, tex => {
-    if (texCache[k(cP,cS)]) texCache[k(cP,cS)].dispose();
-    texCache[k(cP,cS)] = tex;
-    sphere.material = new THREE.MeshBasicMaterial({ map: tex });
-    lon=0; lat=0; updateCam(); renderHS(cP,cS); updateClientCount();
-    showSceneLoading(false);
-    toast(`☁ Subida a Supabase ✓ — ${(file.size/1024/1024).toFixed(1)} MB, calidad original`);
+    PROJ[pi].scenes[si].thumb = tb;
+    idbSet(`thumb_${pi}_${si}`, tb);
+    setThumb(`sph${pi}_${si}`, tb);
     autoSave();
-  }, undefined, () => { showSceneLoading(false); toast('Error al cargar desde Supabase'); });
+  });
+
+  // Load via fetch→blob to avoid Three.js CORS issues
+  _loadTexFromUrl(url)
+    .then(tex => {
+      if (texCache[k(pi,si)]) texCache[k(pi,si)].dispose();
+      texCache[k(pi,si)] = tex;
+      // Only apply to sphere if this is still the active scene
+      if (pi === cP && si === cS) {
+        sphere.material = new THREE.MeshBasicMaterial({ map: tex });
+        lon=0; lat=0; updateCam(); renderHS(pi,si); updateClientCount();
+      }
+      showSceneLoading(false);
+      toast(`☁ Supabase ✓ — ${(file.size/1024/1024).toFixed(1)} MB, calidad original`);
+    })
+    .catch(err => {
+      console.error('_applyPanoUrl load error:', err);
+      showSceneLoading(false);
+      toast('Imagen subida pero no se pudo mostrar — intenta recargar la escena');
+    });
 }
 
 // Apply a panorama locally via IndexedDB (Supabase fallback)
-function _applyPanoLocal(file) {
-  idbSet(`img_${cP}_${cS}`, file).then(() => {
+function _applyPanoLocal(file, pi, si) {
+  idbSet(`img_${pi}_${si}`, file).then(() => {
     const objUrl = URL.createObjectURL(file);
-    PROJ[cP].scenes[cS].img = objUrl;
+    PROJ[pi].scenes[si].img = objUrl;
     _makeThumb(file, tb => {
-      PROJ[cP].scenes[cS].thumb = tb;
-      idbSet(`thumb_${cP}_${cS}`, tb);
-      setThumb(`sph${cP}_${cS}`, tb);
+      PROJ[pi].scenes[si].thumb = tb;
+      idbSet(`thumb_${pi}_${si}`, tb);
+      setThumb(`sph${pi}_${si}`, tb);
     });
     const loader = new THREE.TextureLoader();
     loader.load(objUrl, tex => {
-      if (texCache[k(cP,cS)]) texCache[k(cP,cS)].dispose();
-      texCache[k(cP,cS)] = tex;
-      sphere.material = new THREE.MeshBasicMaterial({ map: tex });
-      lon=0; lat=0; updateCam(); renderHS(cP,cS); updateClientCount();
+      if (texCache[k(pi,si)]) texCache[k(pi,si)].dispose();
+      texCache[k(pi,si)] = tex;
+      if (pi === cP && si === cS) {
+        sphere.material = new THREE.MeshBasicMaterial({ map: tex });
+        lon=0; lat=0; updateCam(); renderHS(pi,si); updateClientCount();
+      }
       showSceneLoading(false);
       toast('Panorámica guardada localmente ✓');
       autoSave();
@@ -1671,15 +1747,19 @@ function selScene(si) {
       document.getElementById('upl').classList.add('hide');
       showSceneLoading(true);
       fade(() => {
-        const loader = new THREE.TextureLoader();
-        loader.load(supaUrl, tex => {
-          if (texCache[k(cP,si)]) texCache[k(cP,si)].dispose();
-          texCache[k(cP,si)] = tex;
-          PROJ[cP].scenes[si].img = supaUrl;
-          sphere.material = new THREE.MeshBasicMaterial({ map: tex });
-          lon=0; lat=0; updateCam(); renderHS(cP,si); manageTextures();
-          showSceneLoading(false);
-        }, undefined, () => { showSceneLoading(false); toast('Error al cargar desde Supabase'); });
+        const _capSi = si;
+        _loadTexFromUrl(supaUrl)
+          .then(tex => {
+            if (texCache[k(cP,_capSi)]) texCache[k(cP,_capSi)].dispose();
+            texCache[k(cP,_capSi)] = tex;
+            PROJ[cP].scenes[_capSi].img = supaUrl;
+            if (cS === _capSi) {
+              sphere.material = new THREE.MeshBasicMaterial({ map: tex });
+              lon=0; lat=0; updateCam(); renderHS(cP,_capSi); manageTextures();
+            }
+            showSceneLoading(false);
+          })
+          .catch(() => { showSceneLoading(false); toast('Error al cargar desde Supabase'); });
       });
     } else {
       idbGet(`img_${cP}_${si}`).then(blob => {
@@ -3459,6 +3539,141 @@ function importProjects() {
   inp.click();
 }
 function downloadCurrentSceneViewer() { toast('Usa "Generar link" para compartir con clientes'); }
+
+// ════════════════════════════════════════════════════
+// SUPABASE STORAGE MANAGER
+// ════════════════════════════════════════════════════
+let _smgrVis = false;
+let _smgrFiles = [];   // [{name, url, size}]
+let _smgrSelected = new Set();
+
+function toggleSupaManager() {
+  _smgrVis = !_smgrVis;
+  document.getElementById('supaManager').classList.toggle('show', _smgrVis);
+  if (_smgrVis) smgrLoad();
+}
+
+async function smgrLoad() {
+  const grid   = document.getElementById('smgrGrid');
+  const status = document.getElementById('smgrStatus');
+  const stats  = document.getElementById('smgrStats');
+  grid.innerHTML = '';
+  status.style.display = 'block';
+  status.textContent = 'Conectando a Supabase…';
+  stats.textContent = 'Cargando…';
+  _smgrFiles = [];
+  _smgrSelected.clear();
+  smgrUpdateFooter();
+
+  try {
+    const res = await fetch(`${SUPA_URL}/storage/v1/object/list/${SUPA_BUCKET}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${SUPA_ANON}`, 'apikey': SUPA_ANON, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefix: '', limit: 200, offset: 0, sortBy: { column: 'created_at', order: 'desc' } })
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    const files = await res.json();
+    status.style.display = 'none';
+
+    const imgs = files.filter(f => f.name && /\.(jpe?g|png|webp|avif)$/i.test(f.name));
+    if (!imgs.length) {
+      status.style.display = 'block';
+      status.textContent = 'No hay imágenes en el bucket todavía.';
+      stats.textContent = '0 archivos';
+      return;
+    }
+
+    _smgrFiles = imgs.map(f => ({
+      name: f.name,
+      url:  `${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${f.name}`,
+      size: f.metadata?.size || 0
+    }));
+
+    const totalMB = (_smgrFiles.reduce((a,f) => a+f.size, 0) / 1024 / 1024).toFixed(1);
+    stats.textContent = `${_smgrFiles.length} archivo${_smgrFiles.length!==1?'s':''} · ${totalMB} MB usados`;
+
+    _smgrFiles.forEach((f, i) => {
+      const item = document.createElement('div');
+      item.className = 'smgr-item';
+      item.dataset.idx = i;
+      const sizeMB = (f.size/1024/1024).toFixed(1);
+      const cleanName = f.name.replace(/^\d+_/, '').replace(/\.[^.]+$/, '').replace(/_/g,' ');
+      item.innerHTML = `
+        <div class="smgr-sel-chk"><i class="ti ti-check" style="font-size:9px;"></i></div>
+        <img src="${f.url}" alt="${cleanName}" loading="lazy" onerror="this.style.opacity=0.2">
+        <div class="smgr-item-foot">
+          <div class="smgr-item-name" title="${f.name}">${cleanName}</div>
+          <div class="smgr-item-size">${sizeMB}MB</div>
+        </div>`;
+      item.addEventListener('click', () => {
+        if (_smgrSelected.has(i)) { _smgrSelected.delete(i); item.classList.remove('selected'); }
+        else                      { _smgrSelected.add(i);    item.classList.add('selected');    }
+        smgrUpdateFooter();
+      });
+      grid.appendChild(item);
+    });
+
+  } catch(e) {
+    status.style.display = 'block';
+    status.textContent = `Error: ${e.message}`;
+    stats.textContent = 'Error de conexión';
+    console.error('smgrLoad:', e);
+  }
+}
+
+function smgrUpdateFooter() {
+  const cnt   = _smgrSelected.size;
+  const delBtn = document.getElementById('smgrDelBtn');
+  const cntEl  = document.getElementById('smgrDelCount');
+  const selBtn = document.getElementById('smgrSelAllBtn');
+  if (delBtn) delBtn.disabled = cnt === 0;
+  if (cntEl)  cntEl.textContent = cnt;
+  if (selBtn) selBtn.textContent = _smgrSelected.size === _smgrFiles.length ? 'Deseleccionar todas' : 'Seleccionar todas';
+}
+
+function smgrToggleAll() {
+  if (_smgrSelected.size === _smgrFiles.length) {
+    _smgrSelected.clear();
+    document.querySelectorAll('.smgr-item').forEach(el => el.classList.remove('selected'));
+  } else {
+    _smgrFiles.forEach((_, i) => _smgrSelected.add(i));
+    document.querySelectorAll('.smgr-item').forEach(el => el.classList.add('selected'));
+  }
+  smgrUpdateFooter();
+}
+
+async function smgrDeleteSelected() {
+  if (!_smgrSelected.size) return;
+  const names = [..._smgrSelected].map(i => _smgrFiles[i].name);
+  if (!confirm(`¿Eliminar ${names.length} imagen${names.length!==1?'es':''} de Supabase permanentemente?`)) return;
+
+  const delBtn = document.getElementById('smgrDelBtn');
+  if (delBtn) { delBtn.disabled = true; delBtn.innerHTML = '<i class="ti ti-loader"></i> Eliminando…'; }
+
+  let deleted = 0;
+  for (const name of names) {
+    try {
+      const res = await fetch(`${SUPA_URL}/storage/v1/object/${SUPA_BUCKET}/${name}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${SUPA_ANON}`, 'apikey': SUPA_ANON }
+      });
+      if (res.ok) {
+        deleted++;
+        // Clear supaUrl from any matching PROJ scenes
+        PROJ.forEach(p => p.scenes.forEach(s => {
+          if (s.supaUrl && s.supaUrl.includes(name)) { s.supaUrl = null; s.img = null; }
+        }));
+      }
+    } catch(e) { console.warn('Delete failed:', name, e); }
+  }
+
+  if (deleted > 0) { saveData(); toast(`${deleted} imagen${deleted!==1?'es':''} eliminada${deleted!==1?'s':''} ✓`); }
+  else toast('No se pudo eliminar ninguna imagen');
+
+  // Reload panel
+  smgrLoad();
+}
+
 
 // ── INIT ──
 window.addEventListener('load', () => {
