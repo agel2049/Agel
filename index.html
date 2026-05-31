@@ -4124,7 +4124,18 @@ function vmShowOpening(cfg) {
   // Load video
   if (cfg.videoUrl && vid) {
     vid.src = cfg.videoUrl;
+    vid.muted = true; // must be muted for autoplay to work on iOS
     vid.load();
+
+    // Try autoplay — works on desktop and Android
+    const playPromise = vid.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        // iOS Safari blocked autoplay — show a tap-to-play overlay
+        _vmShowTapToPlay(vid);
+      });
+    }
+
     // Animate progress bar in sync with video
     vid.addEventListener('timeupdate', () => {
       if (!vid.duration) return;
@@ -4134,6 +4145,47 @@ function vmShowOpening(cfg) {
   }
 
   opening.classList.add('show');
+}
+
+// iOS autoplay fallback — show a minimal tap overlay that starts the video
+function _vmShowTapToPlay(vid) {
+  const opening = document.getElementById('vmOpening');
+  if (!opening) return;
+
+  const tap = document.createElement('div');
+  tap.id = 'vmTapToPlay';
+  tap.style.cssText = [
+    'position:absolute', 'inset:0', 'z-index:10',
+    'display:flex', 'flex-direction:column',
+    'align-items:center', 'justify-content:center', 'gap:14px',
+    'cursor:pointer',
+    'background:rgba(0,0,0,.0)', // transparent — content still visible behind
+  ].join(';');
+
+  tap.innerHTML = `
+    <div style="
+      width:72px;height:72px;border-radius:50%;
+      background:rgba(255,255,255,.12);
+      border:1.5px solid rgba(255,255,255,.25);
+      display:flex;align-items:center;justify-content:center;
+      backdrop-filter:blur(12px);
+      box-shadow:0 0 40px rgba(0,0,0,.3);
+      transition:transform .2s,background .2s;
+    " id="vmTapIcon">
+      <i class="ti ti-player-play" style="font-size:26px;color:#fff;margin-left:4px;"></i>
+    </div>
+    <span style="font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.2em;text-transform:uppercase;">Toca para reproducir</span>`;
+
+  tap.addEventListener('click', () => {
+    vid.muted = true;
+    vid.play().then(() => {
+      tap.style.opacity = '0';
+      tap.style.transition = 'opacity .4s';
+      setTimeout(() => tap.remove(), 400);
+    }).catch(err => console.warn('vmTapToPlay play failed:', err));
+  });
+
+  opening.appendChild(tap);
 }
 
 // ── Start viewer from opening screen ──
