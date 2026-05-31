@@ -228,8 +228,8 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .vm-setup.hide{opacity:0;pointer-events:none;}
 .vm-setup-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 10px;border-bottom:1px solid var(--border);flex-shrink:0;}
 .vm-setup-htitle{font-size:11px;font-weight:500;color:var(--text);letter-spacing:.12em;text-transform:uppercase;}
-.vm-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;padding:14px 18px;overflow:hidden;flex:1;min-height:0;}
-.vm-col{display:flex;flex-direction:column;overflow-y:auto;scrollbar-width:none;gap:0;}
+.vm-cols{display:grid;grid-template-columns:repeat(3,minmax(280px,1fr));gap:14px;padding:14px 18px;overflow-x:auto;overflow-y:auto;flex:1;min-height:0;}
+.vm-col{display:flex;flex-direction:column;min-width:0;gap:0;}
 .vm-col::-webkit-scrollbar{display:none;}
 .vm-col-eye{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;}
 .vm-card{width:100%;background:rgba(18,18,22,.85);border:1px solid var(--border);border-radius:16px;padding:16px;}
@@ -257,8 +257,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .vm-back:hover{color:var(--text);border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.1);}
 
 /* Viewer canvas */
-#vmCanvas{width:100%;height:100%;display:block;cursor:none;touch-action:none;}
-#vmCur{position:absolute;width:30px;height:30px;border-radius:50%;border:1.5px solid rgba(255,255,255,.55);pointer-events:none;z-index:99;transform:translate(-50%,-50%);opacity:0;transition:width .3s,height .3s,border-color .3s,opacity .25s;}
+#vmCanvas{width:100%;height:100%;display:block;cursor:none;touch-action:none;}#vmCur{position:absolute;width:30px;height:30px;border-radius:50%;border:1.5px solid rgba(255,255,255,.55);pointer-events:none;z-index:99;transform:translate(-50%,-50%);opacity:0;transition:width .3s,height .3s,border-color .3s,opacity .25s;}
 #vmCur.vis{opacity:1;}#vmCur.drag{width:18px;height:18px;border-color:var(--accent);}
 .vm-viewer{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .5s;}
 .vm-viewer.show{opacity:1;pointer-events:all;}
@@ -608,9 +607,13 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 
 /* ══ MOBILE — visor stacked layout ══ */
 @media (max-width:768px) {
-  .vm-cols { grid-template-columns:1fr; overflow-y:auto; }
+  .vm-cols { grid-template-columns:1fr; overflow-y:auto; overflow-x:hidden; }
   .vm-col  { overflow-y:visible; }
   .vm-setup-header { padding:10px 14px 8px; }
+}
+/* Tablet: 2 columns, third wraps below */
+@media (min-width:769px) and (max-width:1200px) {
+  .vm-cols { grid-template-columns: repeat(2, minmax(260px,1fr)); }
 }
 /* ══ SCENE SPOT (navigation hotspot) ══ */
 .hs.scene-spot {
@@ -868,7 +871,6 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .vm-vid-status { font-size:9px; color:var(--muted); margin-top:4px; min-height:12px; }
 
 @media (max-width: 768px) {
-  .vm-cols { grid-template-columns: 1fr; }
   .vm-opening-title { font-size: 28px; }
   .vm-opening-btn { padding: 12px 32px; font-size: 11px; }
 }
@@ -3157,55 +3159,77 @@ function vmInitThree() {
   }, {passive:false});
 
   // Touch: drag + pinch-to-zoom + inertia
-  // Attach to document-level to capture all touches even if finger moves over UI elements
+  // ── DRAG + PINCH: Pointer Events (unifies mouse + touch, no passive issues) ──
+  // Attached to the canvas only — buttons in btmbar have their own events
+  let _vmPtrs = new Map(); // active pointers
   let _vt2=false, _vInitDist=0, _vInitFov=55;
-  const vmTouchTarget = document.getElementById('visorMode');
 
-  vmTouchTarget.addEventListener('touchstart', e => {
-    // Only handle if touch originated on canvas or viewer (not on btmbar buttons)
-    const tag = e.target.tagName;
-    if (tag === 'BUTTON' || tag === 'SELECT' || tag === 'INPUT') return;
-    e.preventDefault();
+  function _vmPinchDist() {
+    const pts = [..._vmPtrs.values()];
+    const dx = pts[0].x - pts[1].x, dy = pts[0].y - pts[1].y;
+    return Math.sqrt(dx*dx + dy*dy);
+  }
+
+  vmCv.addEventListener('pointerdown', e => {
+    vmCv.setPointerCapture(e.pointerId);
+    _vmPtrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
     vmStopInertia(); _vmVLon=0; _vmVLat=0;
-    if(e.touches.length===2){
+    if (_vmPtrs.size === 2) {
       _vt2=true; vmDn=false;
-      const dx=e.touches[0].clientX-e.touches[1].clientX;
-      const dy=e.touches[0].clientY-e.touches[1].clientY;
-      _vInitDist=Math.sqrt(dx*dx+dy*dy); _vInitFov=vmFov;
+      _vInitDist=_vmPinchDist(); _vInitFov=vmFov;
     } else {
       _vt2=false; vmDn=true;
-      vmLx=e.touches[0].clientX; vmLy=e.touches[0].clientY; _vmLastT=Date.now();
+      vmLx=e.clientX; vmLy=e.clientY; _vmLastT=Date.now();
     }
-  }, {passive:false});
+  });
 
-  vmTouchTarget.addEventListener('touchmove', e => {
-    const tag = e.target.tagName;
-    if (tag === 'BUTTON' || tag === 'SELECT' || tag === 'INPUT') return;
-    e.preventDefault();
-    if(e.touches.length===2 && _vt2){
-      const dx=e.touches[0].clientX-e.touches[1].clientX;
-      const dy=e.touches[0].clientY-e.touches[1].clientY;
-      vmFov=Math.min(100,Math.max(20,_vInitFov*(_vInitDist/Math.sqrt(dx*dx+dy*dy))));
+  vmCv.addEventListener('pointermove', e => {
+    if (!_vmPtrs.has(e.pointerId)) return;
+    _vmPtrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+
+    if (_vmPtrs.size === 2 && _vt2) {
+      const d = _vmPinchDist();
+      vmFov = Math.min(100, Math.max(20, _vInitFov*(_vInitDist/d)));
       vmCam.fov=vmFov; vmCam.updateProjectionMatrix();
-      document.getElementById('vmFovLabel').textContent=Math.round(vmFov)+'°';
-    } else if(vmDn && e.touches.length===1){
-      const nx=e.touches[0].clientX, ny=e.touches[0].clientY;
-      const dt=Math.max(1,Date.now()-_vmLastT);
+      const lbl = document.getElementById('vmFovLabel');
+      if (lbl) lbl.textContent = Math.round(vmFov)+'°';
+    } else if (vmDn && _vmPtrs.size === 1) {
+      const nx=e.clientX, ny=e.clientY;
+      const dt = Math.max(1, Date.now()-_vmLastT);
       const dlon=-(nx-vmLx)*.06, dlat=(ny-vmLy)*.06;
       vmLon+=dlon; vmLat+=dlat;
-      const _vtDt = Math.min(dt, 32);
-      _vmVLon = _vmVLon*0.5 + dlon*(16/_vtDt)*0.5;
-      _vmVLat = _vmVLat*0.5 + dlat*(16/_vtDt)*0.5;
-      _vmVLon = Math.max(-4, Math.min(4, _vmVLon));
-      _vmVLat = Math.max(-2, Math.min(2, _vmVLat));
+      const cap=Math.min(dt,32);
+      _vmVLon=_vmVLon*0.5+dlon*(16/cap)*0.5;
+      _vmVLat=_vmVLat*0.5+dlat*(16/cap)*0.5;
+      _vmVLon=Math.max(-4,Math.min(4,_vmVLon));
+      _vmVLat=Math.max(-2,Math.min(2,_vmVLat));
       vmLx=nx; vmLy=ny; _vmLastT=Date.now(); vmUpdateCam();
     }
-  }, {passive:false});
+  });
 
-  vmTouchTarget.addEventListener('touchend', e => {
-    if(e.touches.length===0){ vmDn=false; _vt2=false; vmStartInertia(); }
-    else if(e.touches.length===1){ _vt2=false; vmDn=true; vmLx=e.touches[0].clientX; vmLy=e.touches[0].clientY; _vmLastT=Date.now(); }
-  }, {passive:true});
+  function _vmPointerUp(e) {
+    _vmPtrs.delete(e.pointerId);
+    if (_vmPtrs.size === 0) {
+      vmDn=false; _vt2=false; vmStartInertia();
+    } else if (_vmPtrs.size === 1) {
+      // Went from pinch back to single finger — resume drag
+      _vt2=false; vmDn=true;
+      const [p] = _vmPtrs.values();
+      vmLx=p.x; vmLy=p.y; _vmLastT=Date.now();
+    }
+  }
+  vmCv.addEventListener('pointerup',     _vmPointerUp);
+  vmCv.addEventListener('pointercancel', _vmPointerUp);
+  vmCv.addEventListener('pointerleave',  _vmPointerUp);
+
+  // Wheel zoom (desktop)
+  vmCv.addEventListener('wheel', e => {
+    e.preventDefault();
+    vmFov=Math.min(100,Math.max(20,vmFov+e.deltaY*.05));
+    vmCam.fov=vmFov; vmCam.updateProjectionMatrix();
+    const lbl=document.getElementById('vmFovLabel');
+    if(lbl) lbl.textContent=Math.round(vmFov)+'°';
+  }, {passive:false});
 
   // Resize observer — keeps renderer sharp on resize/fullscreen
   new ResizeObserver(() => {
@@ -3239,7 +3263,9 @@ function vmPreloadAll() {
 
 function vmGoTo(idx) {
   vmCurIdx = idx;
+  // Reset all drag/pointer state
   vmDn = false;
+  if (typeof _vmPtrs !== 'undefined') _vmPtrs.clear();
   const vmCurEl = document.getElementById('vmCur');
   if (vmCurEl) vmCurEl.classList.remove('drag');
 
