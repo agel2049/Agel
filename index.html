@@ -3303,7 +3303,81 @@ function vmGoTo(idx) {
 }
 
 function vmPrev() { vmGoTo((vmCurIdx - 1 + vmScenes.length) % vmScenes.length); }
-function vmNext() { vmGoTo((vmCurIdx + 1) % vmScenes.length); }
+function vmNext() {
+  // Last scene → return to opening screen instead of looping
+  if (vmCurIdx === vmScenes.length - 1) {
+    vmReturnToOpening();
+  } else {
+    vmGoTo(vmCurIdx + 1);
+  }
+}
+
+// Return to opening screen at end of tour
+function vmReturnToOpening() {
+  const opening = document.getElementById('vmOpening');
+  const vid     = document.getElementById('vmOpeningVideo');
+  const btnEl   = document.getElementById('vmOpeningBtnDisplay');
+  const viewer  = document.getElementById('vmViewer');
+  if (!opening) return;
+
+  // Change button text to "Regresar"
+  if (btnEl) btnEl.textContent = 'Regresar al recorrido';
+  // Change button icon
+  const btn = opening.querySelector('.vm-opening-btn');
+  if (btn) {
+    const icon = btn.querySelector('i');
+    if (icon) { icon.className = 'ti ti-refresh'; }
+    // Override onclick to go back to first scene
+    btn.onclick = () => vmReturnToViewer();
+  }
+
+  // Resume/restart video
+  if (vid && vid.src) {
+    vid.currentTime = 0;
+    vid.muted = true;
+    const p = vid.play();
+    if (p !== undefined) p.catch(() => _vmShowTapToPlay(vid));
+  }
+
+  // Fade in opening over viewer
+  opening.style.display = '';
+  opening.style.opacity = '0';
+  opening.style.transition = 'opacity .7s';
+  requestAnimationFrame(() => {
+    opening.style.opacity = '1';
+    opening.classList.add('show');
+  });
+}
+
+// Come back to viewer from end-of-tour opening
+function vmReturnToViewer() {
+  const opening = document.getElementById('vmOpening');
+  const vid     = document.getElementById('vmOpeningVideo');
+  const btnEl   = document.getElementById('vmOpeningBtnDisplay');
+  const btn     = opening?.querySelector('.vm-opening-btn');
+
+  // Restore original button
+  if (btnEl && _vmOpeningCfg) btnEl.textContent = _vmOpeningCfg.btnText || 'Comenzar recorrido';
+  if (btn) {
+    const icon = btn.querySelector('i');
+    if (icon) icon.className = 'ti ti-arrow-right';
+    btn.onclick = () => vmStartFromOpening();
+  }
+
+  // Fade out opening
+  if (opening) {
+    opening.style.opacity = '0';
+    opening.style.transition = 'opacity .7s';
+    setTimeout(() => {
+      opening.style.display = 'none';
+      opening.classList.remove('show');
+    }, 700);
+  }
+  if (vid) { vid.pause(); }
+
+  // Return to first scene
+  vmGoTo(0);
+}
 function vmZoomIn()  { vmFov=Math.max(20,vmFov-8); vmCam.fov=vmFov; vmCam.updateProjectionMatrix(); document.getElementById('vmFovLabel').textContent=Math.round(vmFov)+'°'; }
 function vmZoomOut() { vmFov=Math.min(100,vmFov+8); vmCam.fov=vmFov; vmCam.updateProjectionMatrix(); document.getElementById('vmFovLabel').textContent=Math.round(vmFov)+'°'; }
 function vmToggleAuto() {
