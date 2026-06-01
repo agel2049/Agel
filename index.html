@@ -3317,36 +3317,50 @@ function vmReturnToOpening() {
   const opening = document.getElementById('vmOpening');
   const vid     = document.getElementById('vmOpeningVideo');
   const btnEl   = document.getElementById('vmOpeningBtnDisplay');
-  const viewer  = document.getElementById('vmViewer');
   if (!opening) return;
 
-  // Change button text to "Regresar"
+  // Remove any stale tap-to-play overlay from previous session
+  const oldTap = document.getElementById('vmTapToPlay');
+  if (oldTap) oldTap.remove();
+
+  // Change button text and icon
   if (btnEl) btnEl.textContent = 'Regresar al recorrido';
-  // Change button icon
   const btn = opening.querySelector('.vm-opening-btn');
   if (btn) {
     const icon = btn.querySelector('i');
-    if (icon) { icon.className = 'ti ti-refresh'; }
-    // Override onclick to go back to first scene
+    if (icon) icon.className = 'ti ti-refresh';
     btn.onclick = () => vmReturnToViewer();
   }
 
-  // Resume/restart video
-  if (vid && vid.src) {
-    vid.currentTime = 0;
-    vid.muted = true;
-    const p = vid.play();
-    if (p !== undefined) p.catch(() => _vmShowTapToPlay(vid));
+  // Restart video — src is still set from vmShowOpening
+  if (vid) {
+    // If src was cleared or never set, restore from config
+    if (!vid.src && _vmOpeningCfg?.videoUrl) {
+      vid.src = _vmOpeningCfg.videoUrl;
+    }
+    if (vid.src) {
+      vid.currentTime = 0;
+      vid.muted = true;
+      vid.load();
+      const p = vid.play();
+      if (p !== undefined) {
+        p.catch(() => {
+          // iOS: show tap overlay only if not already showing
+          if (!document.getElementById('vmTapToPlay')) _vmShowTapToPlay(vid);
+        });
+      }
+    }
   }
 
-  // Fade in opening over viewer
+  // Fade opening back in over the viewer
   opening.style.display = '';
+  opening.style.transition = 'none';
   opening.style.opacity = '0';
+  opening.classList.add('show');
+  // Force reflow then fade in
+  opening.getBoundingClientRect();
   opening.style.transition = 'opacity .7s';
-  requestAnimationFrame(() => {
-    opening.style.opacity = '1';
-    opening.classList.add('show');
-  });
+  opening.style.opacity = '1';
 }
 
 // Come back to viewer from end-of-tour opening
@@ -3356,13 +3370,21 @@ function vmReturnToViewer() {
   const btnEl   = document.getElementById('vmOpeningBtnDisplay');
   const btn     = opening?.querySelector('.vm-opening-btn');
 
-  // Restore original button
-  if (btnEl && _vmOpeningCfg) btnEl.textContent = _vmOpeningCfg.btnText || 'Comenzar recorrido';
+  // Remove tap overlay if showing
+  const tapEl = document.getElementById('vmTapToPlay');
+  if (tapEl) tapEl.remove();
+
+  // Restore original button text and icon
+  const origText = _vmOpeningCfg?.btnText || 'Comenzar recorrido';
+  if (btnEl) btnEl.textContent = origText;
   if (btn) {
     const icon = btn.querySelector('i');
     if (icon) icon.className = 'ti ti-arrow-right';
     btn.onclick = () => vmStartFromOpening();
   }
+
+  // Pause video
+  if (vid) vid.pause();
 
   // Fade out opening
   if (opening) {
@@ -3373,7 +3395,6 @@ function vmReturnToViewer() {
       opening.classList.remove('show');
     }, 700);
   }
-  if (vid) { vid.pause(); }
 
   // Return to first scene
   vmGoTo(0);
@@ -4276,7 +4297,8 @@ function vmStartFromOpening() {
       opening.classList.remove('show');
     }, 800);
   }
-  if (vid) { vid.pause(); vid.src = ''; }
+  // Pause but KEEP src — needed when returning at end of tour
+  if (vid) vid.pause();
 
   // Show the viewer (was pre-initialized in background)
   setTimeout(() => {
