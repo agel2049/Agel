@@ -6,6 +6,7 @@
 <title>AgelArq — Visor 360°</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@200;300;400;500&family=Geist+Mono:wght@300;400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <style>
 
@@ -566,6 +567,246 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 }
 
 
+/* ══════════════════════════════════════════════
+   D5 RENDER — MÓDULO VISOR DE MODELOS 3D
+   Premium redesign — Geist · glassmorphism · cinematic
+   ══════════════════════════════════════════════ */
+
+/* ── Tab switcher ── */
+.tb-mode-tab{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:99px;padding:4px 11px;font-size:10px;letter-spacing:.08em;cursor:pointer;font-family:'Inter',sans-serif;transition:all .3s var(--ease);display:flex;align-items:center;gap:4px;white-space:nowrap;}
+.tb-mode-tab.active{background:rgba(184,157,116,.12);border-color:rgba(184,157,116,.4);color:var(--accent);}
+.tb-mode-tab i{font-size:12px;}
+
+/* ── D5 root: same footprint as visorMode ── */
+#d5Mode{position:fixed;top:0;left:0;right:0;bottom:0;z-index:94;background:var(--bg);display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .5s var(--ease);}
+#d5Mode.show{opacity:1;pointer-events:all;}
+
+/* Entrance stagger keyframes */
+@keyframes d5-slide-left{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
+@keyframes d5-slide-up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes d5-fade{from{opacity:0}to{opacity:1}}
+@keyframes d5-cube-spin{from{transform:rotateY(0deg) rotateX(12deg)}to{transform:rotateY(360deg) rotateX(12deg)}}
+@keyframes d5-drop-pulse{0%,100%{box-shadow:0 0 0 0 rgba(184,157,116,0),inset 0 0 0 0 rgba(184,157,116,0)}50%{box-shadow:0 0 40px 0 rgba(184,157,116,.06),inset 0 0 30px 0 rgba(184,157,116,.03)}}
+@keyframes d5-curtain-up{from{clip-path:inset(0 0 0% 0)}to{clip-path:inset(0 0 100% 0)}}
+@keyframes d5-reveal-bar{from{width:0}to{width:var(--w,60%)}}
+@keyframes d5-line-pip-in{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes d5-border-in{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+
+/* ── Editor layout (mirrors visorMode) ── */
+.d5-editor{display:flex;flex-direction:column;height:100%;opacity:0;pointer-events:none;transition:opacity .4s var(--ease);}
+.d5-editor.show{opacity:1;pointer-events:all;}
+
+/* header bar inside D5 editor */
+.d5-header{display:flex;align-items:center;justify-content:space-between;padding:0 18px;height:52px;border-bottom:1px solid var(--border);flex-shrink:0;background:rgba(8,8,16,.6);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);}
+.d5-htitle{font-family:'Geist',sans-serif;font-weight:300;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--text);opacity:.7;}
+.d5-hback{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:99px;padding:5px 13px;font-size:10px;letter-spacing:.08em;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:5px;transition:all .3s var(--ease);}
+.d5-hback:hover{color:var(--text);border-color:rgba(255,255,255,.2);}
+
+/* ── Two-column body ── */
+.d5-body{display:grid;grid-template-columns:300px 1fr;flex:1;min-height:0;overflow:hidden;}
+@media(max-width:1024px){.d5-body{grid-template-columns:260px 1fr;}}
+@media(max-width:768px){.d5-body{grid-template-columns:1fr;grid-template-rows:auto 1fr;}}
+
+/* ── Left sidebar (glassmorphism) ── */
+.d5-sidebar{display:flex;flex-direction:column;border-right:1px solid var(--border);overflow-y:auto;scrollbar-width:none;background:rgba(255,255,255,.025);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);animation:d5-slide-left .42s var(--ease) both;}
+.d5-sidebar::-webkit-scrollbar{display:none;}
+.d5-sidebar-section{padding:14px 14px 0;}
+.d5-sidebar-section:last-child{padding-bottom:14px;}
+.d5-sec-label{font-family:'Geist Mono',monospace;font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);opacity:.7;margin-bottom:8px;display:flex;align-items:center;gap:5px;}
+.d5-sec-label::after{content:'';flex:1;height:1px;background:rgba(184,157,116,.15);}
+
+/* project inputs */
+.d5-proj-inp{width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--text);font-family:'Inter',sans-serif;outline:none;transition:border-color .3s,background .3s;margin-bottom:6px;box-sizing:border-box;}
+.d5-proj-inp:last-child{margin-bottom:0;}
+.d5-proj-inp:focus{border-color:rgba(184,157,116,.4);background:rgba(184,157,116,.04);}
+
+/* model list */
+.d5-model-item{display:flex;align-items:center;gap:9px;padding:9px 10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-left:2px solid transparent;border-radius:10px;transition:border-color .25s,background .25s;margin-bottom:5px;position:relative;cursor:default;}
+.d5-model-item:hover{border-color:rgba(255,255,255,.12);border-left-color:transparent;}
+.d5-model-item.active-model{border-left-color:var(--accent);}
+.d5-model-item.active-model::before{content:'';position:absolute;left:0;top:10%;height:80%;width:2px;background:var(--accent);border-radius:99px;transform-origin:center;animation:d5-border-in .35s var(--ease) both;}
+.d5-model-thumb{width:44px;height:28px;border-radius:5px;background:rgba(184,157,116,.07);border:1px solid rgba(184,157,116,.14);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;}
+.d5-model-thumb img{width:100%;height:100%;object-fit:cover;}
+.d5-model-info{flex:1;min-width:0;}
+.d5-model-n{font-size:10px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.d5-model-m{font-size:9px;color:var(--muted);margin-top:1px;font-style:italic;}
+.d5-model-del{background:transparent;border:none;color:rgba(255,100,100,.3);cursor:pointer;font-size:13px;padding:2px 3px;transition:color .2s;flex-shrink:0;}
+.d5-model-del:hover{color:#E24B4A;}
+.d5-badge{font-family:'Geist Mono',monospace;font-size:8px;padding:2px 6px;border-radius:4px;letter-spacing:.06em;flex-shrink:0;}
+.d5-badge.cloud{background:rgba(93,202,165,.1);color:#5DCAA5;border:1px solid rgba(93,202,165,.2);}
+.d5-badge.local{background:rgba(255,200,100,.07);color:rgba(255,200,100,.65);border:1px solid rgba(255,200,100,.18);}
+
+/* sidebar tabs (upload / supa / url) */
+.d5-tabs{display:flex;gap:2px;background:rgba(0,0,0,.25);border-radius:8px;padding:3px;margin-bottom:10px;}
+.d5-tab{flex:1;background:transparent;border:none;color:var(--muted);font-size:9px;letter-spacing:.07em;text-transform:uppercase;padding:5px 3px;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:3px;transition:all .25s;}
+.d5-tab.on{background:rgba(255,255,255,.09);color:var(--text);}
+.d5-tab i{font-size:11px;}
+
+/* upload zone */
+.d5-upload-zone{border:1px dashed rgba(184,157,116,.18);border-radius:10px;padding:18px 12px;text-align:center;cursor:pointer;transition:border-color .35s,background .35s;margin-bottom:8px;}
+.d5-upload-zone:hover{border-color:rgba(184,157,116,.55);background:rgba(184,157,116,.03);}
+.d5-upload-zone i{font-size:20px;color:var(--accent);opacity:.6;display:block;margin-bottom:6px;}
+.d5-upload-zone .uzt{font-size:10px;color:var(--text);margin-bottom:3px;}
+.d5-upload-zone .uzs{font-size:9px;color:var(--muted);line-height:1.7;}
+.d5-upl-bar-wrap{width:100%;height:2px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;margin-top:8px;display:none;}
+.d5-upl-bar-wrap.show{display:block;}
+.d5-upl-bar{height:100%;background:linear-gradient(90deg,var(--accent),#5DCAA5);border-radius:99px;width:0%;transition:width .2s;}
+.d5-upl-st{font-size:9px;color:var(--muted);margin-top:5px;letter-spacing:.04em;min-height:13px;}
+
+/* name confirm row */
+.d5-name-row{display:none;margin-top:8px;background:rgba(184,157,116,.05);border:1px solid rgba(184,157,116,.18);border-radius:9px;padding:10px;}
+.d5-name-row.show{display:block;}
+.d5-name-row .d5-nr-label{font-family:'Geist Mono',monospace;font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--accent);margin-bottom:7px;}
+.d5-name-row .d5-nr-inp{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:6px 9px;font-size:10px;color:var(--text);font-family:'Inter',sans-serif;outline:none;margin-bottom:5px;box-sizing:border-box;transition:border-color .25s;}
+.d5-name-row .d5-nr-inp:focus{border-color:rgba(184,157,116,.4);}
+.d5-name-row .d5-nr-inp:last-of-type{margin-bottom:8px;}
+
+/* supabase browser */
+#d5SupaGrid{display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;scrollbar-width:none;margin-bottom:6px;}
+#d5SupaGrid::-webkit-scrollbar{display:none;}
+.d5-supa-item{display:flex;align-items:center;gap:7px;padding:7px 9px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;cursor:pointer;transition:all .2s;}
+.d5-supa-item:hover{border-color:rgba(184,157,116,.3);}
+.d5-supa-item.selected{border-color:var(--accent);background:rgba(184,157,116,.05);}
+.d5-supa-item .dsi-icon{width:26px;height:26px;border-radius:5px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.d5-supa-item .dsi-icon i{font-size:12px;color:var(--accent);}
+.d5-supa-item .dsi-info{flex:1;min-width:0;}
+.d5-supa-item .dsi-n{font-size:10px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.d5-supa-item .dsi-s{font-family:'Geist Mono',monospace;font-size:8px;color:var(--muted);}
+.d5-supa-item .dsi-chk{width:15px;height:15px;border-radius:50%;background:var(--accent);display:none;align-items:center;justify-content:center;flex-shrink:0;}
+.d5-supa-item.selected .dsi-chk{display:flex;}
+.d5-supa-item .dsi-chk i{font-size:8px;color:#000;}
+
+/* action buttons */
+.d5-btn{width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:var(--muted);border-radius:8px;padding:8px;font-size:10px;letter-spacing:.09em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .25s var(--ease);margin-bottom:6px;}
+.d5-btn:last-child{margin-bottom:0;}
+.d5-btn:hover{color:var(--text);border-color:rgba(255,255,255,.16);}
+.d5-btn:active{transform:translateY(1px);}
+.d5-btn.accent{background:rgba(184,157,116,.1);color:var(--accent);border-color:rgba(184,157,116,.28);}
+.d5-btn.accent:hover{background:rgba(184,157,116,.2);}
+.d5-btn.green{background:rgba(93,202,165,.08);color:#5DCAA5;border-color:rgba(93,202,165,.25);}
+.d5-btn.green:hover{background:rgba(93,202,165,.16);}
+.d5-btn.danger:hover{color:#E24B4A;border-color:rgba(226,75,74,.3);}
+
+/* saved links */
+.d5-link-item{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:9px;padding:9px 11px;margin-bottom:5px;transition:border-color .2s;}
+.d5-link-item:hover{border-color:rgba(255,255,255,.11);}
+.d5-link-name{font-size:10px;font-weight:500;color:var(--text);}
+.d5-link-meta{font-size:9px;color:var(--muted);margin-top:2px;}
+.d5-link-url{font-family:'Geist Mono',monospace;font-size:8px;color:rgba(184,157,116,.55);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.d5-link-actions{display:flex;gap:3px;margin-top:7px;}
+.d5-link-btn{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:var(--muted);border-radius:6px;padding:4px 7px;font-size:10px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:3px;}
+.d5-link-btn:hover{color:var(--text);border-color:rgba(255,255,255,.16);}
+.d5-link-btn.del:hover{color:#E24B4A;border-color:rgba(226,75,74,.28);}
+
+/* video thumb */
+.d5-vid-wrap{position:relative;border-radius:9px;overflow:hidden;margin-bottom:8px;display:none;}
+.d5-vid-wrap.show{display:block;}
+.d5-vid-wrap video{width:100%;display:block;border-radius:9px;}
+
+/* ── Central drop zone ── */
+.d5-center{flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;animation:d5-fade .5s .15s var(--ease) both;}
+
+/* DROP STATE */
+.d5-drop-zone{position:relative;width:min(520px,90%);padding:56px 40px;border:1px dashed rgba(184,157,116,.18);border-radius:24px;text-align:center;cursor:pointer;transition:border-color .4s,background .4s,transform .25s var(--ease);animation:d5-drop-pulse 4s ease-in-out infinite;}
+.d5-drop-zone:hover,.d5-drop-zone.drag-over{border-color:rgba(184,157,116,.6);background:rgba(184,157,116,.03);transform:scale(1.012);}
+.d5-drop-zone.drag-over .d5-cube-wrap{animation-duration:.8s;}
+
+/* 3D cube SVG */
+.d5-cube-wrap{width:54px;height:54px;margin:0 auto 22px;perspective:120px;}
+.d5-cube-inner{width:100%;height:100%;animation:d5-cube-spin 22s linear infinite;transform-style:preserve-3d;}
+.d5-drop-zone.drag-over .d5-cube-inner{animation-duration:1.4s;}
+.d5-cube-svg{width:54px;height:54px;}
+
+/* Drop zone text */
+.d5-drop-title{font-family:'Geist',sans-serif;font-weight:200;font-size:28px;color:rgba(255,255,255,.88);letter-spacing:-.01em;margin-bottom:6px;line-height:1.15;}
+.d5-drop-sub{font-size:10px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:28px;line-height:2;}
+
+/* Two path buttons */
+.d5-drop-paths{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.d5-path-btn{display:flex;align-items:center;gap:6px;padding:10px 18px;border-radius:99px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:all .3s var(--ease);white-space:nowrap;}
+.d5-path-btn:active{transform:translateY(1px);}
+.d5-path-local{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.7);}
+.d5-path-local:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff;}
+.d5-path-cloud{background:rgba(184,157,116,.12);border:1px solid rgba(184,157,116,.32);color:var(--accent);}
+.d5-path-cloud:hover{background:rgba(184,157,116,.22);}
+.d5-drop-hint{position:absolute;bottom:-26px;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,255,255,.2);letter-spacing:.1em;white-space:nowrap;}
+
+/* MODELS active state in center */
+.d5-models-active{display:none;width:100%;height:100%;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
+.d5-models-active.show{display:flex;}
+.d5-models-active .d5-launch-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+
+/* VIEWER (iframe) */
+.d5-viewer{position:absolute;inset:0;z-index:20;display:none;flex-direction:column;}
+.d5-viewer.show{display:flex;}
+.d5-iframe-wrap{flex:1;position:relative;}
+#d5Iframe{width:100%;height:100%;border:none;display:block;background:#080810;}
+
+/* Loading curtain */
+.d5-curtain{position:absolute;inset:0;z-index:30;background:#080810;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+.d5-curtain.lift{animation:d5-curtain-up .7s cubic-bezier(.76,0,.24,1) forwards;}
+.d5-curtain-cube{width:40px;height:40px;perspective:100px;}
+.d5-curtain-cube-inner{width:100%;height:100%;animation:d5-cube-spin 3s linear infinite;transform-style:preserve-3d;}
+.d5-curtain-label{font-family:'Geist',sans-serif;font-weight:300;font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.3);}
+.d5-curtain-bar{width:160px;height:1px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-top:4px;}
+.d5-curtain-bar-fill{height:100%;background:var(--accent);border-radius:99px;width:0%;transition:width .4s ease;}
+
+/* Viewer topbar (floating, auto-hide) */
+.d5-vbar{position:absolute;z-index:25;left:0;right:0;top:0;height:52px;padding:0 18px;display:flex;align-items:center;gap:12px;background:linear-gradient(to bottom,rgba(8,8,16,.7) 0%,transparent 100%);backdrop-filter:blur(0px);transition:opacity .4s var(--ease),transform .4s var(--ease);}
+.d5-vbar.hide{opacity:0;transform:translateY(-8px);pointer-events:none;}
+.d5-vbar-logo{width:22px;height:22px;border-radius:6px;background:rgba(184,157,116,.12);border:1px solid rgba(184,157,116,.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.d5-vbar-logo i{font-size:12px;color:var(--accent);}
+.d5-vbar-proj{font-family:'Geist',sans-serif;font-weight:300;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.75);}
+.d5-vbar-sep{width:1px;height:12px;background:rgba(255,255,255,.12);}
+.d5-vbar-model{font-family:'Geist',sans-serif;font-weight:200;font-size:11px;color:rgba(255,255,255,.4);letter-spacing:.08em;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* Viewer bottom bar (floating) */
+.d5-vbtm{position:absolute;z-index:25;bottom:18px;left:50%;transform:translateX(-50%);height:44px;padding:0 16px;display:flex;align-items:center;gap:10px;border-radius:99px;transition:opacity .4s var(--ease),transform .4s var(--ease);}
+.d5-vbtm.hide{opacity:0;transform:translateX(-50%) translateY(10px);pointer-events:none;}
+
+/* Line pips (architectural, not circles) */
+.d5-lpips{display:flex;gap:4px;align-items:center;}
+.d5-lpip{width:16px;height:2px;border-radius:99px;background:rgba(255,255,255,.2);cursor:pointer;transition:all .35s var(--ease);transform-origin:center;}
+.d5-lpip.on{width:28px;background:var(--accent);}
+
+/* Viewer exit / config buttons */
+.d5-vfab{position:absolute;z-index:26;top:14px;right:14px;display:flex;gap:6px;transition:opacity .4s,transform .4s;}
+.d5-vfab.hide{opacity:0;transform:translateY(-6px);pointer-events:none;}
+.d5-vfab-btn{background:rgba(8,8,16,.65);border:1px solid rgba(255,255,255,.1);color:var(--muted);border-radius:99px;padding:7px 13px;font-size:10px;letter-spacing:.08em;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:5px;transition:all .25s;backdrop-filter:blur(16px);}
+.d5-vfab-btn:hover{color:var(--text);border-color:rgba(255,255,255,.2);}
+.d5-vfab-btn.green{background:rgba(93,202,165,.1);border-color:rgba(93,202,165,.3);color:#5DCAA5;}
+.d5-vfab-btn.green:hover{background:rgba(93,202,165,.2);}
+
+/* ── Opening screen ── */
+#d5Opening{position:absolute;inset:0;z-index:40;display:none;background:#080810;flex-direction:column;align-items:center;justify-content:center;}
+#d5Opening.show{display:flex;}
+#d5OpeningVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;}
+.d5-opening-overlay{position:absolute;inset:0;z-index:1;background:linear-gradient(160deg,rgba(0,0,0,.55) 0%,rgba(0,0,0,.2) 50%,rgba(0,0,0,.7) 100%);}
+.d5-opening-content{position:relative;z-index:2;text-align:center;padding:20px;}
+.d5-opening-pretitle{font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:rgba(184,157,116,.6);margin-bottom:14px;}
+.d5-opening-title{font-family:'Geist',sans-serif;font-weight:200;font-size:52px;letter-spacing:-.02em;color:#fff;margin-bottom:6px;line-height:1.05;}
+.d5-opening-sub{font-family:'Geist',sans-serif;font-weight:300;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:40px;}
+.d5-opening-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:rgba(255,255,255,.85);border-radius:99px;padding:14px 40px;font-family:'Geist',sans-serif;font-weight:300;font-size:11px;letter-spacing:.22em;text-transform:uppercase;cursor:pointer;backdrop-filter:blur(20px);transition:all .45s var(--ease);display:flex;align-items:center;gap:10px;margin:0 auto;}
+.d5-opening-btn:hover{background:rgba(184,157,116,.18);border-color:rgba(184,157,116,.5);color:#fff;}
+
+/* ── Responsive ── */
+@media(max-width:768px){
+  .d5-body{grid-template-columns:1fr;}
+  .d5-sidebar{border-right:none;border-bottom:1px solid var(--border);max-height:45vh;overflow-y:auto;}
+  .d5-drop-title{font-size:22px;}
+  .d5-drop-zone{padding:36px 20px;}
+  .d5-vbar{height:48px;padding:0 12px;}
+  .d5-vbtm{bottom:8px;left:8px;right:8px;transform:none;border-radius:14px;width:auto;box-sizing:border-box;justify-content:space-between;}
+  .d5-vfab{top:54px;right:8px;}
+  .d5-opening-title{font-size:32px;}
+}
+@media(prefers-reduced-motion:reduce){
+  .d5-cube-inner,.d5-curtain-cube-inner{animation:none;}
+  .d5-curtain.lift{animation:d5-fade .4s reverse forwards;}
+  .d5-editor,.d5-sidebar,.d5-center,.d5-vbar,.d5-vbtm,.d5-vfab{animation:none;}
+}
+
+
 /* VM Viewer mobile */
 @media (max-width: 768px) {
   .vm-btmbar { border-radius:14px; bottom:8px; left:6px; right:6px; transform:none; width:auto; box-sizing:border-box; justify-content:space-around; height:50px; padding:0 12px; }
@@ -918,6 +1159,9 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
       <span class="tb-sname tb-scene" id="tbScene">—</span>
     </div>
     <div class="tb-actions">
+      <button class="tb-mode-tab active" id="btnMode360" onclick="switchAppMode('360')" title="Modo 360°"><i class="ti ti-360"></i> 360°</button>
+      <button class="tb-mode-tab" id="btnModeD5" onclick="switchAppMode('d5')" title="Modelos D5Render"><i class="ti ti-box-model-2"></i> D5</button>
+      <div class="tb-sep"></div>
       <button class="tba" id="btnSb" onclick="toggleSb()"><i class="ti ti-layout-sidebar"></i></button>
       <button class="tba" id="btnHS" onclick="toggleHSPanel()" title="Hotspots"><i class="ti ti-map-pin"></i></button>
       <button class="tba" id="btnCP" onclick="toggleCP()" title="Cliente"><i class="ti ti-user"></i></button>
@@ -1161,28 +1405,52 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
           </div>
         </div>
 
-        <!-- COL 3: Opening / portada -->
+        <!-- COL 3: Opening + Ending -->
         <div class="vm-col">
           <div class="vm-card vm-opening-card">
-            <div class="vm-col-eye"><i class="ti ti-player-play" style="margin-right:4px;"></i>Portada de apertura</div>
-            <div style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.6;">Video en bucle que el cliente ve antes de entrar a las escenas 360.</div>
-            <input type="file" id="vmVidFile" accept="video/mp4,video/webm" style="display:none;" onchange="vmHandleVideo(event)">
-            <video class="vm-vid-thumb" id="vmVidThumb" autoplay muted loop playsinline></video>
-            <div class="vm-vid-drop" onclick="document.getElementById('vmVidFile').click()" id="vmVidDrop">
-              <i class="ti ti-video-plus"></i>
-              <div class="vm-vid-drop-t">Subir video de portada</div>
-              <div class="vm-vid-drop-s">MP4 · WebM · hasta 500 MB</div>
+            <!-- Media tabs -->
+            <div style="display:flex;gap:3px;margin-bottom:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:3px;" id="vmMediaTabBar">
+              <button id="vmTabOpening" onclick="vmSwitchMediaTab('opening')" style="flex:1;background:rgba(255,255,255,.08);border:none;color:var(--text);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:5px 4px;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:3px;"><i class="ti ti-player-play"></i> Opening</button>
+              <button id="vmTabEnding" onclick="vmSwitchMediaTab('ending')" style="flex:1;background:transparent;border:none;color:var(--muted);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:5px 4px;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:3px;"><i class="ti ti-player-stop"></i> Ending</button>
             </div>
-            <div class="vm-vid-progress" id="vmVidProgress"><div class="vm-vid-progress-bar" id="vmVidProgressBar"></div></div>
-            <div class="vm-vid-status" id="vmVidStatus"></div>
-            <div class="vm-lbl" style="margin-top:10px;">Título principal</div>
-            <input class="vm-inp" id="vmOpeningTitle" placeholder="Ej: Torre Mirador" oninput="vmSaveOpeningMeta()">
-            <div class="vm-lbl">Subtítulo</div>
-            <input class="vm-inp" id="vmOpeningSub" placeholder="Ej: Grupo Inmobiliario Orión" oninput="vmSaveOpeningMeta()">
-            <div class="vm-lbl">Texto del botón</div>
-            <input class="vm-inp" id="vmOpeningBtn" placeholder="Comenzar recorrido" oninput="vmSaveOpeningMeta()">
-            <button id="vmVidRemoveBtn" onclick="vmRemoveVideo()" style="display:none;margin-top:8px;width:100%;background:rgba(226,75,74,.08);color:#E24B4A;border:1px solid rgba(226,75,74,.2);border-radius:7px;padding:6px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;"><i class="ti ti-trash"></i> Quitar video</button>
-            <div style="font-size:9px;color:rgba(184,157,116,.45);margin-top:8px;line-height:1.6;">El video se guarda en Supabase e incluye en el link automáticamente.</div>
+            <!-- OPENING -->
+            <div id="vmMediaOpening">
+              <div class="vm-col-eye" style="margin-bottom:6px;"><i class="ti ti-player-play" style="margin-right:4px;"></i>Video de apertura</div>
+              <input type="file" id="vmVidFile" accept="video/mp4,video/webm" style="display:none;" onchange="vmHandleVideo('opening',event)">
+              <video class="vm-vid-thumb" id="vmVidThumb" autoplay muted loop playsinline></video>
+              <div class="vm-vid-drop" onclick="document.getElementById('vmVidFile').click()" id="vmVidDrop">
+                <i class="ti ti-video-plus"></i>
+                <div class="vm-vid-drop-t">Subir video de apertura</div>
+                <div class="vm-vid-drop-s">MP4 · WebM · hasta 500 MB</div>
+              </div>
+              <div class="vm-vid-progress" id="vmVidProgress"><div class="vm-vid-progress-bar" id="vmVidProgressBar"></div></div>
+              <div class="vm-vid-status" id="vmVidStatus"></div>
+              <div class="vm-lbl" style="margin-top:8px;">Título principal</div>
+              <input class="vm-inp" id="vmOpeningTitle" placeholder="Ej: Torre Mirador" oninput="vmSaveOpeningMeta()">
+              <div class="vm-lbl">Subtítulo</div>
+              <input class="vm-inp" id="vmOpeningSub" placeholder="Ej: Grupo Inmobiliario Orión" oninput="vmSaveOpeningMeta()">
+              <div class="vm-lbl">Texto del botón</div>
+              <input class="vm-inp" id="vmOpeningBtn" placeholder="Comenzar recorrido" oninput="vmSaveOpeningMeta()">
+              <button id="vmVidRemoveBtn" onclick="vmRemoveVideo('opening')" style="display:none;margin-top:8px;width:100%;background:rgba(226,75,74,.08);color:#E24B4A;border:1px solid rgba(226,75,74,.2);border-radius:7px;padding:6px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;"><i class="ti ti-trash"></i> Quitar video</button>
+            </div>
+            <!-- ENDING -->
+            <div id="vmMediaEnding" style="display:none;">
+              <div class="vm-col-eye" style="margin-bottom:6px;"><i class="ti ti-player-stop" style="margin-right:4px;"></i>Video de cierre</div>
+              <div style="font-size:10px;color:var(--muted);margin-bottom:8px;line-height:1.5;">Si no se configura, reutiliza el video de apertura.</div>
+              <input type="file" id="vmEndVidFile" accept="video/mp4,video/webm" style="display:none;" onchange="vmHandleVideo('ending',event)">
+              <video class="vm-vid-thumb" id="vmEndVidThumb" autoplay muted loop playsinline></video>
+              <div class="vm-vid-drop" onclick="document.getElementById('vmEndVidFile').click()" id="vmEndVidDrop">
+                <i class="ti ti-video-plus"></i>
+                <div class="vm-vid-drop-t">Subir video de cierre</div>
+                <div class="vm-vid-drop-s">MP4 · WebM · hasta 500 MB</div>
+              </div>
+              <div class="vm-vid-progress" id="vmEndVidProgress"><div class="vm-vid-progress-bar" id="vmEndVidProgressBar"></div></div>
+              <div class="vm-vid-status" id="vmEndVidStatus"></div>
+              <div class="vm-lbl" style="margin-top:8px;">Texto del botón de cierre</div>
+              <input class="vm-inp" id="vmEndingBtn" placeholder="Regresar al recorrido" oninput="vmSaveOpeningMeta()">
+              <button id="vmEndVidRemoveBtn" onclick="vmRemoveVideo('ending')" style="display:none;margin-top:8px;width:100%;background:rgba(226,75,74,.08);color:#E24B4A;border:1px solid rgba(226,75,74,.2);border-radius:7px;padding:6px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;"><i class="ti ti-trash"></i> Quitar video de cierre</button>
+            </div>
+            <div style="font-size:9px;color:rgba(184,157,116,.45);margin-top:10px;line-height:1.6;">Videos guardados en Supabase, incluidos en el link.</div>
           </div>
         </div>
 
@@ -1264,6 +1532,263 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
       </div>
     </div>
   </div>
+
+  <!-- ══ D5 RENDER MODE ══ -->
+  <div id="d5Mode">
+
+    <!-- ── EDITOR ── -->
+    <div class="d5-editor" id="d5Editor">
+
+      <!-- Header -->
+      <div class="d5-header">
+        <button class="d5-hback" onclick="closeD5Mode()"><i class="ti ti-arrow-left"></i> Volver</button>
+        <span class="d5-htitle">Visor 3D Interactivo</span>
+        <div style="display:flex;gap:6px;">
+          <button class="d5-hback" onclick="d5SaveLink()" style="border-color:rgba(184,157,116,.25);color:var(--accent);"><i class="ti ti-bookmark"></i> Guardar link</button>
+          <button class="d5-hback" onclick="d5Launch()" style="background:rgba(184,157,116,.1);border-color:rgba(184,157,116,.3);color:var(--accent);"><i class="ti ti-player-play"></i> Iniciar</button>
+        </div>
+      </div>
+
+      <!-- Body: sidebar + center -->
+      <div class="d5-body">
+
+        <!-- ── SIDEBAR ── -->
+        <aside class="d5-sidebar">
+
+          <!-- Project -->
+          <div class="d5-sidebar-section">
+            <div class="d5-sec-label"><i class="ti ti-building" style="font-size:10px;"></i> Proyecto</div>
+            <input class="d5-proj-inp" id="d5ProjName" placeholder="Nombre del proyecto" oninput="d5SaveMeta()">
+            <input class="d5-proj-inp" id="d5ProjSub" placeholder="Subtítulo / empresa" oninput="d5SaveMeta()">
+          </div>
+
+          <div style="height:1px;background:rgba(255,255,255,.05);margin:2px 14px;"></div>
+
+          <!-- Add model -->
+          <div class="d5-sidebar-section">
+            <div class="d5-sec-label"><i class="ti ti-box-model-2" style="font-size:10px;"></i> Modelos</div>
+
+            <!-- Tabs -->
+            <div class="d5-tabs">
+              <button class="d5-tab on" id="d5TabUpload" onclick="d5SwitchTab('upload')"><i class="ti ti-upload"></i> Subir</button>
+              <button class="d5-tab" id="d5TabSupa" onclick="d5SwitchTab('supa')"><i class="ti ti-cloud"></i> Supa</button>
+              <button class="d5-tab" id="d5TabUrl" onclick="d5SwitchTab('url')"><i class="ti ti-link"></i> URL</button>
+            </div>
+
+            <!-- TAB: Upload -->
+            <div id="d5PanelUpload">
+              <div class="d5-upload-zone" onclick="document.getElementById('d5FileInput').click()" id="d5UplZone">
+                <i class="ti ti-file-code"></i>
+                <div class="uzt">Arrastra el HTML de D5Render aquí</div>
+                <div class="uzs">Hasta 500 MB · Se sube a Supabase<br>o usa "Ver local" sin subir</div>
+              </div>
+              <input type="file" id="d5FileInput" accept=".html,text/html" style="display:none;" onchange="d5HandleFileSelect(event)">
+              <div class="d5-upl-bar-wrap" id="d5UplBarWrap"><div class="d5-upl-bar" id="d5UplBar"></div></div>
+              <div class="d5-upl-st" id="d5UplSt"></div>
+              <div class="d5-name-row" id="d5UplNameRow">
+                <div class="d5-nr-label">Confirmar modelo</div>
+                <input class="d5-nr-inp" id="d5UplModelName" placeholder="Nombre del modelo">
+                <input class="d5-nr-inp" id="d5UplModelMeta" placeholder="Subtítulo / nivel">
+                <div style="display:flex;gap:5px;">
+                  <button class="d5-btn accent" style="flex:1;margin:0;" onclick="d5ConfirmUpload()"><i class="ti ti-check"></i> Agregar</button>
+                  <button onclick="d5CancelUpload()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:6px 10px;cursor:pointer;font-size:11px;font-family:Inter,sans-serif;flex-shrink:0;"><i class="ti ti-x"></i></button>
+                </div>
+              </div>
+              <!-- two-path buttons shown after file select (local vs cloud) -->
+              <div id="d5UplPaths" style="display:none;gap:5px;margin-top:8px;">
+                <button class="d5-btn" onclick="d5ConfirmLocal()" style="margin-bottom:0;"><i class="ti ti-eye"></i> Ver local · sin subir</button>
+                <button class="d5-btn accent" onclick="d5ConfirmCloudUpload()" style="margin-bottom:0;"><i class="ti ti-cloud-upload"></i> Subir y compartir</button>
+              </div>
+            </div>
+
+            <!-- TAB: Supabase browser -->
+            <div id="d5PanelSupa" style="display:none;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;">
+                <span style="font-size:9px;color:var(--muted);">bucket / <b style="color:var(--accent);">models/</b></span>
+                <button onclick="d5LoadSupaFiles()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:13px;" title="Recargar"><i class="ti ti-refresh"></i></button>
+              </div>
+              <div id="d5SupaGrid"></div>
+              <div id="d5SupaStatus" style="font-size:10px;color:var(--muted);text-align:center;padding:8px 0;display:none;"></div>
+              <div class="d5-name-row" id="d5SupaNameRow">
+                <div class="d5-nr-label">Agregar modelo</div>
+                <input class="d5-nr-inp" id="d5SupaModelName" placeholder="Nombre del modelo">
+                <input class="d5-nr-inp" id="d5SupaModelMeta" placeholder="Subtítulo">
+                <div style="display:flex;gap:5px;">
+                  <button class="d5-btn accent" style="flex:1;margin:0;" onclick="d5ConfirmSupa()"><i class="ti ti-check"></i> Agregar</button>
+                  <button onclick="d5CancelSupa()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:6px 10px;cursor:pointer;font-size:11px;font-family:Inter,sans-serif;flex-shrink:0;"><i class="ti ti-x"></i></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB: URL -->
+            <div id="d5PanelUrl" style="display:none;">
+              <input class="d5-proj-inp" id="d5UrlName" placeholder="Nombre del modelo" style="margin-bottom:5px;">
+              <input class="d5-proj-inp" id="d5UrlMeta" placeholder="Subtítulo" style="margin-bottom:5px;">
+              <input class="d5-proj-inp" id="d5UrlHtml" placeholder="https://…/modelo.html" style="margin-bottom:8px;">
+              <button class="d5-btn accent" onclick="d5AddFromUrl()"><i class="ti ti-plus"></i> Agregar modelo</button>
+            </div>
+
+            <!-- Models list -->
+            <div id="d5ModelsList" style="margin-top:10px;"></div>
+          </div>
+
+          <div style="height:1px;background:rgba(255,255,255,.05);margin:2px 14px;"></div>
+
+          <!-- Opening video -->
+          <div class="d5-sidebar-section">
+            <div class="d5-sec-label"><i class="ti ti-player-play" style="font-size:10px;"></i> Video de apertura</div>
+            <div class="d5-vid-wrap" id="d5VidWrap">
+              <video id="d5VidThumb" autoplay muted loop playsinline style="border-radius:8px;"></video>
+              <button onclick="d5RemoveVideo()" style="position:absolute;top:5px;right:5px;background:rgba(8,8,16,.75);border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:99px;padding:3px 8px;font-size:9px;cursor:pointer;font-family:Inter,sans-serif;"><i class="ti ti-trash"></i></button>
+            </div>
+            <div class="d5-upload-zone" onclick="document.getElementById('d5VidFile').click()" id="d5VidDrop" style="margin-bottom:6px;">
+              <i class="ti ti-video-plus"></i>
+              <div class="uzt">Video de apertura</div>
+              <div class="uzs">MP4 · WebM · hasta 500 MB</div>
+            </div>
+            <input type="file" id="d5VidFile" accept="video/mp4,video/webm" style="display:none;" onchange="d5HandleVideo(event)">
+            <div class="d5-upl-bar-wrap" id="d5VidBarWrap"><div class="d5-upl-bar" id="d5VidBar"></div></div>
+            <div class="d5-upl-st" id="d5VidSt"></div>
+            <input class="d5-proj-inp" id="d5OpeningBtn" placeholder="Texto del botón (Ej: Explorar modelo)" oninput="d5SaveMeta()" style="margin-top:6px;">
+          </div>
+
+          <div style="height:1px;background:rgba(255,255,255,.05);margin:2px 14px;"></div>
+
+          <!-- Saved links -->
+          <div class="d5-sidebar-section">
+            <div class="d5-sec-label" style="justify-content:space-between;">
+              <span style="display:flex;align-items:center;gap:5px;"><i class="ti ti-link" style="font-size:10px;"></i> Links guardados</span>
+              <span id="d5LinksCount" style="font-family:Geist Mono,monospace;font-size:8px;color:var(--muted);letter-spacing:.1em;text-transform:none;"></span>
+            </div>
+            <div id="d5LinksList"></div>
+            <div style="display:flex;gap:5px;padding-top:6px;">
+              <button class="d5-btn" style="margin:0;flex:1;font-size:9px;" onclick="d5ExportLinks()"><i class="ti ti-download"></i> Exportar</button>
+              <button class="d5-btn" style="margin:0;flex:1;font-size:9px;" onclick="d5ImportLinks()"><i class="ti ti-upload"></i> Importar</button>
+            </div>
+          </div>
+
+        </aside><!-- /sidebar -->
+
+        <!-- ── CENTER ── -->
+        <div class="d5-center" id="d5Center"
+          ondragover="d5OnDragOver(event)" ondragleave="d5OnDragLeave(event)" ondrop="d5OnDrop(event)">
+
+          <!-- Drop zone (empty state) -->
+          <div class="d5-drop-zone" id="d5DropZone" onclick="document.getElementById('d5FileInput').click()">
+            <!-- Spinning 3D cube SVG -->
+            <div class="d5-cube-wrap">
+              <div class="d5-cube-inner">
+                <svg class="d5-cube-svg" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <!-- cube wireframe — top face, bottom face, verticals -->
+                  <!-- top face -->
+                  <path d="M27 8 L44 17 L27 26 L10 17 Z" stroke="rgba(184,157,116,.55)" stroke-width="1" fill="rgba(184,157,116,.04)" stroke-linejoin="round"/>
+                  <!-- bottom face -->
+                  <path d="M27 28 L44 19 L44 37 L27 46 Z" stroke="rgba(184,157,116,.25)" stroke-width="1" fill="rgba(184,157,116,.02)" stroke-linejoin="round"/>
+                  <path d="M27 28 L10 19 L10 37 L27 46 Z" stroke="rgba(184,157,116,.15)" stroke-width="1" fill="rgba(184,157,116,.01)" stroke-linejoin="round"/>
+                  <path d="M27 28 L27 46" stroke="rgba(184,157,116,.3)" stroke-width="1"/>
+                  <!-- inner top detail lines -->
+                  <line x1="27" y1="8" x2="27" y2="26" stroke="rgba(184,157,116,.18)" stroke-width=".5" stroke-dasharray="2 2"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="d5-drop-title">Arrastra tu modelo 3D</div>
+            <div class="d5-drop-sub">HTML exportado desde D5Render<br>hasta 500 MB</div>
+
+            <div class="d5-drop-paths" onclick="event.stopPropagation()">
+              <button class="d5-path-btn d5-path-local" onclick="document.getElementById('d5FileInput').click();_d5NextActionLocal=true;">
+                <i class="ti ti-eye"></i> Ver local
+              </button>
+              <button class="d5-path-btn d5-path-cloud" onclick="document.getElementById('d5FileInput').click();_d5NextActionLocal=false;">
+                <i class="ti ti-cloud-upload"></i> Subir y compartir
+              </button>
+            </div>
+            <div class="d5-drop-hint">o haz clic en cualquier área</div>
+          </div>
+
+          <!-- Models added state (shown after ≥1 model) -->
+          <div class="d5-models-active" id="d5ModelsActive">
+            <div style="text-align:center;margin-bottom:8px;">
+              <div style="font-family:Geist,sans-serif;font-weight:200;font-size:22px;color:rgba(255,255,255,.7);margin-bottom:4px;" id="d5CenterProjName">—</div>
+              <div style="font-family:Geist Mono,monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(184,157,116,.55);" id="d5CenterModelCount">0 modelos</div>
+            </div>
+            <div class="d5-launch-row">
+              <button class="d5-path-btn d5-path-local" onclick="d5Launch()"><i class="ti ti-player-play"></i> Iniciar visor</button>
+              <button class="d5-path-btn d5-path-cloud" onclick="d5GenerateLink()"><i class="ti ti-external-link"></i> Abrir link</button>
+              <button class="d5-path-btn" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);color:var(--muted);" onclick="d5SaveLink()"><i class="ti ti-bookmark"></i> Guardar link</button>
+            </div>
+            <button onclick="d5ResetCenter()" style="background:transparent;border:none;color:rgba(255,255,255,.2);font-size:9px;letter-spacing:.1em;cursor:pointer;font-family:Inter,sans-serif;margin-top:14px;display:flex;align-items:center;gap:4px;"><i class="ti ti-plus"></i> Agregar otro modelo</button>
+          </div>
+
+        </div><!-- /center -->
+
+      </div><!-- /body -->
+
+      <!-- VIEWER overlay (inside editor) -->
+      <div class="d5-viewer" id="d5Viewer">
+        <!-- Curtain loading -->
+        <div class="d5-curtain" id="d5Curtain">
+          <div class="d5-curtain-cube">
+            <div class="d5-curtain-cube-inner">
+              <svg viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M27 8 L44 17 L27 26 L10 17 Z" stroke="rgba(184,157,116,.6)" stroke-width="1.2" fill="rgba(184,157,116,.06)" stroke-linejoin="round"/>
+                <path d="M27 28 L44 19 L44 37 L27 46 Z" stroke="rgba(184,157,116,.3)" stroke-width="1" fill="rgba(184,157,116,.03)" stroke-linejoin="round"/>
+                <path d="M27 28 L10 19 L10 37 L27 46 Z" stroke="rgba(184,157,116,.18)" stroke-width="1" fill="none" stroke-linejoin="round"/>
+                <path d="M27 28 L27 46" stroke="rgba(184,157,116,.35)" stroke-width="1"/>
+              </svg>
+            </div>
+          </div>
+          <div class="d5-curtain-label">Cargando modelo 3D</div>
+          <div class="d5-curtain-bar"><div class="d5-curtain-bar-fill" id="d5CurtainBar"></div></div>
+        </div>
+
+        <!-- iframe -->
+        <div class="d5-iframe-wrap">
+          <iframe id="d5Iframe" sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock allow-fullscreen" allowfullscreen></iframe>
+        </div>
+
+        <!-- Floating topbar -->
+        <header class="d5-vbar g" id="d5Vbar">
+          <div class="d5-vbar-logo"><i class="ti ti-box-model-2"></i></div>
+          <span class="d5-vbar-proj" id="d5VbarProj">—</span>
+          <div class="d5-vbar-sep"></div>
+          <span class="d5-vbar-model" id="d5VbarModel">—</span>
+        </header>
+
+        <!-- Floating bottom bar -->
+        <div class="d5-vbtm g" id="d5Vbtm">
+          <button class="bbtn" onclick="d5Prev()"><i class="ti ti-chevron-left"></i></button>
+          <div class="d5-lpips" id="d5Pips"></div>
+          <button class="bbtn" onclick="d5Next()"><i class="ti ti-chevron-right"></i></button>
+          <div class="bb-sep"></div>
+          <button class="bbtn" id="d5BtnFs" onclick="d5ToggleFullscreen()" title="Pantalla completa"><i class="ti ti-maximize"></i></button>
+        </div>
+
+        <!-- FAB buttons -->
+        <div class="d5-vfab" id="d5Vfab">
+          <button class="d5-vfab-btn green" onclick="d5CopyLink()"><i class="ti ti-copy"></i> Copiar link</button>
+          <button class="d5-vfab-btn" onclick="d5ExitViewer()"><i class="ti ti-settings"></i> Configurar</button>
+        </div>
+      </div><!-- /viewer -->
+
+    </div><!-- /editor -->
+
+    <!-- ── OPENING SCREEN ── -->
+    <div id="d5Opening">
+      <video id="d5OpeningVideo" autoplay muted loop playsinline></video>
+      <div class="d5-opening-overlay"></div>
+      <div class="d5-opening-content">
+        <div class="d5-opening-pretitle">Modelo 3D Interactivo</div>
+        <div class="d5-opening-title" id="d5OpeningTitleEl">—</div>
+        <div class="d5-opening-sub" id="d5OpeningSubEl"></div>
+        <button class="d5-opening-btn" onclick="d5StartFromOpening()">
+          <i class="ti ti-arrow-right"></i>
+          <span id="d5OpeningBtnEl">Explorar modelo</span>
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /d5Mode -->
 
   <div id="intro">
     <div class="intro-logo">
@@ -3324,7 +3849,7 @@ function vmReturnToOpening() {
   if (oldTap) oldTap.remove();
 
   // Change button text and icon
-  if (btnEl) btnEl.textContent = 'Regresar al recorrido';
+  if (btnEl) btnEl.textContent = _vmOpeningCfg?.endBtnText || 'Regresar al recorrido';
   const btn = opening.querySelector('.vm-opening-btn');
   if (btn) {
     const icon = btn.querySelector('i');
@@ -3332,12 +3857,10 @@ function vmReturnToOpening() {
     btn.onclick = () => vmReturnToViewer();
   }
 
-  // Restart video — src is still set from vmShowOpening
+  // Use ending video if configured, else fall back to opening video
   if (vid) {
-    // If src was cleared or never set, restore from config
-    if (!vid.src && _vmOpeningCfg?.videoUrl) {
-      vid.src = _vmOpeningCfg.videoUrl;
-    }
+    const endUrl = _vmOpeningCfg?.endingVideoUrl || _vmOpeningCfg?.videoUrl || null;
+    if (endUrl) vid.src = endUrl;
     if (vid.src) {
       vid.currentTime = 0;
       vid.muted = true;
@@ -4104,46 +4627,47 @@ async function smgrDeleteSelected() {
 // ════════════════════════════════════════════════════
 
 // State: stored in localStorage alongside vmData
-let _vmOpeningVideoUrl = null; // Supabase URL of the uploaded video
+let _vmOpeningVideoUrl = null;
+let _vmEndingVideoUrl  = null;
 
-function _vmGetOpeningConfig() {
-  return {
-    videoUrl: _vmOpeningVideoUrl || null,
-    title:    document.getElementById('vmOpeningTitle')?.value.trim() || '',
-    sub:      document.getElementById('vmOpeningSub')?.value.trim()   || '',
-    btnText:  document.getElementById('vmOpeningBtn')?.value.trim()   || 'Comenzar recorrido'
-  };
-}
-
-function _vmSetOpeningConfig(cfg) {
-  if (!cfg) return;
-  _vmOpeningVideoUrl = cfg.videoUrl || null;
-  const t = document.getElementById('vmOpeningTitle'); if (t) t.value = cfg.title  || '';
-  const s = document.getElementById('vmOpeningSub');   if (s) s.value = cfg.sub    || '';
-  const b = document.getElementById('vmOpeningBtn');   if (b) b.value = cfg.btnText|| '';
-  if (_vmOpeningVideoUrl) _vmShowVidThumb(_vmOpeningVideoUrl);
+function vmSwitchMediaTab(tab) {
+  const isO = tab === 'opening';
+  document.getElementById('vmMediaOpening').style.display = isO ? '' : 'none';
+  document.getElementById('vmMediaEnding').style.display  = isO ? 'none' : '';
+  const to = document.getElementById('vmTabOpening');
+  const te = document.getElementById('vmTabEnding');
+  if (to) { to.style.background = isO ? 'rgba(255,255,255,.08)' : 'transparent'; to.style.color = isO ? 'var(--text)' : 'var(--muted)'; }
+  if (te) { te.style.background = isO ? 'transparent' : 'rgba(255,255,255,.08)'; te.style.color = isO ? 'var(--muted)' : 'var(--text)'; }
 }
 
 function vmSaveOpeningMeta() { saveVmData(); }
 
-// Upload video to Supabase
-async function vmHandleVideo(e) {
+function _vmShowVidThumb(type, url) {
+  const isE   = type === 'ending';
+  const thumb = document.getElementById(isE ? 'vmEndVidThumb'    : 'vmVidThumb');
+  const drop  = document.getElementById(isE ? 'vmEndVidDrop'     : 'vmVidDrop');
+  const rmBtn = document.getElementById(isE ? 'vmEndVidRemoveBtn': 'vmVidRemoveBtn');
+  if (thumb) { thumb.src = url; thumb.classList.add('show'); }
+  if (drop)  drop.style.display = 'none';
+  if (rmBtn) rmBtn.style.display = '';
+}
+
+async function vmHandleVideo(type, e) {
   const file = e.target.files[0]; if (!file) return;
   e.target.value = '';
+  const isE    = type === 'ending';
   const sizeMB = (file.size/1024/1024).toFixed(1);
   const ext    = file.name.split('.').pop().toLowerCase();
   const safe   = file.name.replace(/\.[^.]+$/,'').normalize('NFD')
     .replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,50);
   const path   = `videos/${Date.now()}_${safe}.${ext}`;
-
-  const prog  = document.getElementById('vmVidProgress');
-  const bar   = document.getElementById('vmVidProgressBar');
-  const status= document.getElementById('vmVidStatus');
-  const drop  = document.getElementById('vmVidDrop');
-  prog.classList.add('show');
+  const prog   = document.getElementById(isE ? 'vmEndVidProgress'    : 'vmVidProgress');
+  const bar    = document.getElementById(isE ? 'vmEndVidProgressBar' : 'vmVidProgressBar');
+  const status = document.getElementById(isE ? 'vmEndVidStatus'      : 'vmVidStatus');
+  const drop   = document.getElementById(isE ? 'vmEndVidDrop'        : 'vmVidDrop');
+  prog?.classList.add('show');
   if (status) status.textContent = `Subiendo ${sizeMB} MB…`;
   if (drop)   drop.style.display = 'none';
-
   try {
     await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -4155,51 +4679,42 @@ async function vmHandleVideo(e) {
       xhr.upload.addEventListener('progress', ev => {
         if (ev.lengthComputable) {
           const pct = Math.round(ev.loaded/ev.total*100);
-          if (bar) bar.style.width = pct + '%';
-          if (status) status.textContent = `Subiendo ${sizeMB} MB… ${pct}%`;
+          if (bar)    bar.style.width       = pct + '%';
+          if (status) status.textContent    = `Subiendo ${sizeMB} MB… ${pct}%`;
         }
       });
-      xhr.onload = () => xhr.status < 300 ? resolve() : reject(new Error(xhr.status + ' ' + xhr.responseText));
+      xhr.onload  = () => xhr.status < 300 ? resolve() : reject(new Error(xhr.status + ' ' + xhr.responseText));
       xhr.onerror = () => reject(new Error('Error de red'));
       xhr.send(file);
     });
-
-    _vmOpeningVideoUrl = `${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${path}`;
+    const url = `${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${path}`;
+    if (isE) _vmEndingVideoUrl = url; else _vmOpeningVideoUrl = url;
     if (status) status.textContent = '✓ Video listo';
-    prog.classList.remove('show');
-    _vmShowVidThumb(_vmOpeningVideoUrl);
+    prog?.classList.remove('show');
+    _vmShowVidThumb(type, url);
     saveVmData();
-    toast('Video de portada subido ✓');
+    toast(`Video de ${isE ? 'cierre' : 'apertura'} subido ✓`);
   } catch(err) {
-    prog.classList.remove('show');
-    if (status) status.textContent = '⚠ Error al subir video';
+    prog?.classList.remove('show');
+    if (status) status.textContent = '⚠ Error al subir';
     if (drop) drop.style.display = '';
-    console.error('vmHandleVideo:', err);
     toast('Error al subir video — verifica tu conexión');
   }
 }
 
-function _vmShowVidThumb(url) {
-  const thumb = document.getElementById('vmVidThumb');
-  const drop  = document.getElementById('vmVidDrop');
-  const rmBtn = document.getElementById('vmVidRemoveBtn');
-  if (thumb) { thumb.src = url; thumb.classList.add('show'); }
-  if (drop)  drop.style.display = 'none';
-  if (rmBtn) rmBtn.style.display = '';
-}
-
-function vmRemoveVideo() {
-  _vmOpeningVideoUrl = null;
-  const thumb = document.getElementById('vmVidThumb');
-  const drop  = document.getElementById('vmVidDrop');
-  const rmBtn = document.getElementById('vmVidRemoveBtn');
-  const status= document.getElementById('vmVidStatus');
+function vmRemoveVideo(type) {
+  const isE = type === 'ending';
+  if (isE) _vmEndingVideoUrl = null; else _vmOpeningVideoUrl = null;
+  const thumb = document.getElementById(isE ? 'vmEndVidThumb'    : 'vmVidThumb');
+  const drop  = document.getElementById(isE ? 'vmEndVidDrop'     : 'vmVidDrop');
+  const rmBtn = document.getElementById(isE ? 'vmEndVidRemoveBtn': 'vmVidRemoveBtn');
+  const stat  = document.getElementById(isE ? 'vmEndVidStatus'   : 'vmVidStatus');
   if (thumb) { thumb.src = ''; thumb.classList.remove('show'); }
   if (drop)  drop.style.display = '';
   if (rmBtn) rmBtn.style.display = 'none';
-  if (status)status.textContent = '';
+  if (stat)  stat.textContent = '';
   saveVmData();
-  toast('Video de portada eliminado');
+  toast(`Video de ${isE ? 'cierre' : 'apertura'} eliminado`);
 }
 
 // ── SHOW OPENING when client opens the link ──
@@ -4398,6 +4913,7 @@ window.addEventListener('load', () => {
 
   loadVmData();
   renderLinksPanel();
+  _d5Init();
 
   // ── MOBILE / iOS DETECTION ──
   const _isIOS    = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -4505,6 +5021,778 @@ window.addEventListener('load', () => {
   // Hide touch hint after 3s
   setTimeout(() => { const th=document.getElementById('touchHint'); if(th)th.classList.add('fade'); }, 3000);
 
+  // ── Handle ?modelo=1 (client viewer) ──
+  if (_params.get('modelo') === '1') {
+    const d5Id = _params.get('id');
+    if (d5Id) {
+      d5LoadConfigFromSupa(d5Id).then(cfg => {
+        d5Models         = cfg.models   || [];
+        d5ProjNameVal    = cfg.p        || 'Proyecto';
+        d5ProjSubVal     = cfg.sub      || '';
+        d5OpeningVideoUrl= cfg.videoUrl || null;
+        d5OpeningBtnText = cfg.btnText  || 'Explorar modelo';
+        document.getElementById('d5Mode').classList.add('show');
+        const editor = document.getElementById('d5Editor');
+        if (editor) editor.classList.remove('show');
+        // Client mode: hide all editor chrome
+        document.querySelectorAll('.d5-vfab-btn,.d5-hback,.d5-sidebar,.d5-header,.d5-center').forEach(el=>el.style.display='none');
+        if (d5OpeningVideoUrl) {
+          _d5ShowOpening();
+        } else {
+          d5LaunchViewer();
+        }
+      }).catch(() => {
+        document.getElementById('d5Mode').classList.add('show');
+        const editor = document.getElementById('d5Editor');
+        if (editor) { editor.classList.add('show'); }
+        const errEl = document.createElement('div');
+        errEl.style.cssText = 'position:absolute;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#080810;gap:14px;';
+        errEl.innerHTML = '<i class="ti ti-alert-triangle" style="font-size:36px;color:#E24B4A;"></i><div style="font-family:Geist,sans-serif;font-weight:300;font-size:16px;letter-// ════════════════════════════════════════════════════
+// D5 RENDER MODULE — Visor de Modelos 3D Interactivos
+// Premium redesign
+// ════════════════════════════════════════════════════
+
+// ── STATE ──
+let d5Models          = [];
+let d5CurIdx          = 0;
+let d5ProjNameVal     = '';
+let d5ProjSubVal      = '';
+let d5OpeningVideoUrl = null;
+let d5OpeningBtnText  = 'Explorar modelo';
+let d5SavedLinks      = [];
+let _d5UplPendingUrl  = null;  // cloud URL after upload
+let _d5UplLocalFile   = null;  // local File object for local preview
+let _d5SupaPendingUrl = null;
+let _d5NextActionLocal= true;  // true = local, false = cloud
+let _d5AutoHideTimer  = null;
+
+const D5_SAVE_KEY        = 'agelarq_d5_v2';
+const D5_LINKS_KEY       = 'agelarq_d5_links';
+const D5_MODEL_PATH      = 'models';
+const D5_SUPA_CONFIG_PATH= 'configs/d5';
+
+// ── PERSIST ──
+function d5Save() {
+  try {
+    localStorage.setItem(D5_SAVE_KEY, JSON.stringify({
+      v:2, models:d5Models,
+      projName: document.getElementById('d5ProjName')?.value||'',
+      projSub:  document.getElementById('d5ProjSub')?.value||'',
+      videoUrl: d5OpeningVideoUrl,
+      btnText:  document.getElementById('d5OpeningBtn')?.value||''
+    }));
+  } catch(e){}
+}
+function d5Load() {
+  try {
+    const raw  = localStorage.getItem(D5_SAVE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (!data || (data.v !== 2 && data.v !== 1)) return;
+    d5Models          = data.models   || [];
+    d5OpeningVideoUrl = data.videoUrl || null;
+    d5OpeningBtnText  = data.btnText  || 'Explorar modelo';
+    const pn = document.getElementById('d5ProjName');
+    const ps = document.getElementById('d5ProjSub');
+    const ob = document.getElementById('d5OpeningBtn');
+    if (pn && data.projName) pn.value = data.projName;
+    if (ps && data.projSub)  ps.value = data.projSub;
+    if (ob && data.btnText)  ob.value = data.btnText;
+    if (d5OpeningVideoUrl) _d5RestoreVideoThumb(d5OpeningVideoUrl);
+    d5RenderModelsList();
+    d5UpdateCenter();
+  } catch(e){ console.warn('d5Load:', e); }
+}
+function d5SaveMeta() { d5Save(); d5UpdateCenter(); }
+function d5LoadLinks() {
+  try { const r=localStorage.getItem(D5_LINKS_KEY); if(r) d5SavedLinks=JSON.parse(r)||[]; } catch(e){ d5SavedLinks=[]; }
+}
+function d5PersistLinks() {
+  try { localStorage.setItem(D5_LINKS_KEY, JSON.stringify(d5SavedLinks)); } catch(e){}
+}
+
+// ── MODE SWITCH ──
+function switchAppMode(mode) {
+  const btn360 = document.getElementById('btnMode360');
+  const btnD5  = document.getElementById('btnModeD5');
+  const d5m    = document.getElementById('d5Mode');
+  const editor = document.getElementById('d5Editor');
+  if (mode === '360') {
+    d5m?.classList.remove('show');
+    btn360?.classList.add('active');
+    btnD5?.classList.remove('active');
+  } else {
+    d5m?.classList.add('show');
+    btn360?.classList.remove('active');
+    btnD5?.classList.add('active');
+    setTimeout(() => editor?.classList.add('show'), 50);
+    d5RenderModelsList();
+    d5RenderLinksPanel();
+    d5UpdateCenter();
+  }
+}
+function closeD5Mode() { switchAppMode('360'); }
+
+// ── TABS ──
+function d5SwitchTab(tab) {
+  ['upload','supa','url'].forEach(k => {
+    const p = document.getElementById('d5Panel' + k.charAt(0).toUpperCase() + k.slice(1));
+    const t = document.getElementById('d5Tab' + k.charAt(0).toUpperCase() + k.slice(1));
+    const on = k === tab;
+    if (p) p.style.display = on ? '' : 'none';
+    if (t) { t.classList.toggle('on', on); }
+  });
+  if (tab === 'supa') d5LoadSupaFiles();
+}
+
+// ── DRAG & DROP on center area ──
+function d5OnDragOver(e) {
+  e.preventDefault();
+  document.getElementById('d5DropZone')?.classList.add('drag-over');
+}
+function d5OnDragLeave(e) {
+  document.getElementById('d5DropZone')?.classList.remove('drag-over');
+}
+function d5OnDrop(e) {
+  e.preventDefault();
+  document.getElementById('d5DropZone')?.classList.remove('drag-over');
+  const file = e.dataTransfer?.files?.[0];
+  if (!file) return;
+  _d5ProcessFile(file, _d5NextActionLocal);
+}
+
+// ── FILE SELECT ──
+function d5HandleFileSelect(e) {
+  const file = e.target.files[0]; if (!file) return;
+  e.target.value = '';
+  _d5ProcessFile(file, _d5NextActionLocal);
+}
+
+// ── CORE: process file (local OR cloud) ──
+function _d5ProcessFile(file, localOnly) {
+  if (localOnly) {
+    // Instant local preview
+    _d5UplLocalFile = file;
+    const baseName  = file.name.replace(/\.html?$/i,'').replace(/_/g,' ').replace(/^\d+ /,'');
+    // Show name form in sidebar, pre-filled
+    const nr  = document.getElementById('d5UplNameRow');
+    const un  = document.getElementById('d5UplModelName');
+    const um  = document.getElementById('d5UplModelMeta');
+    const zone= document.getElementById('d5UplZone');
+    const paths=document.getElementById('d5UplPaths');
+    if (un)    un.value = baseName;
+    if (um)    um.value = '';
+    if (nr)    nr.classList.add('show');
+    if (zone)  zone.style.display = 'none';
+    if (paths) paths.style.display = 'none';
+    document.getElementById('d5UplSt').textContent = `"${file.name}" listo para vista local`;
+    d5SwitchTab('upload');
+    // Scroll sidebar to top
+    document.querySelector('.d5-sidebar')?.scrollTo({top:0,behavior:'smooth'});
+    // Auto-confirm after fill — handled by d5ConfirmLocalDirect()
+  } else {
+    // Cloud upload
+    _d5UplLocalFile = null;
+    const zone = document.getElementById('d5UplZone');
+    const paths= document.getElementById('d5UplPaths');
+    if (zone)  zone.style.display = 'none';
+    if (paths) paths.style.display = 'none';
+    _d5DoUpload(file);
+  }
+}
+
+// CONFIRM local
+function d5ConfirmUpload() {
+  const name = (document.getElementById('d5UplModelName')?.value||'').trim();
+  const meta = (document.getElementById('d5UplModelMeta')?.value||'').trim();
+  if (!name) { toast('Escribe un nombre para el modelo'); return; }
+
+  if (_d5UplLocalFile) {
+    // local Object URL
+    const objUrl = URL.createObjectURL(_d5UplLocalFile);
+    d5Models.push({ name, meta, url: objUrl, thumb: null, isLocal: true });
+    _d5UplLocalFile = null;
+  } else if (_d5UplPendingUrl) {
+    d5Models.push({ name, meta, url: _d5UplPendingUrl, thumb: null, isLocal: false });
+    _d5UplPendingUrl = null;
+  } else { toast('No hay archivo seleccionado'); return; }
+
+  _d5ResetUploadPanel();
+  d5RenderModelsList();
+  d5UpdateCenter();
+  d5Save();
+  toast(`"${name}" agregado ✓`);
+}
+function d5CancelUpload() {
+  _d5UplLocalFile  = null;
+  _d5UplPendingUrl = null;
+  _d5ResetUploadPanel();
+}
+function _d5ResetUploadPanel() {
+  document.getElementById('d5UplNameRow')?.classList.remove('show');
+  const zone = document.getElementById('d5UplZone');
+  if (zone) zone.style.display = '';
+  const paths = document.getElementById('d5UplPaths');
+  if (paths) paths.style.display = 'none';
+  document.getElementById('d5UplSt').textContent = '';
+  document.getElementById('d5UplBar').style.width = '0%';
+  document.getElementById('d5UplBarWrap').classList.remove('show');
+}
+
+// ── CLOUD UPLOAD ──
+async function _d5DoUpload(file) {
+  const sizeMB = (file.size/1024/1024).toFixed(1);
+  const safe   = file.name.replace(/\.[^.]+$/,'').normalize('NFD')
+    .replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,60);
+  const path   = `${D5_MODEL_PATH}/${Date.now()}_${safe}.html`;
+  const bar    = document.getElementById('d5UplBar');
+  const wrap   = document.getElementById('d5UplBarWrap');
+  const st     = document.getElementById('d5UplSt');
+  const zone   = document.getElementById('d5UplZone');
+
+  if (wrap) wrap.classList.add('show');
+  if (st)   st.textContent = `Subiendo ${sizeMB} MB…`;
+
+  try {
+    await new Promise((res,rej) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST',`${SUPA_URL}/storage/v1/object/${SUPA_BUCKET}/${path}`);
+      xhr.setRequestHeader('Authorization',`Bearer ${SUPA_ANON}`);
+      xhr.setRequestHeader('apikey',SUPA_ANON);
+      xhr.setRequestHeader('x-upsert','true');
+      xhr.setRequestHeader('Content-Type','text/html');
+      xhr.upload.addEventListener('progress',ev=>{
+        if(ev.lengthComputable){
+          const pct=Math.round(ev.loaded/ev.total*100);
+          if(bar) bar.style.width=pct+'%';
+          if(st)  st.textContent=`Subiendo ${sizeMB} MB… ${pct}%`;
+        }
+      });
+      xhr.onload =()=> xhr.status<300?res():rej(new Error(xhr.status));
+      xhr.onerror=()=> rej(new Error('Red'));
+      xhr.send(file);
+    });
+
+    _d5UplPendingUrl = `${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${path}`;
+    if (st) st.textContent = '✓ Subido — asigna un nombre';
+
+    const nr = document.getElementById('d5UplNameRow');
+    const un = document.getElementById('d5UplModelName');
+    if (nr) nr.classList.add('show');
+    if (un && !un.value) un.value = safe.replace(/_/g,' ').replace(/^\d+ /,'');
+
+    toast(`☁ ${sizeMB} MB subidos ✓`);
+  } catch(err) {
+    if (wrap) wrap.classList.remove('show');
+    if (st)   st.textContent = '⚠ Error al subir';
+    if (zone) zone.style.display = '';
+    toast('Error al subir: ' + err.message);
+  }
+}
+
+// ── SUPABASE BROWSER ──
+async function d5LoadSupaFiles() {
+  const grid = document.getElementById('d5SupaGrid');
+  const stat = document.getElementById('d5SupaStatus');
+  if (!grid) return;
+  grid.innerHTML = '';
+  if (stat) { stat.style.display='block'; stat.textContent='Conectando…'; }
+  try {
+    const res = await fetch(`${SUPA_URL}/storage/v1/object/list/${SUPA_BUCKET}`,{
+      method:'POST',
+      headers:{'Authorization':`Bearer ${SUPA_ANON}`,'apikey':SUPA_ANON,'Content-Type':'application/json'},
+      body:JSON.stringify({prefix:`${D5_MODEL_PATH}/`,limit:100,offset:0,sortBy:{column:'created_at',order:'desc'}})
+    });
+    if (!res.ok) throw new Error(res.status);
+    const files = await res.json();
+    if (stat) stat.style.display='none';
+    const htmls = files.filter(f=>f.name&&/\.html?$/i.test(f.name));
+    if (!htmls.length) { if(stat){stat.style.display='block';stat.textContent='Sin modelos HTML en Supabase.';}return; }
+    htmls.forEach(f=>{
+      const url  = `${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${f.name}`;
+      const sz   = ((f.metadata?.size||0)/1024/1024).toFixed(1);
+      const name = f.name.replace(`${D5_MODEL_PATH}/`,'').replace(/^\d+_/,'').replace(/\.html?$/i,'').replace(/_/g,' ');
+      const item = document.createElement('div');
+      item.className = 'd5-supa-item';
+      item.innerHTML = `<div class="dsi-icon"><i class="ti ti-file-code"></i></div><div class="dsi-info"><div class="dsi-n">${name}</div><div class="dsi-s">${sz} MB</div></div><div class="dsi-chk"><i class="ti ti-check"></i></div>`;
+      item.addEventListener('click',()=>{
+        document.querySelectorAll('.d5-supa-item').forEach(el=>el.classList.remove('selected'));
+        item.classList.add('selected');
+        _d5SupaPendingUrl = url;
+        const nr = document.getElementById('d5SupaNameRow');
+        const sn = document.getElementById('d5SupaModelName');
+        if (nr) nr.classList.add('show');
+        if (sn && !sn.value) sn.value = name;
+      });
+      grid.appendChild(item);
+    });
+  } catch(e) {
+    if (stat) { stat.style.display='block'; stat.textContent='Error: '+e.message; }
+  }
+}
+function d5ConfirmSupa() {
+  const name = (document.getElementById('d5SupaModelName')?.value||'').trim();
+  const meta = (document.getElementById('d5SupaModelMeta')?.value||'').trim();
+  if (!name||!_d5SupaPendingUrl){toast('Selecciona un archivo y escribe un nombre');return;}
+  d5Models.push({name,meta,url:_d5SupaPendingUrl,thumb:null,isLocal:false});
+  _d5SupaPendingUrl=null;
+  document.getElementById('d5SupaModelName').value='';
+  document.getElementById('d5SupaModelMeta').value='';
+  document.getElementById('d5SupaNameRow').classList.remove('show');
+  document.querySelectorAll('.d5-supa-item').forEach(el=>el.classList.remove('selected'));
+  d5RenderModelsList(); d5UpdateCenter(); d5Save(); toast(`"${name}" agregado ✓`);
+}
+function d5CancelSupa() {
+  _d5SupaPendingUrl=null;
+  document.getElementById('d5SupaNameRow')?.classList.remove('show');
+  document.querySelectorAll('.d5-supa-item').forEach(el=>el.classList.remove('selected'));
+}
+
+// ── URL ──
+function d5AddFromUrl() {
+  const name=(document.getElementById('d5UrlName')?.value||'').trim();
+  const meta=(document.getElementById('d5UrlMeta')?.value||'').trim();
+  const url =(document.getElementById('d5UrlHtml')?.value||'').trim();
+  if(!name||!url){toast('Completa nombre y URL');return;}
+  d5Models.push({name,meta,url,thumb:null,isLocal:false});
+  document.getElementById('d5UrlName').value='';
+  document.getElementById('d5UrlMeta').value='';
+  document.getElementById('d5UrlHtml').value='';
+  d5RenderModelsList(); d5UpdateCenter(); d5Save(); toast(`"${name}" agregado ✓`);
+}
+
+// ── RENDER MODELS LIST (sidebar) ──
+function d5RenderModelsList() {
+  const el = document.getElementById('d5ModelsList'); if (!el) return;
+  el.innerHTML='';
+  if (!d5Models.length) {
+    el.innerHTML='<div style="font-size:9px;color:var(--muted);text-align:center;padding:8px 0;opacity:.6;">Sin modelos todavía</div>';
+    return;
+  }
+  d5Models.forEach((m,i)=>{
+    const isActive = i === d5CurIdx && document.getElementById('d5Viewer')?.classList.contains('show');
+    const row = document.createElement('div');
+    row.className='d5-model-item'+(isActive?' active-model':'');
+    row.innerHTML=`
+      <div class="d5-model-thumb">${m.thumb?`<img src="${m.thumb}">`:'<svg viewBox="0 0 54 54" fill="none" width="22" height="22"><path d="M27 10 L40 17 L27 24 L14 17Z" stroke="rgba(184,157,116,.5)" stroke-width="1.2" fill="none"/><path d="M27 26 L40 19 L40 31 L27 38Z" stroke="rgba(184,157,116,.25)" stroke-width="1" fill="none"/><path d="M27 26 L14 19 L14 31 L27 38Z" stroke="rgba(184,157,116,.18)" stroke-width="1" fill="none"/><path d="M27 26 L27 38" stroke="rgba(184,157,116,.3)" stroke-width="1"/></svg>'}</div>
+      <div class="d5-model-info"><div class="d5-model-n">${m.name}</div><div class="d5-model-m">${m.meta||''}</div></div>
+      <span class="d5-badge ${m.isLocal?'local':'cloud'}">${m.isLocal?'Local':'Cloud'}</span>
+      <button class="d5-model-del" onclick="d5DeleteModel(${i})" title="Eliminar"><i class="ti ti-trash"></i></button>`;
+    el.appendChild(row);
+  });
+}
+function d5DeleteModel(i) {
+  if (!confirm(`¿Eliminar "${d5Models[i]?.name}"?`)) return;
+  // Revoke local URL if needed
+  if (d5Models[i]?.isLocal && d5Models[i]?.url) {
+    try { URL.revokeObjectURL(d5Models[i].url); } catch(e){}
+  }
+  d5Models.splice(i,1);
+  d5RenderModelsList(); d5UpdateCenter(); d5Save();
+}
+
+// ── CENTER STATE ──
+function d5UpdateCenter() {
+  const drop    = document.getElementById('d5DropZone');
+  const active  = document.getElementById('d5ModelsActive');
+  const pname   = document.getElementById('d5CenterProjName');
+  const mcount  = document.getElementById('d5CenterModelCount');
+  const projVal = document.getElementById('d5ProjName')?.value || 'Proyecto';
+  if (!d5Models.length) {
+    if (drop)   drop.style.display = '';
+    if (active) active.classList.remove('show');
+  } else {
+    if (drop)   drop.style.display = 'none';
+    if (active) active.classList.add('show');
+    if (pname)  pname.textContent  = projVal;
+    if (mcount) mcount.textContent = `${d5Models.length} modelo${d5Models.length!==1?'s':''}`;
+  }
+}
+function d5ResetCenter() {
+  const drop   = document.getElementById('d5DropZone');
+  const active = document.getElementById('d5ModelsActive');
+  if (drop)   drop.style.display = '';
+  if (active) active.classList.remove('show');
+}
+
+// ── VIDEO DE APERTURA ──
+async function d5HandleVideo(e) {
+  const file = e.target.files[0]; if (!file) return;
+  e.target.value = '';
+  const sizeMB = (file.size/1024/1024).toFixed(1);
+  const ext    = file.name.split('.').pop().toLowerCase();
+  const safe   = file.name.replace(/\.[^.]+$/,'').normalize('NFD')
+    .replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,50);
+  const path   = `videos/${Date.now()}_${safe}_d5.${ext}`;
+  const bar    = document.getElementById('d5VidBar');
+  const wrap   = document.getElementById('d5VidBarWrap');
+  const st     = document.getElementById('d5VidSt');
+  const drop   = document.getElementById('d5VidDrop');
+  if (wrap) wrap.classList.add('show');
+  if (st)   st.textContent = `Subiendo ${sizeMB} MB…`;
+  if (drop) drop.style.display = 'none';
+  try {
+    await new Promise((res,rej)=>{
+      const xhr=new XMLHttpRequest();
+      xhr.open('POST',`${SUPA_URL}/storage/v1/object/${SUPA_BUCKET}/${path}`);
+      xhr.setRequestHeader('Authorization',`Bearer ${SUPA_ANON}`);
+      xhr.setRequestHeader('apikey',SUPA_ANON);
+      xhr.setRequestHeader('x-upsert','true');
+      xhr.setRequestHeader('Content-Type',file.type||'video/mp4');
+      xhr.upload.addEventListener('progress',ev=>{
+        if(ev.lengthComputable){const pct=Math.round(ev.loaded/ev.total*100);if(bar)bar.style.width=pct+'%';if(st)st.textContent=`Subiendo ${sizeMB} MB… ${pct}%`;}
+      });
+      xhr.onload=()=>xhr.status<300?res():rej(new Error(xhr.status));
+      xhr.onerror=()=>rej(new Error('Red'));
+      xhr.send(file);
+    });
+    d5OpeningVideoUrl = `${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${path}`;
+    if (wrap) wrap.classList.remove('show');
+    if (st)   st.textContent = '✓ Video listo';
+    _d5RestoreVideoThumb(d5OpeningVideoUrl);
+    d5Save(); toast('Video de apertura subido ✓');
+  } catch(err){
+    if (wrap) wrap.classList.remove('show');
+    if (st)   st.textContent = '⚠ Error';
+    if (drop) drop.style.display = '';
+    toast('Error al subir video');
+  }
+}
+function _d5RestoreVideoThumb(url) {
+  const vid  = document.getElementById('d5VidThumb');
+  const wrap = document.getElementById('d5VidWrap');
+  const drop = document.getElementById('d5VidDrop');
+  if (vid)  { vid.src = url; }
+  if (wrap) wrap.classList.add('show');
+  if (drop) drop.style.display = 'none';
+}
+function d5RemoveVideo() {
+  d5OpeningVideoUrl = null;
+  const vid  = document.getElementById('d5VidThumb');
+  const wrap = document.getElementById('d5VidWrap');
+  const drop = document.getElementById('d5VidDrop');
+  const st   = document.getElementById('d5VidSt');
+  if (vid)  vid.src = '';
+  if (wrap) wrap.classList.remove('show');
+  if (drop) drop.style.display = '';
+  if (st)   st.textContent = '';
+  d5Save(); toast('Video eliminado');
+}
+
+// ── OPENING ──
+function _d5ShowOpening() {
+  const op  = document.getElementById('d5Opening');
+  const vid = document.getElementById('d5OpeningVideo');
+  if (!op) return;
+  const pnVal = d5ProjNameVal || document.getElementById('d5ProjName')?.value || '—';
+  const psVal = d5ProjSubVal  || document.getElementById('d5ProjSub')?.value  || '';
+  const btVal = d5OpeningBtnText || document.getElementById('d5OpeningBtn')?.value || 'Explorar modelo';
+  document.getElementById('d5OpeningTitleEl').textContent = pnVal;
+  document.getElementById('d5OpeningSubEl').textContent   = psVal;
+  document.getElementById('d5OpeningBtnEl').textContent   = btVal;
+  if (vid && d5OpeningVideoUrl) { vid.src = d5OpeningVideoUrl; vid.muted=true; vid.load(); vid.play().catch(()=>{}); }
+  op.classList.add('show');
+}
+function d5StartFromOpening() {
+  const op  = document.getElementById('d5Opening');
+  const vid = document.getElementById('d5OpeningVideo');
+  if (op) { op.style.transition='opacity .8s'; op.style.opacity='0'; setTimeout(()=>{op.classList.remove('show');op.style.opacity='';op.style.transition='';},800); }
+  if (vid) vid.pause();
+  d5LaunchViewer();
+}
+
+// ── LAUNCH / NAVIGATE ──
+function d5Launch() {
+  if (!d5Models.length){ toast('Agrega al menos un modelo'); return; }
+  d5ProjNameVal = document.getElementById('d5ProjName')?.value.trim() || 'Proyecto';
+  d5ProjSubVal  = document.getElementById('d5ProjSub')?.value.trim()  || '';
+  d5Save();
+  if (d5OpeningVideoUrl) { _d5ShowOpening(); } else { d5LaunchViewer(); }
+}
+function d5LaunchViewer() {
+  d5CurIdx = 0;
+  document.getElementById('d5Viewer').classList.add('show');
+  d5BuildPips();
+  d5GoTo(0);
+  _d5StartAutoHide();
+}
+function d5ExitViewer() {
+  document.getElementById('d5Viewer').classList.remove('show');
+  document.getElementById('d5Opening')?.classList.remove('show');
+  const iframe = document.getElementById('d5Iframe');
+  if (iframe) iframe.src = 'about:blank';
+  _d5ClearAutoHide();
+  try {
+    if (document.fullscreenElement||document.webkitFullscreenElement) {
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }
+  } catch(e){}
+  d5RenderModelsList(); // refresh active state
+}
+
+// ── PIPS ──
+function d5BuildPips() {
+  const el = document.getElementById('d5Pips'); if (!el) return;
+  el.innerHTML = '';
+  d5Models.forEach((_,i)=>{
+    const d=document.createElement('div');
+    d.className='d5-lpip'+(i===d5CurIdx?' on':'');
+    d.onclick=()=>d5GoTo(i);
+    el.appendChild(d);
+  });
+  // hide btmbar if single model
+  const btm = document.getElementById('d5Vbtm');
+  if (btm) btm.classList.toggle('hide', d5Models.length<=1);
+}
+
+// ── GO TO MODEL ──
+function d5GoTo(idx) {
+  if (idx<0||idx>=d5Models.length) return;
+  d5CurIdx = idx;
+  const m  = d5Models[idx];
+
+  // update header text
+  const vp = document.getElementById('d5VbarProj');
+  const vm = document.getElementById('d5VbarModel');
+  const pn = document.getElementById('d5ProjName')?.value || d5ProjNameVal || 'AgelArq';
+  if (vp) vp.textContent = pn;
+  if (vm) vm.textContent = m.name + (m.meta?' · '+m.meta:'');
+
+  // curtain on
+  const curtain = document.getElementById('d5Curtain');
+  const cbar    = document.getElementById('d5CurtainBar');
+  if (curtain) { curtain.classList.remove('lift'); curtain.style.display=''; }
+  if (cbar)    cbar.style.width='0%';
+
+  // animate curtain bar
+  let pct = 0;
+  const barTick = setInterval(()=>{
+    pct = Math.min(pct + (m.isLocal ? 8 : 3), 90);
+    if (cbar) cbar.style.width = pct+'%';
+    if (pct>=90) clearInterval(barTick);
+  }, 200);
+
+  // load iframe
+  const iframe = document.getElementById('d5Iframe');
+  if (iframe) {
+    iframe.src = 'about:blank';
+    setTimeout(()=>{
+      iframe.onload = () => {
+        clearInterval(barTick);
+        if (cbar) cbar.style.width='100%';
+        setTimeout(()=>{
+          if (curtain) curtain.classList.add('lift');
+          setTimeout(()=>{ if(curtain) curtain.style.display='none'; }, 750);
+          // stagger-reveal topbar/btmbar/fab
+          setTimeout(()=>{
+            document.getElementById('d5Vbar')?.classList.remove('hide');
+            document.getElementById('d5Vfab')?.classList.remove('hide');
+          }, 820);
+          setTimeout(()=>{
+            document.getElementById('d5Vbtm')?.classList.remove('hide');
+          }, 1000);
+        }, 300);
+      };
+      iframe.src = m.url;
+    }, 60);
+  }
+
+  // pips
+  document.querySelectorAll('.d5-lpip').forEach((p,i)=>p.classList.toggle('on',i===d5CurIdx));
+}
+
+function d5Prev(){ d5GoTo((d5CurIdx-1+d5Models.length)%d5Models.length); }
+function d5Next(){ d5GoTo((d5CurIdx+1)%d5Models.length); }
+
+// ── AUTO-HIDE controls ──
+function _d5StartAutoHide() {
+  const vbar = document.getElementById('d5Vbar');
+  const vbtm = document.getElementById('d5Vbtm');
+  const vfab = document.getElementById('d5Vfab');
+  const viewer= document.getElementById('d5Viewer');
+  if (!viewer) return;
+
+  function show() {
+    vbar?.classList.remove('hide');
+    vbtm?.classList.remove('hide');
+    vfab?.classList.remove('hide');
+    clearTimeout(_d5AutoHideTimer);
+    _d5AutoHideTimer = setTimeout(hide, 3000);
+  }
+  function hide() {
+    vbar?.classList.add('hide');
+    vbtm?.classList.add('hide');
+    vfab?.classList.add('hide');
+  }
+
+  viewer.addEventListener('mousemove', show, {passive:true});
+  viewer.addEventListener('touchstart', show, {passive:true});
+  // initial show
+  show();
+  viewer._d5ShowFn = show;
+}
+function _d5ClearAutoHide() {
+  clearTimeout(_d5AutoHideTimer);
+}
+
+// ── FULLSCREEN ──
+function d5ToggleFullscreen() {
+  const el  = document.getElementById('d5Mode');
+  const isFs= !!(document.fullscreenElement||document.webkitFullscreenElement);
+  const btn = document.getElementById('d5BtnFs');
+  if (!isFs) {
+    (el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);
+    if (btn) btn.innerHTML='<i class="ti ti-minimize"></i>';
+  } else {
+    (document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document);
+    if (btn) btn.innerHTML='<i class="ti ti-maximize"></i>';
+  }
+}
+
+// ── LINK GENERATION ──
+async function d5SaveConfigToSupa(models,pname,psub) {
+  const id   = Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const data = { p:pname, sub:psub, models:models.filter(m=>!m.isLocal),
+    videoUrl: d5OpeningVideoUrl,
+    btnText:  document.getElementById('d5OpeningBtn')?.value||'Explorar modelo' };
+  const blob = new Blob([JSON.stringify(data)],{type:'application/json'});
+  const path = `${D5_SUPA_CONFIG_PATH}/${id}.json`;
+  const res  = await fetch(`${SUPA_URL}/storage/v1/object/${SUPA_BUCKET}/${path}`,{
+    method:'POST',
+    headers:{'Authorization':`Bearer ${SUPA_ANON}`,'apikey':SUPA_ANON,'x-upsert':'true','Content-Type':'application/json'},
+    body:blob
+  });
+  if (!res.ok) throw new Error('Config save: '+res.status);
+  return id;
+}
+async function d5LoadConfigFromSupa(id) {
+  const path = `${D5_SUPA_CONFIG_PATH}/${id}.json`;
+  const res  = await fetch(`${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${path}`);
+  if (!res.ok) throw new Error('Config not found');
+  return res.json();
+}
+async function _d5BuildLink() {
+  const pname = document.getElementById('d5ProjName')?.value.trim()||'Proyecto';
+  const psub  = document.getElementById('d5ProjSub')?.value.trim()||'';
+  const cloud  = d5Models.filter(m=>!m.isLocal);
+  if (!cloud.length) { toast('Para compartir, los modelos deben estar en Supabase (☁ Cloud)'); return null; }
+  const base = window.location.href.split('?')[0];
+  const id   = await d5SaveConfigToSupa(cloud, pname, psub);
+  return base+'?modelo=1&id='+id;
+}
+async function d5GenerateLink() {
+  if (!d5Models.filter(m=>!m.isLocal).length){ toast('Sube al menos un modelo a Supabase para compartir'); return; }
+  toast('Generando link…');
+  const url = await _d5BuildLink();
+  if (!url) return;
+  window.open(url,'_blank');
+}
+async function d5CopyLink() {
+  if (!d5Models.filter(m=>!m.isLocal).length){ toast('Modelos locales no se pueden compartir — sube a Supabase'); return; }
+  toast('Generando link…');
+  const long = await _d5BuildLink(); if (!long) return;
+  toast('Acortando…');
+  const short = await shortenUrl(long);
+  if (navigator.clipboard) navigator.clipboard.writeText(short).then(()=>toast('Link copiado ✓ — '+short.replace('https://',''))).catch(()=>prompt('Copia:',short));
+  else prompt('Copia:',short);
+}
+async function d5SaveLink() {
+  if (!d5Models.filter(m=>!m.isLocal).length){ toast('Sube al menos un modelo a Supabase para guardar un link'); return; }
+  const clientName = prompt('Nombre del cliente:',''); if (clientName===null) return;
+  toast('Generando link…');
+  const long = await _d5BuildLink(); if (!long) return;
+  const short= await shortenUrl(long);
+  const id   = Date.now().toString(36);
+  d5SavedLinks.push({
+    id, name: clientName.trim()||'Link '+(d5SavedLinks.length+1),
+    url:long, shortUrl: short!==long?short:null,
+    created: new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}),
+    projName: document.getElementById('d5ProjName')?.value||'Proyecto',
+    modelCount: d5Models.filter(m=>!m.isLocal).length
+  });
+  d5PersistLinks(); d5RenderLinksPanel();
+  toast('Link guardado ✓'+(short!==long?' — '+short.replace('https://',''):''));
+}
+
+// ── LINKS PANEL ──
+function d5RenderLinksPanel() {
+  const el  = document.getElementById('d5LinksList'); if (!el) return;
+  const cnt = document.getElementById('d5LinksCount');
+  if (cnt) cnt.textContent = d5SavedLinks.length ? `${d5SavedLinks.length}` : '';
+  el.innerHTML = '';
+  if (!d5SavedLinks.length) {
+    el.innerHTML='<div style="font-size:9px;color:var(--muted);text-align:center;padding:8px 0;opacity:.6;">Sin links guardados</div>';
+    return;
+  }
+  d5SavedLinks.slice().reverse().forEach(lk=>{
+    const d=document.createElement('div');
+    d.className='d5-link-item';
+    d.innerHTML=`
+      <div class="d5-link-name">${lk.name}</div>
+      <div class="d5-link-meta">${lk.projName||''} · ${lk.modelCount||0} modelo${(lk.modelCount||0)!==1?'s':''} · ${lk.created}</div>
+      ${lk.shortUrl?`<div class="d5-link-url">${lk.shortUrl.replace('https://','')}</div>`:''}
+      <div class="d5-link-actions">
+        <button class="d5-link-btn" onclick="window.open('${lk.url}','_blank')"><i class="ti ti-external-link"></i></button>
+        <button class="d5-link-btn" onclick="d5CopyLinkById('${lk.id}')"><i class="ti ti-copy"></i> Copiar</button>
+        <button class="d5-link-btn" onclick="d5RenameLink('${lk.id}')"><i class="ti ti-pencil"></i></button>
+        <button class="d5-link-btn del" onclick="d5DeleteLink('${lk.id}')"><i class="ti ti-trash"></i></button>
+      </div>`;
+    el.appendChild(d);
+  });
+}
+async function d5CopyLinkById(id) {
+  const lk=d5SavedLinks.find(l=>l.id===id); if (!lk) return;
+  const url=lk.shortUrl||lk.url;
+  if (navigator.clipboard) navigator.clipboard.writeText(url).then(()=>toast('Link copiado ✓')).catch(()=>prompt('Copia:',url));
+  else prompt('Copia:',url);
+}
+function d5RenameLink(id){
+  const lk=d5SavedLinks.find(l=>l.id===id);if(!lk)return;
+  const n=prompt('Nuevo nombre:',lk.name);if(n===null)return;
+  if(n.trim())lk.name=n.trim();
+  d5PersistLinks();d5RenderLinksPanel();toast('Renombrado ✓');
+}
+function d5DeleteLink(id){
+  if(!confirm('¿Eliminar este link?'))return;
+  d5SavedLinks=d5SavedLinks.filter(l=>l.id!==id);
+  d5PersistLinks();d5RenderLinksPanel();toast('Eliminado');
+}
+function d5ExportLinks(){
+  const blob=new Blob([JSON.stringify({v:2,models:d5Models,links:d5SavedLinks},null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='agelarq-d5.json';a.click();URL.revokeObjectURL(url);toast('Exportado ✓');
+}
+function d5ImportLinks(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json';
+  inp.onchange=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const r=new FileReader();
+    r.onload=ev=>{
+      try{
+        const data=JSON.parse(ev.target.result);
+        if(!Array.isArray(data.models))throw new Error('Formato inválido');
+        if(!confirm(`¿Importar ${data.models.length} modelo(s)?`))return;
+        d5Models=data.models;
+        if(data.links){d5SavedLinks=data.links;d5PersistLinks();}
+        d5RenderModelsList();d5RenderLinksPanel();d5UpdateCenter();d5Save();toast('Importado ✓');
+      }catch(err){toast('Error: '+err.message);}
+    };
+    r.readAsText(file);
+  };
+  inp.click();
+}
+
+// ── INIT ──
+function _d5Init() {
+  d5LoadLinks();
+  d5Load();
+  d5RenderLinksPanel();
+  // initial state: hide viewer chrome (auto-hide reveals them)
+  document.getElementById('d5Vbar')?.classList.add('hide');
+  document.getElementById('d5Vbtm')?.classList.add('hide');
+  document.getElementById('d5Vfab')?.classList.add('hide');
+}
+
   } catch(err) {
     console.error('Init error:', err);
   }
@@ -4512,6 +5800,8 @@ window.addEventListener('load', () => {
   // Always remove intro — regardless of errors above
   setTimeout(_removeIntro, 1400);
 });
+
+
 
 </script>
 </body>
