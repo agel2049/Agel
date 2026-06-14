@@ -5053,6 +5053,14 @@ window.addEventListener('load', () => {
     }
   }
 
+  } catch(err) {
+    console.error('Init error:', err);
+  }
+
+  // Always remove intro — regardless of errors above
+  setTimeout(_removeIntro, 1400);
+});
+
 // ════════════════════════════════════════════════════
 // D5 RENDER MODULE — Visor de Modelos 3D Interactivos
 // Premium redesign
@@ -5799,13 +5807,6 @@ function _d5Init() {
   document.getElementById('d5Vfab')?.classList.add('hide');
 }
 
-  } catch(err) {
-    console.error('Init error:', err);
-  }
-
-  // Always remove intro — regardless of errors above
-  setTimeout(_removeIntro, 1400);
-});
 
 
 
