@@ -1,0 +1,70 @@
+/* AgelArq · visor BIM. Lenguaje oscuro del editor; el modelo ocupa todo lo posible. */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--ag-bg); color: var(--ag-text); }
+body { font: 13.5px/1.5 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden; }
+:focus-visible { outline: 2px solid var(--ag-accent); outline-offset: 2px; }
+.bm-grow { flex: 1; }
+.bm-muted { color: var(--ag-muted); }
+.bm-msg { max-width: 520px; margin: 18vh auto 0; padding: 0 16px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.bm-msg h1 { font-weight: 400; font-size: 22px; margin: 0; }
+.bm-msg p { color: var(--ag-muted); margin: 0; }
+
+.bm-top { height: 52px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-bottom: 1px solid var(--ag-border); }
+.bm-top h1 { font-size: 15px; font-weight: 500; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bm-top select, .bm-row select { min-height: 34px; background: rgba(255,255,255,.05); color: var(--ag-text); border: 1px solid var(--ag-border); border-radius: 10px; padding: 0 8px; }
+.bm-top select option, .bm-row select option { background: #18181c; }
+.bm-body { display: grid; grid-template-columns: 340px minmax(0, 1fr); height: calc(100dvh - 52px); }
+.bm-side { border-right: 1px solid var(--ag-border); display: flex; flex-direction: column; min-height: 0; }
+.bm-tabs { display: grid; grid-template-columns: repeat(6, 1fr); border-bottom: 1px solid var(--ag-border); }
+.bm-tabs button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 2px; min-height: 52px; border: 0; background: none;
+  color: var(--ag-muted); font: 11px 'Inter', system-ui, sans-serif; cursor: pointer; border-bottom: 2px solid transparent; }
+.bm-tabs button .ti { font-size: 18px; }
+.bm-tabs button[aria-selected="true"] { color: var(--ag-text); border-bottom-color: var(--ag-accent); }
+.bm-panel { padding: 14px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+.bm-panel h2 { font-size: 15px; font-weight: 500; margin: 0; }
+.bm-panel h3 { font-size: 13px; font-weight: 500; margin: 8px 0 0; color: var(--ag-muted); }
+.bm-panel > .ag-btn { align-self: flex-start; }
+.bm-viewer { position: relative; min-width: 0; background: #1b1d20; }
+.bm-banner { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; margin: 10px 14px 0; padding: 10px 12px; border-radius: 12px;
+  background: var(--ag-accent-soft); font-size: 12.5px; }
+.bm-banner .ti { color: var(--ag-accent); font-size: 16px; }
+.bm-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.bm-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.bm-chips .ag-pill { cursor: pointer; background: none; font: inherit; font-size: 12px; min-height: 30px; }
+.bm-facet { border: 1px solid var(--ag-border); border-radius: 12px; padding: 4px 10px; }
+.bm-facet summary { cursor: pointer; min-height: 36px; display: flex; align-items: center; font-weight: 500; }
+.bm-facet ul { list-style: none; margin: 0 0 6px; padding: 0; }
+.bm-facet li button { width: 100%; display: flex; justify-content: space-between; gap: 8px; padding: 7px 8px; min-height: 36px; border: 0; border-radius: 8px;
+  background: none; color: var(--ag-text); font: inherit; text-align: left; cursor: pointer; }
+.bm-facet li button:hover { background: rgba(255,255,255,.04); }
+.bm-facet li button[aria-pressed="true"] { background: var(--ag-accent-soft); color: var(--ag-accent); }
+.bm-facet small { color: var(--ag-faint); font-variant-numeric: tabular-nums; }
+.bm-dl { margin: 0 0 6px; }
+.bm-dl div { display: grid; grid-template-columns: 42% 1fr; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--ag-border); }
+.bm-dl dt { color: var(--ag-muted); overflow-wrap: anywhere; }
+.bm-dl dd { margin: 0; overflow-wrap: anywhere; }
+.bm-class { border: 1px solid var(--ag-border); border-radius: 12px; padding: 4px 10px; }
+.bm-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.bm-list li { display: flex; gap: 6px; align-items: center; }
+.bm-small li { font-size: 12.5px; padding: 4px 0; border-bottom: 1px solid var(--ag-border); }
+.bm-item { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; min-height: 44px; border: 1px solid var(--ag-border);
+  border-radius: 10px; background: none; color: var(--ag-text); font: inherit; text-align: left; cursor: pointer; }
+.bm-item:hover { border-color: rgba(255,255,255,.2); }
+.bm-item small { color: var(--ag-muted); }
+.bm-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; align-items: end; }
+.bm-comments { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow: auto; }
+.bm-comments li { border-left: 2px solid var(--ag-border); padding-left: 10px; }
+.bm-comments p { margin: 2px 0 0; color: var(--ag-text); }
+.bm-panel input[type=range] { width: 100%; accent-color: var(--ag-accent); }
+.bm-date { font-size: 17px; }
+.bm-legend { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 12.5px; }
+.bm-swatch { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; border: 1px solid rgba(255,255,255,.35); vertical-align: -1px; }
+.bm-pano { width: 100%; height: min(62dvh, 560px); border: 0; border-radius: 10px; background: #000; display: block; }
+.ag-modal-box.bm-pano-box { width: min(1100px, 100%); }
+.ag-modal progress { width: 100%; }
+@media (max-width: 820px) {
+  body { overflow: auto; }
+  .bm-body { grid-template-columns: 1fr; grid-template-rows: 55dvh auto; height: auto; }
+  .bm-viewer { grid-row: 1; height: 55dvh; }
+  .bm-side { grid-row: 2; border-right: 0; border-top: 1px solid var(--ag-border); }
+}

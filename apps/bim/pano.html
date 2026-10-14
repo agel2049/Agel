@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Panorámica 360°</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0B0C0D; color: #EEE; font: 14px system-ui, sans-serif; overflow: hidden; }
+  #c { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  #m { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+</style>
+</head>
+<body>
+<!-- Panorámica aislada en su propia página: el visor de Autodesk usa otra
+     versión de three.js y no deben compartir ventana. ?u=<URL https de la imagen> -->
+<canvas id="c" aria-label="Panorámica 360°. Arrastra para mirar alrededor."></canvas>
+<div id="m" role="status">Cargando…</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../../packages/core/schema.js"></script>
+<script src="../../packages/panorama/pano-engine.js"></script>
+<script>
+  (function () {
+    var m = document.getElementById('m');
+    var u = safeMediaUrl(new URLSearchParams(location.search).get('u') || '');
+    if (!u || !window.THREE) { m.textContent = 'No se pudo abrir la panorámica.'; return; }
+    var eng = new AgelPano.PanoEngine({ canvas: document.getElementById('c'), fov: 70, minFov: 30, maxFov: 100 });
+    eng.loadTexture(u).then(function (t) { eng.setPano(t, true); m.hidden = true; })
+      .catch(function () { m.textContent = 'No se pudo cargar la imagen.'; });
+  })();
+</script>
+</body>
+</html>
