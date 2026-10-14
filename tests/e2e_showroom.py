@@ -50,7 +50,10 @@ class World:
 
     def close(self):
         for c in self.ctxs:
-            try: c.unroute_all(behavior='ignoreErrors')
+            # Deja terminar las peticiones simuladas antes de retirar sus rutas.
+            try:
+                for page in c.pages: page.wait_for_load_state('networkidle', timeout=5000)
+                c.unroute_all(behavior='wait')
             except Exception: pass
             try: c.close()
             except Exception: pass
@@ -498,7 +501,7 @@ def seleccion_comparar_compartir_y_contacto(w):
     q = w.page()
     q.pg.goto(link)
     q.pg.wait_for_selector('.sr-selbar:not([hidden])')
-    check(q.ev("document.querySelector('.sr-toast').textContent").startswith('Abriste una selección compartida'), 'no avisó de la selección compartida')
+    check(q.pg.locator('.sr-toast.is-on').inner_text(timeout=6000).startswith('Abriste una selección compartida'), 'no avisó de la selección compartida')
     check('sel=' not in q.ev('location.search'), 'la dirección conserva la selección compartida')
     q.pg.locator('.sr-selbar').get_by_role('link', name='Pedir información').click()
     check(q.pg.locator('.sr-with-sel').is_visible() and 'Depto 101' in q.pg.inner_text('.sr-with-sel'), 'el formulario no ofrece incluir la selección')
