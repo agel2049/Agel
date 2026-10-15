@@ -79,7 +79,7 @@
       return ids;
     }
     externalIdMap() { return new Promise((res, rej) => this.model.getExternalIdMapping(res, rej)); }
-    isolate(dbIds) { this.viewer.isolate(dbIds && dbIds.length ? dbIds : []); }
+    isolate(dbIds) { if(!dbIds?.length){this.viewer.hide(this.allDbIds());return;}this.viewer.showAll();this.viewer.isolate(dbIds); }
     showAll() { this.viewer.showAll(); }
     hide(dbIds) { if (dbIds.length) this.viewer.hide(dbIds); }
     show(dbIds) { if (dbIds.length) this.viewer.show(dbIds); }

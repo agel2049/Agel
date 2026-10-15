@@ -167,6 +167,8 @@ Necesitas una cuenta de Autodesk Platform Services y la consola de Supabase en t
 
 **9.1 Crea la aplicación en Autodesk**
 
+Para el alta actual con Developer Hub y plan Free, sigue [Conectar Navisworks a AgelArq](CONECTAR-AUTODESK.md). El GLB local funciona sin este paso; NWD necesita la conexión real.
+
 1. <https://aps.autodesk.com> → **Applications → Create application** (tipo "Server-to-Server" o "Traditional Web App").
 2. Activa las APIs **Data Management** y **Model Derivative**.
 3. Copia el **Client ID** y el **Client Secret**. El secreto es como una contraseña: no lo pegues en `config.js`, en GitHub ni en un chat.
@@ -190,7 +192,7 @@ Opcional: `APS_BUCKET=nombre-unico` si quieres elegir el nombre del almacenamien
 
 **9.3 Úsalo**
 
-Panel → **Modelos y 4D → Nuevo modelo → Subir versión** (NWD de Navisworks recomendado). Cuando diga **Listo**, **Abrir visor** → **Indexar ahora** (una vez por versión). Desde ahí: filtros por disciplina, sistema, nivel y etapa; propiedades; vistas guardadas con su escena 360°; incidencias; y **4D** si importas el calendario (CSV de TimeLiner o XML de Microsoft Project, desde el panel).
+Panel → **Modelos 3D → Nuevo modelo → Subir versión** (NWD de Navisworks recomendado). Cuando diga **Listo**, **Abrir visor** → **Indexar ahora** (una vez por versión). La navegación normal ofrece filtros por disciplina, sistema, nivel y categoría, y vistas de instalaciones, albañilería, estructura y acabados según las propiedades del modelo. Las herramientas técnicas anteriores quedan disponibles solo por la ruta avanzada.
 
 **Comprobación:** en Supabase, **Edge Functions** muestra las 4 funciones. Si algo falla, el mensaje del panel dice qué secreto falta.
 

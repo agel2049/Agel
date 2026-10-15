@@ -139,7 +139,8 @@
     if(m.content.experience?.version===1){
       document.body.classList.add('sr-immersive');
       const host=h('div');app.querySelector('.sr-top')?.after(host);if(!host.isConnected)app.prepend(host);
-      state.navigation=AgelShowroomNavigation.create(m);state.experience=AgelShowroomExperience.mount(host,{manifest:m,navigation:state.navigation,openTour:args=>AgelTourBridge.open({...args,openExisting:openTour})});
+      const onLocalModel=state.preview==='local'?()=>{const u=new URL(ROOT+'apps/bim/',location.href);u.searchParams.set('local',params.get('local'));u.searchParams.set('return',location.pathname+location.search+location.hash);location.href=u.href;}:null;
+      state.navigation=AgelShowroomNavigation.create(m);state.experience=AgelShowroomExperience.mount(host,{manifest:m,navigation:state.navigation,onLocalModel,openTour:args=>AgelTourBridge.open({...args,openExisting:openTour})});
     }else document.body.classList.remove('sr-immersive');
     loadSelection();
     if(!state.experience){bindHorizon();bindExplore();}bindUnits(); bindTourButtons(); bindGallery(); bindForm(); bindModel();

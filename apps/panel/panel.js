@@ -130,7 +130,7 @@
     ['publicaciones', 'Publicaciones', 'world-share', () => true],
     ['prospectos', 'Prospectos', 'address-book', () => canEdit()],
     ['equipo', 'Equipo', 'users', () => true],
-    ['modelos', 'Modelos y 4D', 'box', () => true],
+    ['modelos', 'Modelos 3D', 'box', () => true],
     ['actividad', 'Actividad', 'history', () => isOwner()],
     ['exportar', 'Exportar', 'download', () => true]
   ];
@@ -357,9 +357,9 @@
         progList,
         h('button', { type: 'button', class: 'ag-btn', onclick: () => { progress.unshift({ date: new Date().toISOString().slice(0, 7), title: '', note: '', images: [] }); drawProgress(); } }, icon('plus'), 'Agregar hito')),
       h('fieldset', null, h('legend', null, 'Modelo 3D (opcional)'),
-        h('p', { class: 'pn-muted' }, 'Archivo GLB para girarlo en la página y verlo con realidad aumentada en teléfonos. Ideal para productos y mobiliario. Máximo 50 MB; mejor menos de 15 MB.'),
+        h('p', { class: 'pn-muted' }, 'El GLB se guarda en este dispositivo. Puedes verlo y filtrar sus piezas desde Modelos 3D sin subirlo. Su tamaño local depende del espacio y la memoria del equipo; los límites de nube solo se revisan al sincronizar.'),
         h('div', { class: 'pn-grid' }, field('Archivo GLB (URL https)', f.model_url), field('Título', f.model_title)),
-        uploader('Subir GLB', '.glb,model/gltf-binary', 'glb', url => { f.model_url.value = url; })),
+        uploader('Agregar GLB local', '.glb,model/gltf-binary', 'glb', url => { f.model_url.value = url; })),
       h('fieldset', null, h('legend', null, 'Ubicación'),
         field('Dirección', f.address), field('Enlace del mapa', f.map_url), field('Notas (accesos, distancias)', f.loc_notes)),
       h('fieldset', null, h('legend', null, 'Contacto'),
@@ -711,13 +711,12 @@
 
   // ═════════════════════════════ modelos y 4D ═════════════════════════════
   async function tabModels(body) {
+    const draft=await S.workspace.load(),local=draft.showroom.model3d;
     const models = await cloud.select('models', `project_id=eq.${S.projectId}&select=*&order=created_at.asc`);
     const vers = models.length ? await cloud.select('model_versions', `project_id=eq.${S.projectId}&select=*&order=version.desc`) : [];
-    const tasks = await cloud.select('tasks', `project_id=eq.${S.projectId}&select=id,model_id&limit=20000`).catch(() => []);
     const reload = () => tabModels(body);
     const cards = models.map(m => {
       const vs = vers.filter(v => v.model_id === m.id);
-      const nTasks = tasks.filter(t => t.model_id === m.id).length;
       return h('article', { class: 'pn-card' },
         h('header', null, h('h2', null, m.name), h('span', { class: 'ag-pill' }, m.kind === 'aps' ? 'Autodesk (NWD, RVT, IFC…)' : m.kind)),
         m.description ? h('p', { class: 'pn-muted' }, m.description) : null,
@@ -735,8 +734,7 @@
                 try { await cloud.invoke('aps-status', { model_version_id: v.id }); reload(); } catch (ex) { fail(ex); busy(e.currentTarget, false); }
               } }, 'Actualizar estado') : null))))) : h('p', { class: 'pn-muted' }, 'Sin versiones. Sube el archivo exportado de Navisworks (NWD) u otro formato compatible.'),
         h('div', { class: 'pn-actions' },
-          canEdit() ? h('button', { type: 'button', class: 'ag-btn primary', onclick: () => uploadVersion(m, reload) }, icon('upload'), 'Subir versión') : null,
-          canEdit() ? h('button', { type: 'button', class: 'ag-btn', onclick: () => importSchedule(m, reload) }, icon('calendar'), nTasks ? `Calendario 4D (${nTasks} tareas)` : 'Importar calendario 4D') : null));
+          canEdit() ? h('button', { type: 'button', class: 'ag-btn primary', onclick: () => uploadVersion(m, reload) }, icon('upload'), 'Subir versión') : null));
     });
     const newModel = () => {
       const name = input({ maxlength: 160, value: 'Modelo coordinado' }), desc = h('textarea', { rows: 2, maxlength: 2000 });
@@ -747,8 +745,9 @@
         } }] });
     };
     put(body,
+      local?.url?h('article',{class:'pn-card'},h('h2',null,local.title||'GLB del showroom'),h('p',{class:'pn-muted'},local.url.startsWith('agel-local:')?'Guardado en este dispositivo. Puedes filtrar sus piezas sin subirlo a Supabase.':'Modelo 3D del showroom. Sus filtros dependen de las piezas y propiedades exportadas.'),h('a',{class:'ag-btn primary',href:`${ROOT}apps/bim/?local=${S.projectId}`},'Ver GLB local')):null,
       h('div', { class: 'pn-toolbar' },
-        h('p', { class: 'pn-muted' }, 'Los modelos se convierten con Autodesk Platform Services y se ven en el visor BIM. Requiere configurar las funciones de servidor (ver docs/PUBLICAR.md).'),
+        h('p', { class: 'pn-muted' }, 'Para modelos de Navisworks (NWD) se reutiliza el visor de Autodesk y su conversión. Esta conexión requiere configurar APS. El GLB de arriba puede verse localmente sin esa conversión.'),
         canEdit() ? h('button', { type: 'button', class: 'ag-btn primary', onclick: newModel }, icon('plus'), 'Nuevo modelo') : null),
       cards.length ? cards : h('p', { class: 'pn-empty' }, 'Este proyecto aún no tiene modelos BIM.'));
   }

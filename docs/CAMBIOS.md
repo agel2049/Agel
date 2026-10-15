@@ -215,3 +215,10 @@ Para repetirlas: ver `README.md`, sección Pruebas.
 Opening sin Ending, fachada a pantalla completa, acceso al lobby, niveles y plantas por UUID de espacio. Controles flotantes de cristal con opacidad al reposar, áreas transparentes y redondeadas al pasar el ratón/foco, 90° alternable durante dibujo. Escenas por ámbito, miniplano de unidad automático, regreso con contexto y apariencia orientable de hotspots. Borradores y medios locales por cuenta, respaldos y subida explícita con reservas idempotentes, conflictos y límites gratuitos conservados. Configuración BIM privada y presets reales. Motor PanoEngine sin cambios.
 
 Las migraciones incrementales son 13–16; no repetir el despliegue inicial. Consulta SHOWROOM-INMERSIVO.md. Autodesk real permanece sujeto a credenciales y conversión configuradas por el propietario.
+# Corrección local de Opening y modelos — 15 de octubre de 2026
+
+- El video del Opening heredado ya no se envía automáticamente a Storage: guarda el original en IndexedDB por cuenta, se recupera al recargar y aparece en la vista previa. Los enlaces públicos no incluyen URLs Blob.
+- El GLB agregado al showroom se conserva al normalizar la vista previa y aparece en Modelos 3D.
+- Nueva vista local con filtros sobre piezas, categorías, instalaciones, niveles, grupos y materiales, usando Three.js/GLTFLoader. Sin subir el modelo ni convertirlo en APS.
+- La interfaz principal de Autodesk se limita a filtros; añade Albañilería/Estructura, combina MEP con nivel y evita que respuestas tardías pisen la selección. Los datos y herramientas heredados se conservan.
+- Sin migraciones, cambios de cuota ni cambios en el motor panorama.

@@ -1,6 +1,6 @@
 (function(root){
  'use strict';
- const defaults={complete:{all:true},mep:{disciplines:['Mecánica (HVAC)','Eléctrica','Hidrosanitaria','Protección contra incendio']},finishes:{},grey:{}};
+ const defaults={complete:{all:true},mep:{disciplines:['Mecánica (HVAC)','Eléctrica','Hidrosanitaria','Protección contra incendio']},masonry:{categories:['Walls','Muros','IfcWall','IfcWallStandardCase','Masonry']},structure:{disciplines:['Estructura']},finishes:{},grey:{}};
  function selectIds(elements,preset={}){
   if(preset.all)return elements.map(e=>e.dbid).filter(Number.isInteger);
   const fields=[['disciplines','discipline'],['levels','level'],['categories','category']];

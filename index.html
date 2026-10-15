@@ -1474,8 +1474,8 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
               <video class="vm-vid-thumb" id="vmVidThumb" autoplay muted loop playsinline></video>
               <div class="vm-vid-drop" onclick="document.getElementById('vmVidFile').click()" id="vmVidDrop">
                 <i class="ti ti-video-plus"></i>
-                <div class="vm-vid-drop-t">Subir video de apertura</div>
-                <div class="vm-vid-drop-s">MP4 · WebM · hasta 500 MB</div>
+                <div class="vm-vid-drop-t">Agregar video de apertura local</div>
+                <div class="vm-vid-drop-s">MP4 · WebM · según el espacio de tu dispositivo</div>
               </div>
               <div class="vm-vid-progress" id="vmVidProgress"><div class="vm-vid-progress-bar" id="vmVidProgressBar"></div></div>
               <div class="vm-vid-status" id="vmVidStatus"></div>
@@ -1495,8 +1495,8 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
               <video class="vm-vid-thumb" id="vmEndVidThumb" autoplay muted loop playsinline></video>
               <div class="vm-vid-drop" onclick="document.getElementById('vmEndVidFile').click()" id="vmEndVidDrop">
                 <i class="ti ti-video-plus"></i>
-                <div class="vm-vid-drop-t">Subir video de cierre</div>
-                <div class="vm-vid-drop-s">MP4 · WebM · hasta 500 MB</div>
+                <div class="vm-vid-drop-t">Agregar video de cierre local</div>
+                <div class="vm-vid-drop-s">MP4 · WebM · según el espacio de tu dispositivo</div>
               </div>
               <div class="vm-vid-progress" id="vmEndVidProgress"><div class="vm-vid-progress-bar" id="vmEndVidProgressBar"></div></div>
               <div class="vm-vid-status" id="vmEndVidStatus"></div>
@@ -1504,7 +1504,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
               <input class="vm-inp" id="vmEndingBtn" placeholder="Regresar al recorrido" oninput="vmSaveOpeningMeta()">
               <button id="vmEndVidRemoveBtn" onclick="vmRemoveVideo('ending')" style="display:none;margin-top:8px;width:100%;background:rgba(226,75,74,.08);color:#E24B4A;border:1px solid rgba(226,75,74,.2);border-radius:7px;padding:6px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;"><i class="ti ti-trash"></i> Quitar video de cierre</button>
             </div>
-            <div style="font-size:9px;color:rgba(184,157,116,.45);margin-top:10px;line-height:1.6;">Videos guardados en Supabase, incluidos en el link.</div>
+            <div style="font-size:9px;color:rgba(184,157,116,.65);margin-top:10px;line-height:1.6;">Los videos se guardan en este dispositivo y aparecen en la vista previa. No se suben ni se incluyen automáticamente en un enlace público.</div>
           </div>
         </div>
 
@@ -3830,6 +3830,12 @@ function vmLaunch() {
   // Preload all scene textures in background for smooth navigation
   vmPreloadAll();
   vmGoTo(0);
+  const opening = _vmGetOpeningConfig();
+  if (opening) {
+    _vmOpeningCfg = opening;
+    vmShowOpening(opening);
+    document.getElementById('vmViewer').classList.remove('show');
+  }
 }
 
 function vmExitViewer() {
@@ -4266,15 +4272,19 @@ function _vmSetOpeningConfig(cfg) {
 // VM Persistence
 function saveVmData() {
   try {
+    const opening = _vmGetOpeningConfig();
+    // Personal video refs live in the account's IndexedDB draft, never an expiring Blob URL.
+    if (opening) for (const key of ['videoUrl','endingVideoUrl']) if (opening[key]?.startsWith('blob:')) opening[key] = null;
     localStorage.setItem('agelarq_vm', JSON.stringify({
       scenes:   vmScenes,
       projName: document.getElementById('vmProjName')?.value,
       projSub:  document.getElementById('vmProjSub')?.value,
-      opening:  _vmGetOpeningConfig()
+      opening
     }));
-  } catch(e) { console.warn('saveVmData:', e); toast('⚠ No se pudo guardar la configuración del visor'); }
+    return true;
+  } catch(e) { console.warn('saveVmData:', e); toast('⚠ No se pudo guardar la configuración del visor'); return false; }
 }
-function loadVmData() {
+async function loadVmData() {
   try {
     const saved = localStorage.getItem('agelarq_vm');
     if (!saved) return;
@@ -4285,6 +4295,7 @@ function loadVmData() {
     if (d.opening)  _vmSetOpeningConfig(d.opening);
     vmRenderScenesList();
   } catch(e) { console.warn('loadVmData:', e); }
+  finally { await vmLoadLocalVideos(); }
 }
 
 // ════════════════════════════════════════════════════
@@ -4332,6 +4343,7 @@ async function vmSaveConfigToSupa(scenes, pname, psub) {
   const id  = Date.now().toString(36) + Math.random().toString(36).slice(2,6);
   // Include opening config if set
   const opening = _vmGetOpeningConfig();
+  if (opening) for (const key of ['videoUrl','endingVideoUrl']) if (!_isSharableUrl(opening[key])) opening[key] = null;
   const cfg = { v:2, p: pname, sub: psub, opening, scenes: scenes.map(s => ({
     name: s.name,
     meta: s.meta || '',
@@ -4772,6 +4784,59 @@ async function smgrDeleteSelected() {
 // State: stored in localStorage alongside vmData
 let _vmOpeningVideoUrl = null;
 let _vmEndingVideoUrl  = null;
+let _vmVideoOwner = null, _vmVideoEpoch = 0, _vmVideoQueue = Promise.resolve();
+const _vmVideoUrls = new Set();
+let _vmOpeningTimers = [];
+function _vmResetOpening() {
+  _vmOpeningTimers.forEach(clearTimeout);_vmOpeningTimers=[];
+  const opening=document.getElementById('vmOpening'),vid=document.getElementById('vmOpeningVideo');
+  if(vid){vid.pause();vid.removeAttribute('src');vid.load();vid.ontimeupdate=null;}
+  if(opening){opening.classList.remove('show');opening.style.display='';opening.style.opacity='';opening.style.transition='';}
+  document.getElementById('vmTapToPlay')?.remove();
+  const bar=document.getElementById('vmOpeningProgressBar');if(bar)bar.style.width='0%';
+}
+const vmVideoOwner = () => window.CloudMode?.cloud?.user?.id || 'guest';
+const vmVideoStore = owner => AgelLocalMedia.open({ownerId:owner,projectId:'visor-personal-videos'});
+function _vmApplyLocalVideo(type,url) {
+  const old=type==='ending'?_vmEndingVideoUrl:_vmOpeningVideoUrl;
+  const playing=document.getElementById('vmOpeningVideo')?.getAttribute('src');
+  if((old&&playing===old)||(type==='opening'&&!url))_vmResetOpening();
+  if(_vmVideoUrls.has(old)){URL.revokeObjectURL(old);_vmVideoUrls.delete(old);}
+  if(type==='ending')_vmEndingVideoUrl=url;else _vmOpeningVideoUrl=url;
+  if(url?.startsWith('blob:'))_vmVideoUrls.add(url);
+  if(_vmOpeningCfg)_vmOpeningCfg[type==='ending'?'endingVideoUrl':'videoUrl']=url;
+  if(url){_vmShowVidThumb(type,url);return;}
+  const end=type==='ending',thumb=document.getElementById(end?'vmEndVidThumb':'vmVidThumb'),drop=document.getElementById(end?'vmEndVidDrop':'vmVidDrop'),remove=document.getElementById(end?'vmEndVidRemoveBtn':'vmVidRemoveBtn');
+  if(thumb){thumb.pause();thumb.removeAttribute('src');thumb.load();thumb.classList.remove('show');}if(drop)drop.style.display='';if(remove)remove.style.display='none';
+}
+async function vmLoadLocalVideos() {
+  const owner=vmVideoOwner(),epoch=++_vmVideoEpoch;_vmVideoOwner=owner;
+  for(const type of ['opening','ending'])if((type==='ending'?_vmEndingVideoUrl:_vmOpeningVideoUrl)?.startsWith('blob:'))_vmApplyLocalVideo(type,null);
+  try{
+    const store=await vmVideoStore(owner),draft=await store.loadDraft();
+    for(const type of ['opening','ending']){
+      if(owner!==vmVideoOwner()||epoch!==_vmVideoEpoch)return;
+      if(!draft?.videos||!Object.hasOwn(draft.videos,type))continue;
+      const ref=draft.videos[type],url=ref?await store.url(ref):null;
+      if(owner!==vmVideoOwner()||epoch!==_vmVideoEpoch){if(url)URL.revokeObjectURL(url);return;}_vmApplyLocalVideo(type,url);
+    }
+  }catch(e){if(owner===vmVideoOwner()&&epoch===_vmVideoEpoch)toast(e.message);}
+}
+function _vmQueueVideo(type,file) {
+  const owner=vmVideoOwner(),epoch=_vmVideoEpoch;
+  const job=_vmVideoQueue.catch(()=>{}).then(async()=>{
+    if(owner!==vmVideoOwner()||owner!==_vmVideoOwner||epoch!==_vmVideoEpoch)throw Error('La cuenta cambió. Vuelve a seleccionar el video.');
+    const store=await vmVideoStore(owner),draft=await store.loadDraft()||{localRevision:0,videos:{}},expected=draft.localRevision||0;
+    const media=file?await store.put(file,{kind:'video'}):null;
+    draft.videos={...draft.videos,[type]:media?.ref||null};draft.localRevision=expected+1;
+    await store.saveDraft(draft,expected);
+    if(owner!==vmVideoOwner()||epoch!==_vmVideoEpoch)throw Error('La cuenta cambió. El video quedó en la cuenta original.');
+    const url=media?await store.url(media.ref):null;
+    if(owner!==vmVideoOwner()||epoch!==_vmVideoEpoch){if(url)URL.revokeObjectURL(url);throw Error('La cuenta cambió. Vuelve a abrir el Opening.');}
+    _vmApplyLocalVideo(type,url);return saveVmData();
+  });_vmVideoQueue=job;return job;
+}
+window.addEventListener('pagehide',()=>{for(const url of _vmVideoUrls)URL.revokeObjectURL(url);_vmVideoUrls.clear();});
 
 function vmSwitchMediaTab(tab) {
   const isO = tab === 'opening';
@@ -4798,66 +4863,19 @@ function _vmShowVidThumb(type, url) {
 async function vmHandleVideo(type, e) {
   const file = e.target.files[0]; if (!file) return;
   e.target.value = '';
-  const isE    = type === 'ending';
-  const sizeMB = (file.size/1024/1024).toFixed(1);
-  const ext    = file.name.split('.').pop().toLowerCase();
-  const safe   = file.name.replace(/\.[^.]+$/,'').normalize('NFD')
-    .replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,50);
-  const path   = `videos/${Date.now()}_${safe}.${ext}`;
-  const prog   = document.getElementById(isE ? 'vmEndVidProgress'    : 'vmVidProgress');
-  const bar    = document.getElementById(isE ? 'vmEndVidProgressBar' : 'vmVidProgressBar');
-  const status = document.getElementById(isE ? 'vmEndVidStatus'      : 'vmVidStatus');
-  const drop   = document.getElementById(isE ? 'vmEndVidDrop'        : 'vmVidDrop');
-  prog?.classList.add('show');
-  if (status) status.textContent = `Subiendo ${sizeMB} MB…`;
-  if (drop)   drop.style.display = 'none';
+  const isE=type==='ending',status=document.getElementById(isE?'vmEndVidStatus':'vmVidStatus');
+  e.target.disabled=true;if(status)status.textContent=`Guardando ${(file.size/1048576).toFixed(1)} MB en este dispositivo…`;
   try {
-    await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', `${SUPA_URL}/storage/v1/object/${SUPA_BUCKET}/${path}`);
-      xhr.setRequestHeader('Authorization', `Bearer ${SUPA_ANON}`);
-      xhr.setRequestHeader('apikey', SUPA_ANON);
-      xhr.setRequestHeader('x-upsert', 'true');
-      xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
-      xhr.upload.addEventListener('progress', ev => {
-        if (ev.lengthComputable) {
-          const pct = Math.round(ev.loaded/ev.total*100);
-          if (bar)    bar.style.width       = pct + '%';
-          if (status) status.textContent    = `Subiendo ${sizeMB} MB… ${pct}%`;
-        }
-      });
-      xhr.onload  = () => xhr.status < 300 ? resolve() : reject(new Error(xhr.status + ' ' + xhr.responseText));
-      xhr.onerror = () => reject(new Error('Error de red'));
-      xhr.send(file);
-    });
-    const url = `${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${path}`;
-    if (isE) _vmEndingVideoUrl = url; else _vmOpeningVideoUrl = url;
-    if (status) status.textContent = '✓ Video listo';
-    prog?.classList.remove('show');
-    _vmShowVidThumb(type, url);
-    saveVmData();
-    toast(`Video de ${isE ? 'cierre' : 'apertura'} subido ✓`);
+    if(!await _vmQueueVideo(type,file))return;
+    if(status)status.textContent='✓ Guardado en este dispositivo · sin subir a la nube';
+    toast(`Video de ${isE?'cierre':'apertura'} guardado localmente ✓`);
   } catch(err) {
-    prog?.classList.remove('show');
-    if (status) status.textContent = '⚠ Error al subir';
-    if (drop) drop.style.display = '';
-    toast('Error al subir video — verifica tu conexión');
-  }
+    if(status)status.textContent=err.message;toast(err.message);
+  }finally{e.target.disabled=false;}
 }
 
-function vmRemoveVideo(type) {
-  const isE = type === 'ending';
-  if (isE) _vmEndingVideoUrl = null; else _vmOpeningVideoUrl = null;
-  const thumb = document.getElementById(isE ? 'vmEndVidThumb'    : 'vmVidThumb');
-  const drop  = document.getElementById(isE ? 'vmEndVidDrop'     : 'vmVidDrop');
-  const rmBtn = document.getElementById(isE ? 'vmEndVidRemoveBtn': 'vmVidRemoveBtn');
-  const stat  = document.getElementById(isE ? 'vmEndVidStatus'   : 'vmVidStatus');
-  if (thumb) { thumb.src = ''; thumb.classList.remove('show'); }
-  if (drop)  drop.style.display = '';
-  if (rmBtn) rmBtn.style.display = 'none';
-  if (stat)  stat.textContent = '';
-  saveVmData();
-  toast(`Video de ${isE ? 'cierre' : 'apertura'} eliminado`);
+async function vmRemoveVideo(type) {
+  try{if(await _vmQueueVideo(type,null))toast(`Video de ${type==='ending'?'cierre':'apertura'} retirado del Opening`);}catch(e){toast(e.message);}
 }
 
 // ── SHOW OPENING when client opens the link ──
@@ -4865,6 +4883,8 @@ function vmShowOpening(cfg) {
   const opening = document.getElementById('vmOpening');
   const vid     = document.getElementById('vmOpeningVideo');
   if (!opening) return;
+  _vmResetOpening();
+  opening.classList.add('show');
 
   // Set texts
   const titleEl = document.getElementById('vmOpeningTitleDisplay');
@@ -4873,6 +4893,8 @@ function vmShowOpening(cfg) {
   if (titleEl) titleEl.textContent = cfg.title   || document.getElementById('vmProjName')?.value || '';
   if (subEl)   subEl.textContent   = cfg.sub     || document.getElementById('vmProjSub')?.value  || '';
   if (btnEl)   btnEl.textContent   = cfg.btnText || 'Comenzar recorrido';
+  const button=opening.querySelector('.vm-opening-btn');
+  if(button){button.onclick=()=>vmStartFromOpening();const icon=button.querySelector('i');if(icon)icon.className='ti ti-arrow-right';}
 
   // Load video
   if (cfg.videoUrl && vid) {
@@ -4885,16 +4907,16 @@ function vmShowOpening(cfg) {
     if (playPromise !== undefined) {
       playPromise.catch(() => {
         // iOS Safari blocked autoplay — show a tap-to-play overlay
-        _vmShowTapToPlay(vid);
+        if(opening.classList.contains('show')&&vid.getAttribute('src')===cfg.videoUrl)_vmShowTapToPlay(vid);
       });
     }
 
     // Animate progress bar in sync with video
-    vid.addEventListener('timeupdate', () => {
+    vid.ontimeupdate = () => {
       if (!vid.duration) return;
       const bar = document.getElementById('vmOpeningProgressBar');
       if (bar) bar.style.width = (vid.currentTime / vid.duration * 100) + '%';
-    });
+    };
   }
 
   opening.classList.add('show');
@@ -4945,23 +4967,24 @@ function _vmShowTapToPlay(vid) {
 function vmStartFromOpening() {
   const opening = document.getElementById('vmOpening');
   const vid     = document.getElementById('vmOpeningVideo');
+  _vmOpeningTimers.forEach(clearTimeout);_vmOpeningTimers=[];
 
   // Fade out opening screen
   if (opening) {
     opening.style.opacity = '0';
     opening.style.transition = 'opacity .8s';
-    setTimeout(() => {
+    _vmOpeningTimers.push(setTimeout(() => {
       opening.style.display = 'none';
       opening.classList.remove('show');
-    }, 800);
+    }, 800));
   }
   // Pause but KEEP src — needed when returning at end of tour
   if (vid) vid.pause();
 
   // Show the viewer (was pre-initialized in background)
-  setTimeout(() => {
+  _vmOpeningTimers.push(setTimeout(() => {
     document.getElementById('vmViewer').classList.add('show');
-  }, 300);
+  }, 300));
 }
 
 // Override _launchVisorWithScenes to check for opening config

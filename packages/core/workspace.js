@@ -49,7 +49,7 @@
      scenes:scenes.map(s=>({...s,url:s.pano_url,thumb:s.thumb_url,preview:s.preview_url,hs:(s.hs||[]).map(h=>({...h,img:h.img_url,targetScene:idx.get(h.target_scene_id)}))})),
      spaces:d.spaces.map(s=>({...s,price:s.show_price?s.price:null,currency:s.show_price?s.currency:null,scenes:(s.scene_ids||[]).map(id=>idx.get(id)).filter(i=>i!==undefined)}))};
     // Normalize first using safe HTTPS placeholders. Resolve only refs we own, after validation.
-    const refs=new Map();function mask(v){if(typeof v==='string'&&v.startsWith('agel-local:')){const key='https://agel-local.invalid/'+v.slice(11);refs.set(key,v);return key;}if(Array.isArray(v))return v.map(mask);if(v&&typeof v==='object')return Object.fromEntries(Object.entries(v).map(([k,x])=>[k,mask(x)]));return v;}
+    const refs=new Map();function mask(v){if(typeof v==='string'&&v.startsWith('agel-local:')){const ext=d.media.find(m=>m.ref===v)?.kind==='glb'?'.glb':'';const key='https://agel-local.invalid/'+v.slice(11)+ext;refs.set(key,v);return key;}if(Array.isArray(v))return v.map(mask);if(v&&typeof v==='object')return Object.fromEntries(Object.entries(v).map(([k,x])=>[k,mask(x)]));return v;}
     const m=sanitizeShowroom(mask(raw));async function resolve(v){if(typeof v==='string'&&refs.has(v))return api.resolveMedia(refs.get(v));if(Array.isArray(v))return Promise.all(v.map(resolve));if(v&&typeof v==='object')return Object.fromEntries(await Promise.all(Object.entries(v).map(async([k,x])=>[k,await resolve(x)])));return v;}
     return resolve(m);
    },

@@ -38,6 +38,10 @@ En **Experiencia del showroom**:
 
 La imagen ocupa la pantalla. Los controles de cristal flotan encima y recuperan su opacidad al pasar el ratón o recibir foco. **Ver imagen completa** permite recuperar los bordes de una planta recortados por el modo pantalla completa. Las coordenadas de las zonas no cambian.
 
+**Probar videos grandes:** usa **Agregar video local**, espera el aviso de guardado y pulsa **Guardar experiencia en este dispositivo**. Abre **Vista previa local** desde el mismo navegador y cuenta. No necesitas subirlo ni crear una publicación para ver Opening, fachada, plantas y recorrido. La selección de archivos no aplica los límites de tamaño de Supabase; depende del espacio local y de que el navegador pueda reproducir su formato.
+
+El Opening del **Visor de Cliente** también guarda sus videos en el dispositivo, separados por cuenta, y los muestra en su vista previa. Los enlaces públicos no incluyen automáticamente esos videos locales. Conserva los archivos originales.
+
 ## 4. Revisar, subir y publicar
 
 Estas acciones son distintas:
@@ -57,6 +61,17 @@ Los archivos locales no tienen el límite artificial del bucket, pero dependen d
 En **BIM privado**, selecciona una versión del modelo de este proyecto. El botón BIM se muestra solo a cuentas del equipo con permiso y cuando la versión está lista. El modelo y sus ajustes no entran en el JSON comercial público.
 
 El visor BIM ofrece Completo, MEP, Con acabados y Obra gris. MEP une las disciplinas seleccionadas. Configura categorías/disciplina/niveles reales para acabados y obra gris; un preset sin configuración no simula un resultado. La conexión real con Navisworks mediante Autodesk requiere credenciales APS, despliegue de sus funciones y conversión del archivo. Las pruebas simuladas no sustituyen esa configuración.
+
+### Ver y filtrar un GLB sin nube
+
+1. En **Showroom → Modelo 3D**, pulsa **Agregar GLB local** y espera **Guardado en este dispositivo**.
+2. Abre **Modelos 3D → Ver GLB local**. También aparece **Modelo 3D local** en la barra de la vista previa inmersiva.
+3. Usa **Instalaciones**, **Albañilería**, **Estructura**, **Acabados**, búsqueda y filtros por disciplina, categoría, nivel, grupo o material. Puedes combinar valores de una misma lista y restringirlos con otras listas. **Ver todo** limpia la selección y **Encuadrar visibles** acerca las piezas filtradas.
+4. En móvil, pulsa **Filtros** para mostrar u ocultar el panel. El modelo ocupa la pantalla.
+
+Esta vista abre el archivo guardado en tu cuenta y dispositivo; no crea versiones APS ni sube el GLB. Solo muestra los elementos y propiedades conservados en la exportación. Una clasificación por nombre es orientativa. Si el archivo tiene una sola pieza, vuelve a exportar separando instalaciones, muros, estructura y acabados. Usa un GLB autocontenido con texturas embebidas; los recursos externos del archivo se rechazan.
+
+La interfaz BIM habitual ahora se centra en filtros y no presenta incidencias ni responsables. Las herramientas técnicas anteriores y sus datos se conservan para compatibilidad, sin enlaces en la navegación habitual. Navisworks NWD sigue usando la conversión/visor de Autodesk; no se afirma lectura local directa de NWD/NWC.
 
 ## Proyectos anteriores
 
