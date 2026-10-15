@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -10,13 +10,15 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@200;300;400;500&family=Geist+Mono:wght@300;400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.49.0/dist/tabler-icons.min.css">
+<link rel="stylesheet" href="packages/ui/base.css">
+<link rel="stylesheet" href="apps/editor/cloud-mode.css">
 <style>
 
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
   --bg:#0D0D0D;--panel:rgba(14,14,18,.62);--text:#EFEFEF;
-  --muted:rgba(239,239,239,.38);--accent:#B89D74;
+  --muted:rgba(239,239,239,.55);   /* era .38 → 3.4:1 de contraste, reprobaba WCAG AA */--accent:#B89D74;
   --border:rgba(255,255,255,.07);--ease:cubic-bezier(.22,1,.36,1);
   --blur:blur(28px);--r:20px;
 }
@@ -65,12 +67,16 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .sb-st-t{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
 .proj-strip{display:flex;gap:4px;padding:7px 9px;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;}
 .proj-strip::-webkit-scrollbar{display:none;}
-.pchip{flex-shrink:0;padding:3px 9px;border-radius:99px;border:1px solid var(--border);font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;transition:all .3s var(--ease);}
+.pchip{flex-shrink:0;background:transparent;padding:3px 9px;border-radius:99px;border:1px solid var(--border);font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;transition:all .3s var(--ease);}
 .pchip:hover{color:var(--text);border-color:rgba(255,255,255,.18);}
 .pchip.on{background:rgba(184,157,116,.1);border-color:rgba(184,157,116,.36);color:var(--accent);}
 .sb-list{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:5px;scrollbar-width:none;}
 .sb-list::-webkit-scrollbar{display:none;}
 .sb-foot{padding:8px;border-top:1px solid var(--border);}
+.sb-backup{display:flex;gap:6px;margin-top:6px;}
+.sb-backup button,.sb-backup label{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border:1px solid rgba(255,255,255,.06);background:transparent;color:var(--muted);border-radius:8px;padding:6px 4px;font-size:10px;letter-spacing:.06em;cursor:pointer;font-family:'Inter',sans-serif;transition:color .25s,border-color .25s;}
+.sb-backup button:hover,.sb-backup label:hover{color:var(--text);border-color:rgba(255,255,255,.16);}
+.sb-backup label:focus-within{outline:2px solid var(--accent);outline-offset:2px;}
 .add-btn{width:100%;border:1px dashed rgba(255,255,255,.08);background:transparent;color:var(--muted);border-radius:10px;padding:7px;font-size:10px;letter-spacing:.11em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .3s var(--ease);}
 .add-btn:hover{border-color:var(--accent);color:var(--accent);}
 .sc{border-radius:12px;overflow:hidden;cursor:pointer;position:relative;border:1px solid var(--border);flex-shrink:0;transition:border-color .4s var(--ease),transform .38s var(--ease);}
@@ -102,8 +108,11 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .upl-cta{margin-top:13px;background:rgba(184,157,116,.1);color:var(--accent);border:1px solid rgba(184,157,116,.26);border-radius:99px;padding:7px 20px;font-size:10px;letter-spacing:.13em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:all .35s var(--ease);}
 .upl-cta:hover{background:rgba(184,157,116,.22);}
 #hsLayer{position:absolute;inset:0;z-index:15;pointer-events:none;}
-.hs{position:absolute;width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.84);transform:translate(-50%,-50%);cursor:pointer;pointer-events:all;animation:hsp 3.2s ease infinite;transition:transform .35s var(--ease);}
-.hs:hover{transform:translate(-50%,-50%) scale(1.75);}
+.hs{position:absolute;top:0;left:0;width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.84);cursor:pointer;pointer-events:all;animation:hsp 3.2s ease infinite;transition:opacity .25s var(--ease);will-change:transform;
+  /* --hx/--hy los escribe _syncHSPositions(): posición por transform (compositor), no left/top (layout) */
+  transform:translate3d(var(--hx,0px),var(--hy,0px),0) translate(-50%,-50%);}
+.hs:hover{transform:translate3d(var(--hx,0px),var(--hy,0px),0) translate(-50%,-50%) scale(1.75);}
+.hs.scene-spot:hover{transform:translate3d(var(--hx,0px),var(--hy,0px),0) translate(-50%,-50%) scale(1.25);}
 @keyframes hsp{0%{box-shadow:0 0 0 0 rgba(255,255,255,.28);}65%{box-shadow:0 0 0 10px rgba(255,255,255,0);}100%{box-shadow:0 0 0 0 rgba(255,255,255,0);}}
 .hs-card{position:absolute;min-width:175px;max-width:200px;background:rgba(8,8,12,.92);backdrop-filter:var(--blur);border:1px solid var(--border);border-radius:12px;padding:11px 12px;opacity:0;transform:translateY(5px) scale(.96);pointer-events:none;transition:all .38s var(--ease);z-index:16;}
 .hs-card.open{opacity:1;transform:none;pointer-events:all;}
@@ -170,6 +179,17 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .rb-t{font-size:10px;color:var(--muted);letter-spacing:.09em;}
 #toast{position:absolute;bottom:76px;left:50%;transform:translateX(-50%) translateY(6px);z-index:80;border-radius:99px;padding:7px 15px;font-size:11px;color:var(--text);letter-spacing:.05em;opacity:0;pointer-events:none;transition:all .38s var(--ease);}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+/* el toast necesita recibir clics cuando lleva el botón "Deshacer" */
+#toast{display:flex;align-items:center;white-space:nowrap;}
+/* ══ ACCESIBILIDAD ══ el diseño original no tenía ningún indicador de foco,
+   así que la app era imposible de operar con teclado. */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px;}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+@media (prefers-reduced-motion: reduce){
+  .hs,.hs.scene-spot::before,.hs.scene-spot::after{animation:none!important;}
+  *{transition-duration:.01ms!important;}
+}
+#toast.show{pointer-events:auto;}
 
 /* QR MODAL */
 #qrModal{position:absolute;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.75);backdrop-filter:blur(12px);opacity:0;pointer-events:none;transition:opacity .35s var(--ease);}
@@ -229,7 +249,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .vm-sep{width:1px;height:13px;background:var(--border);}
 .vm-name{font-size:11px;color:var(--muted);font-style:italic;font-weight:300;}
 .vm-setup{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;overflow:hidden;transition:opacity .4s;}
-.vm-setup.hide{opacity:0;pointer-events:none;}
+.vm-setup.hide{opacity:0;pointer-events:none;visibility:hidden;transition:opacity .4s,visibility 0s .4s;}
 .vm-setup-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 10px;border-bottom:1px solid var(--border);flex-shrink:0;}
 .vm-setup-htitle{font-size:11px;font-weight:500;color:var(--text);letter-spacing:.12em;text-transform:uppercase;}
 .vm-cols{display:grid;grid-template-columns:repeat(3,minmax(280px,1fr));gap:14px;padding:14px 18px;overflow-x:auto;overflow-y:auto;flex:1;min-height:0;}
@@ -309,8 +329,8 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   .vm-exit-btn{top:10px;right:10px;padding:4px 10px;font-size:9px;}
 }
 @media(max-width:380px){
-  #sidebar{width:220px;}
   .tba.pres{padding:4px 8px;}
+}
 }
 /* Touch indicator */
 .touch-hint{position:absolute;bottom:65px;left:50%;transform:translateX(-50%);
@@ -581,8 +601,8 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 .tb-mode-tab i{font-size:12px;}
 
 /* ── D5 root: same footprint as visorMode ── */
-#d5Mode{position:fixed;top:0;left:0;right:0;bottom:0;z-index:94;background:var(--bg);display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .5s var(--ease);}
-#d5Mode.show{opacity:1;pointer-events:all;}
+#d5Mode{position:fixed;top:0;left:0;right:0;bottom:0;z-index:94;background:var(--bg);display:flex;flex-direction:column;opacity:0;pointer-events:none !important;transition:opacity .5s var(--ease);}
+#d5Mode.show{opacity:1;pointer-events:all !important;}
 
 /* Entrance stagger keyframes */
 @keyframes d5-slide-left{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
@@ -1118,6 +1138,33 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   .vm-opening-title { font-size: 28px; }
   .vm-opening-btn { padding: 12px 32px; font-size: 11px; }
 }
+
+/* ══ MÓVIL: PANEL DE ESCENAS COMO HOJA INFERIOR ══════════════════
+   Va al final a propósito: antes había dos reglas móviles en conflicto
+   (cajón a pantalla completa ≤768px y una hoja inferior ≤600px) y el
+   resultado era un panel pegado arriba con la barra sin reubicar.
+   En teléfono, la hoja ocupa a lo sumo 46% de la altura y deja visible
+   la panorámica; la barra de navegación sube sobre ella mientras está
+   abierta. */
+@media (max-width:600px){
+  #sidebar{
+    left:0; right:0; top:auto; bottom:0;
+    width:100%; height:auto; max-height:46vh; min-height:0;
+    border-radius:20px 20px 0 0; z-index:60;
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  #sidebar.hide{opacity:0; transform:translateY(105%);}
+  #sidebar::before{
+    content:''; position:absolute; top:7px; left:50%; transform:translateX(-50%);
+    width:34px; height:3px; border-radius:99px; background:rgba(255,255,255,.16);
+  }
+  .sb-top{padding-top:17px;}
+  .sb-list{flex-direction:row; overflow-x:auto; overflow-y:hidden; gap:7px; padding:8px 10px; flex:0 0 auto;}
+  .sc{width:132px; flex-shrink:0;}
+  #sidebar:not(.hide) ~ #btmBar{bottom:calc(var(--sheet-h, 0px) + 8px);}
+  .touch-hint{display:none;}
+  #toast{bottom:calc(var(--sheet-h, 0px) + 76px);}
+}
 </style>
 </head>
 <body>
@@ -1165,12 +1212,12 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
       <button class="tb-mode-tab active" id="btnMode360" onclick="switchAppMode('360')" title="Modo 360°"><i class="ti ti-360"></i> 360°</button>
       <button class="tb-mode-tab" id="btnModeD5" onclick="switchAppMode('d5')" title="Modelos D5Render"><i class="ti ti-box-model-2"></i> D5</button>
       <div class="tb-sep"></div>
-      <button class="tba" id="btnSb" onclick="toggleSb()"><i class="ti ti-layout-sidebar"></i></button>
-      <button class="tba" id="btnHS" onclick="toggleHSPanel()" title="Hotspots"><i class="ti ti-map-pin"></i></button>
-      <button class="tba" id="btnCP" onclick="toggleCP()" title="Cliente"><i class="ti ti-user"></i></button>
-      <button class="tba" id="btnSupa" onclick="toggleSupaManager()" title="Supabase Storage" style="color:#5DCAA5;"><i class="ti ti-cloud"></i></button>
-      <button class="tba" id="btnVisor" onclick="openVisorMode()" title="Visor cliente"><i class="ti ti-eye"></i></button>
-      <button class="tba pres" id="btnPres" onclick="togglePres()">Presentar</button>
+      <button class="tba" id="btnSb" onclick="toggleSb()" aria-label="Mostrar u ocultar el panel lateral"><i class="ti ti-layout-sidebar"></i></button>
+      <button class="tba" id="btnHS" onclick="toggleHSPanel()" aria-label="Panel de hotspots" title="Hotspots"><i class="ti ti-map-pin"></i></button>
+      <button class="tba" id="btnCP" onclick="toggleCP()" aria-label="Panel de cliente" title="Cliente"><i class="ti ti-user"></i></button>
+      <button class="tba" id="btnSupa" onclick="toggleSupaManager()" aria-label="Gestor de archivos en Supabase" title="Supabase Storage" style="color:#5DCAA5;"><i class="ti ti-cloud"></i></button>
+      <button class="tba" id="btnVisor" onclick="openVisorMode()" aria-label="Abrir visor de cliente" title="Visor cliente"><i class="ti ti-eye"></i></button>
+      <button class="tba pres" id="btnPres" onclick="togglePres()" aria-label="Modo presentación">Presentar</button>
     </div>
   </header>
 
@@ -1185,6 +1232,10 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
     <div class="sb-list" id="sbList"></div>
     <div class="sb-foot">
       <button class="add-btn" onclick="addNewScene()"><i class="ti ti-plus"></i> Agregar escena</button>
+      <div class="sb-backup">
+        <button type="button" onclick="exportBackup()" title="Descarga todos tus proyectos, links e imágenes locales en un archivo"><i class="ti ti-download" aria-hidden="true"></i> Respaldo</button>
+        <label title="Restaura proyectos desde un archivo de respaldo"><i class="ti ti-upload" aria-hidden="true"></i> Restaurar<input type="file" accept="application/json,.json" class="sr-only" onchange="importBackupFile(event)"></label>
+      </div>
     </div>
   </aside>
 
@@ -1208,7 +1259,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   <div id="hsManager">
     <div class="hsm-header">
       <span class="hsm-title"><i class="ti ti-map-pin" style="margin-right:6px;"></i>Hotspots</span>
-      <button class="hsm-close" onclick="toggleHSPanel()"><i class="ti ti-x"></i></button>
+      <button class="hsm-close" onclick="toggleHSPanel()" aria-label="Panel de hotspots"><i class="ti ti-x"></i></button>
     </div>
     <div class="hsm-tabs">
       <button class="hsm-tab active" id="hsmTabList" onclick="hsmSetTab('list')">Ver todos</button>
@@ -1233,15 +1284,15 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   <div id="addHint" class="g">Clic en el visor para colocar · ESC cancela</div>
 
   <div id="btmBar" class="g">
-    <button class="bbtn" onclick="prevS()"><i class="ti ti-chevron-left"></i></button>
+    <button class="bbtn" onclick="prevS()" aria-label="Escena anterior"><i class="ti ti-chevron-left"></i></button>
     <div class="pips" id="pips"></div>
-    <button class="bbtn" onclick="nextS()"><i class="ti ti-chevron-right"></i></button>
+    <button class="bbtn" onclick="nextS()" aria-label="Escena siguiente"><i class="ti ti-chevron-right"></i></button>
     <div class="bb-sep"></div>
-    <button class="bbtn" onclick="zoomIn()"><i class="ti ti-zoom-in"></i></button>
+    <button class="bbtn" onclick="zoomIn()" aria-label="Acercar"><i class="ti ti-zoom-in"></i></button>
     <span class="bb-fov" id="fovLabel">55°</span>
-    <button class="bbtn" onclick="zoomOut()"><i class="ti ti-zoom-out"></i></button>
+    <button class="bbtn" onclick="zoomOut()" aria-label="Alejar"><i class="ti ti-zoom-out"></i></button>
     <div class="bb-sep"></div>
-    <button class="bbtn" id="btnAuto" onclick="toggleAuto()"><i class="ti ti-player-play"></i></button>
+    <button class="bbtn" id="btnAuto" onclick="toggleAuto()" aria-label="Rotación automática"><i class="ti ti-player-play"></i></button>
     <div class="bb-sep"></div>
     <span class="bb-cnt" id="bbCnt">1/1</span>
   </div>
@@ -1253,10 +1304,10 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
       <div class="pt-s" id="ptS">—</div>
     </div>
     <div class="pres-controls">
-      <button class="pres-btn" onclick="prevS()"><i class="ti ti-chevron-left"></i> Anterior</button>
-      <button class="pres-btn" onclick="nextS()">Siguiente <i class="ti ti-chevron-right"></i></button>
-      <button class="pres-btn" id="presBtnAuto" onclick="toggleAuto()"><i class="ti ti-player-play"></i></button>
-      <button class="pres-btn exit" onclick="togglePres()"><i class="ti ti-x"></i> Salir</button>
+      <button class="pres-btn" onclick="prevS()" aria-label="Escena anterior"><i class="ti ti-chevron-left"></i> Anterior</button>
+      <button class="pres-btn" onclick="nextS()" aria-label="Escena siguiente">Siguiente <i class="ti ti-chevron-right"></i></button>
+      <button class="pres-btn" id="presBtnAuto" onclick="toggleAuto()" aria-label="Rotación automática"><i class="ti ti-player-play"></i></button>
+      <button class="pres-btn exit" onclick="togglePres()" aria-label="Modo presentación"><i class="ti ti-x"></i> Salir</button>
     </div>
   </div>
 
@@ -1275,7 +1326,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
       <div class="qr-actions">
         <button class="qr-btn green" id="qrDownloadBtn" onclick="downloadCurrentSceneViewer()"><i class="ti ti-download"></i> Descargar visor</button>
         <button class="qr-btn primary" onclick="copyQRLink()"><i class="ti ti-copy"></i> Copiar link</button>
-        <button class="qr-btn secondary" onclick="closeQR()">Cerrar</button>
+        <button class="qr-btn secondary" onclick="closeQR()" aria-label="Cerrar">Cerrar</button>
       </div>
     </div>
   </div>
@@ -1288,7 +1339,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
       <input class="em-inp" id="emInp" type="text">
       <div id="emExtra"></div>
       <div class="em-actions">
-        <button class="em-cancel" onclick="closeEdit()">Cancelar</button>
+        <button class="em-cancel" onclick="closeEdit()" aria-label="Cancelar">Cancelar</button>
         <button class="em-save" onclick="saveEdit()">Guardar</button>
       </div>
     </div>
@@ -1299,7 +1350,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
   <div id="supaManager">
     <div class="smgr-header">
       <div class="smgr-title"><i class="ti ti-cloud" style="color:#5DCAA5;"></i> Supabase — panoramas</div>
-      <button class="smgr-close" onclick="toggleSupaManager()"><i class="ti ti-x"></i></button>
+      <button class="smgr-close" onclick="toggleSupaManager()" aria-label="Gestor de archivos en Supabase"><i class="ti ti-x"></i></button>
     </div>
     <div class="smgr-stats" id="smgrStats">Cargando…</div>
     <div class="smgr-body">
@@ -1507,17 +1558,18 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
         <div class="vmt-s" id="vmTitleS">—</div>
       </div>
       <div class="vm-btmbar g">
-        <button class="bbtn" onclick="vmPrev()"><i class="ti ti-chevron-left"></i></button>
+        <button class="bbtn" onclick="vmPrev()" aria-label="Escena anterior"><i class="ti ti-chevron-left"></i></button>
         <div class="vm-pips" id="vmPips"></div>
-        <button class="bbtn" onclick="vmNext()"><i class="ti ti-chevron-right"></i></button>
+        <button class="bbtn" onclick="vmNext()" aria-label="Escena siguiente"><i class="ti ti-chevron-right"></i></button>
         <div class="bb-sep"></div>
-        <button class="bbtn" onclick="vmZoomIn()"><i class="ti ti-zoom-in"></i></button>
+        <button class="bbtn" onclick="vmZoomIn()" aria-label="Acercar"><i class="ti ti-zoom-in"></i></button>
         <span class="bb-fov" id="vmFovLabel">55°</span>
-        <button class="bbtn" onclick="vmZoomOut()"><i class="ti ti-zoom-out"></i></button>
+        <button class="bbtn" onclick="vmZoomOut()" aria-label="Alejar"><i class="ti ti-zoom-out"></i></button>
         <div class="bb-sep"></div>
-        <button class="bbtn" id="vmBtnAuto" onclick="vmToggleAuto()"><i class="ti ti-player-play"></i></button>
+        <button class="bbtn" id="vmBtnAuto" onclick="vmToggleAuto()" aria-label="Rotación automática"><i class="ti ti-player-play"></i></button>
         <div class="bb-sep"></div>
-        <button class="bbtn" id="vmBtnFs" onclick="vmToggleFullscreen()" title="Pantalla completa"><i class="ti ti-maximize"></i></button>
+        <button class="bbtn" id="vmBtnFs" onclick="vmToggleFullscreen()" aria-label="Pantalla completa" title="Pantalla completa"><i class="ti ti-maximize"></i></button>
+        <button class="bbtn" id="vmBtnVR" hidden onclick="vmEnterVR()" aria-label="Ver con visor de realidad virtual" title="Realidad virtual (WebXR)"><i class="ti ti-cardboards"></i></button>
       </div>
       <button class="vm-exit-btn" onclick="vmExitViewer()"><i class="ti ti-settings"></i> Configurar</button>
       <button class="vm-exit-btn" onclick="vmOpenScenePicker('copy')" style="right:150px;background:rgba(93,202,165,.12);border-color:rgba(93,202,165,.3);color:#5DCAA5;"><i class="ti ti-copy"></i> Copiar link</button>
@@ -1747,7 +1799,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 
         <!-- iframe -->
         <div class="d5-iframe-wrap">
-          <iframe id="d5Iframe" sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock" allow="fullscreen"></iframe>
+          <iframe id="d5Iframe" title="Modelo 3D interactivo" sandbox="allow-scripts allow-forms allow-pointer-lock" allow="fullscreen"></iframe>
         </div>
 
         <!-- Floating topbar -->
@@ -1760,11 +1812,11 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 
         <!-- Floating bottom bar -->
         <div class="d5-vbtm g" id="d5Vbtm">
-          <button class="bbtn" onclick="d5Prev()"><i class="ti ti-chevron-left"></i></button>
+          <button class="bbtn" onclick="d5Prev()" aria-label="Modelo anterior"><i class="ti ti-chevron-left"></i></button>
           <div class="d5-lpips" id="d5Pips"></div>
-          <button class="bbtn" onclick="d5Next()"><i class="ti ti-chevron-right"></i></button>
+          <button class="bbtn" onclick="d5Next()" aria-label="Modelo siguiente"><i class="ti ti-chevron-right"></i></button>
           <div class="bb-sep"></div>
-          <button class="bbtn" id="d5BtnFs" onclick="d5ToggleFullscreen()" title="Pantalla completa"><i class="ti ti-maximize"></i></button>
+          <button class="bbtn" id="d5BtnFs" onclick="d5ToggleFullscreen()" aria-label="Pantalla completa" title="Pantalla completa"><i class="ti ti-maximize"></i></button>
         </div>
 
         <!-- FAB buttons -->
@@ -1822,7 +1874,13 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 
 <input type="file" id="fi" accept="image/*" onchange="loadPano(event)">
 
+<script src="config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="packages/panorama/pano-engine.js"></script>
+<script src="packages/core/schema.js"></script>
+<script src="packages/core/cloud.js"></script>
+<script src="packages/core/dom.js"></script>
+<script src="apps/editor/cloud-mode.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 // ════════════════════════════════════════════════════════════
@@ -1832,9 +1890,12 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 // loaded{} es solo caché de texturas Three.js en memoria.
 // ════════════════════════════════════════════════════════════
 
+// (Validación y salida segura: packages/core/schema.js)
+
 // ══ SUPABASE CONFIG ══════════════════════════════════════════════
-const SUPA_URL    = 'https://ajvijnvmvniafevcrqfj.supabase.co';
-const SUPA_ANON   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqdmlqbnZtdm5pYWZldmNycWZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMjM3MjYsImV4cCI6MjA5NTU5OTcyNn0.2U2umxWVOLN3QElhnV9-j3QY2-ALzU6aGpxyN7MRZUw';
+// Valores públicos centralizados en config.js (mismo proyecto de siempre).
+const SUPA_URL    = (window.AGEL_CONFIG || {}).supabaseUrl || 'https://ajvijnvmvniafevcrqfj.supabase.co';
+const SUPA_ANON   = (window.AGEL_CONFIG || {}).supabaseAnonKey || '';
 const SUPA_BUCKET = 'panoramas';
 
 // Upload a File to Supabase Storage — returns public URL, calls onProgress(0-100)
@@ -1976,8 +2037,136 @@ function idbKeys() {
   }));
 }
 
+// ══ RESPALDO Y RESTAURACIÓN (Fase 0 del plan maestro) ════════════
+// Hoy los proyectos viven SOLO en este navegador (localStorage + IndexedDB).
+// Si se borra el historial, se cambia de equipo o se migra a la base
+// central, sin respaldo se pierden. Este módulo exporta TODO a un archivo
+// .json y lo restaura validando su contenido. Antes de importar se guarda
+// una copia del estado actual para poder volver atrás.
+const BACKUP_FORMAT  = 'agelarq-backup';
+const BACKUP_VERSION = 1;
+const BACKUP_LS_KEYS = ['agelarq_v4_meta', 'agelarq_vm', 'agelarq_links', 'agelarq_d5_v2', 'agelarq_d5_links'];
+const BACKUP_IDB_RE  = /^(img|thumb)_\d+_\d+$/;
+const BACKUP_PREV_KEY = '__backup_before_import';
+
+function _blobToDataUrl(b) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(b); });
+}
+function _dataUrlToBlob(d) {
+  const m = /^data:([^;,]+)(;base64)?,(.*)$/s.exec(d);
+  if (!m) return null;
+  const bin = m[2] ? atob(m[3]) : decodeURIComponent(m[3]);
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return new Blob([u8], { type: m[1] });
+}
+
+async function buildBackup() {
+  try { saveData(); } catch (e) {}
+  const storage = {};
+  BACKUP_LS_KEYS.forEach(k => { try { const v = localStorage.getItem(k); if (v !== null) storage[k] = v; } catch (e) {} });
+  const images = {};
+  let keys = [];
+  try { keys = await idbKeys(); } catch (e) {}
+  for (const k of keys) {
+    if (!BACKUP_IDB_RE.test(String(k))) continue;
+    try {
+      const v = await idbGet(k);
+      if (v instanceof Blob) images[k] = await _blobToDataUrl(v);
+      else if (typeof v === 'string' && /^data:image\//.test(v)) images[k] = v;
+    } catch (e) { console.warn('[AgelArq] respaldo: no se pudo leer', k, e); }
+  }
+  let proj = null; try { proj = JSON.parse(storage['agelarq_v4_meta'] || 'null')?.proj || null; } catch (e) {}
+  const scenes = (proj || []).reduce((n, p) => n + (p.scenes || []).length, 0);
+  const hotspots = (proj || []).reduce((n, p) => n + (p.scenes || []).reduce((m, s) => m + (s.hs || []).length, 0), 0);
+  let links = 0; try { links = JSON.parse(storage['agelarq_links'] || '[]').length; } catch (e) {}
+  return {
+    format: BACKUP_FORMAT, version: BACKUP_VERSION, createdAt: new Date().toISOString(),
+    origin: location.origin,
+    summary: { projects: (proj || []).length, scenes, hotspots, links,
+               localImages: Object.keys(images).filter(k => k.startsWith('img_')).length },
+    proj, storage, images
+  };
+}
+
+async function exportBackup() {
+  try {
+    const data = await buildBackup();
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+    a.href = URL.createObjectURL(blob);
+    a.download = `agelarq-respaldo-${stamp}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    const s = data.summary;
+    toast(`Respaldo descargado · ${s.projects} proyectos, ${s.scenes} escenas, ${s.localImages} imágenes locales`);
+  } catch (e) {
+    console.error(e); toast('⚠ No se pudo generar el respaldo');
+  }
+}
+
+function _validateBackup(d) {
+  if (!d || typeof d !== 'object' || d.format !== BACKUP_FORMAT) throw new Error('No es un respaldo de AgelArq');
+  if (typeof d.version !== 'number' || d.version > BACKUP_VERSION) throw new Error('Respaldo de una versión más nueva de la app');
+  if (!d.storage || typeof d.storage !== 'object') throw new Error('Respaldo sin datos');
+  const storage = {};
+  for (const [k, v] of Object.entries(d.storage)) {
+    if (!BACKUP_LS_KEYS.includes(k) || typeof v !== 'string') continue;
+    try { JSON.parse(v); } catch (e) { throw new Error(`Dato dañado en el respaldo: ${k}`); }
+    storage[k] = v;
+  }
+  if (!storage['agelarq_v4_meta']) throw new Error('El respaldo no contiene proyectos');
+  const meta = JSON.parse(storage['agelarq_v4_meta']);
+  if (!meta || !Array.isArray(meta.proj)) throw new Error('El respaldo no contiene proyectos');
+  const images = {};
+  for (const [k, v] of Object.entries(d.images || {})) {
+    if (BACKUP_IDB_RE.test(k) && typeof v === 'string' && /^data:image\/(png|jpe?g|webp|gif|avif);base64,/i.test(v)) images[k] = v;
+  }
+  return { storage, images };
+}
+
+async function importBackupData(d, opts = {}) {
+  const clean = _validateBackup(d);
+  if (opts.confirm !== false) {
+    const s = d.summary || {};
+    const ok = confirm(`Restaurar respaldo del ${String(d.createdAt || '').slice(0, 10)}:\n` +
+      `${s.projects ?? '?'} proyectos · ${s.scenes ?? '?'} escenas · ${s.localImages ?? 0} imágenes locales.\n\n` +
+      `Reemplazará los proyectos de este navegador. Se guardará una copia del estado actual por si necesitas volver.`);
+    if (!ok) return false;
+  }
+  // Copia del estado actual ANTES de tocar nada.
+  try { await idbSet(BACKUP_PREV_KEY, JSON.stringify(await buildBackup())); } catch (e) { console.warn('[AgelArq] sin copia previa:', e); }
+  for (const [k, v] of Object.entries(clean.storage)) localStorage.setItem(k, v);
+  for (const [k, v] of Object.entries(clean.images)) {
+    const blob = k.startsWith('img_') ? _dataUrlToBlob(v) : v;
+    if (blob) await idbSet(k, blob);
+  }
+  return true;
+}
+
+async function importBackupFile(e) {
+  const f = e.target.files && e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    if (f.size > 1.5e9) throw new Error('Archivo demasiado grande');
+    const d = JSON.parse(await f.text());
+    if (await importBackupData(d)) { toast('Respaldo restaurado ✓ — recargando…'); setTimeout(() => location.reload(), 900); }
+  } catch (err) {
+    console.error(err); toast('⚠ ' + (err && err.message ? err.message : 'No se pudo importar el respaldo'));
+  }
+}
+
+async function restoreBeforeImport() {
+  const raw = await idbGet(BACKUP_PREV_KEY).catch(() => null);
+  if (!raw) { toast('No hay un estado anterior guardado'); return; }
+  if (await importBackupData(JSON.parse(raw), { confirm: true })) { toast('Estado anterior restaurado — recargando…'); setTimeout(() => location.reload(), 900); }
+}
+
 // Save metadata (no images) to localStorage; images go to IndexedDB
+let _saveFailed = false;
 function saveData() {
+  if (window.CloudMode && CloudMode.active) { CloudMode.markDirty(cP); return; }
   try {
     const slim = PROJ.map(p => ({
       ...p,
@@ -1989,7 +2178,18 @@ function saveData() {
       }))
     }));
     localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 4, cP, cS, proj: slim }));
-  } catch(e) { console.error('Meta save failed:', e); }
+    _saveFailed = false;
+  } catch(e) {
+    console.error('Meta save failed:', e);
+    // Antes esto fallaba en silencio: con localStorage lleno el usuario perdía
+    // trabajo sin ningún aviso. Se notifica una sola vez para no ser molesto.
+    if (!_saveFailed) {
+      _saveFailed = true;
+      const full = e && (e.name === 'QuotaExceededError' || e.code === 22);
+      toast(full ? '⚠ Almacenamiento lleno — tus cambios NO se están guardando'
+                 : '⚠ No se pudo guardar el proyecto');
+    }
+  }
 }
 
 // Save a single scene's image to IndexedDB
@@ -2002,6 +2202,8 @@ function saveThumbIDB(pi, si, b64) {
 
 let _saveTimer = null;
 function autoSave() {
+  // Modo nube: el cambio queda pendiente al instante (el envío ya se agrupa allí).
+  if (window.CloudMode && CloudMode.active) { CloudMode.markDirty(cP); return; }
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(saveData, 600);
 }
@@ -2053,9 +2255,8 @@ function rebuildTextures() {
         const _capPi=pi, _capSi=si;
         _loadTexFromUrl(s.supaUrl).then(tex => {
             texCache[k(_capPi,_capSi)] = tex;
-            if (_capPi===cP && _capSi===cS && sphere) {
-              if (sphere.material) sphere.material.dispose();
-              sphere.material = new THREE.MeshBasicMaterial({ map: tex });
+            if (_capPi===cP && _capSi===cS && pano) {
+              setPano(tex, true);
               document.getElementById('upl').classList.add('hide');
               renderHS(cP,cS);
             }
@@ -2072,9 +2273,8 @@ function rebuildTextures() {
         const loader = new THREE.TextureLoader();
         loader.load(src, tex => {
           texCache[k(pi,si)] = tex;
-          if (pi===cP && si===cS && sphere) {
-            if (sphere.material) sphere.material.dispose();
-            sphere.material = new THREE.MeshBasicMaterial({ map: tex });
+          if (pi===cP && si===cS && pano) {
+            setPano(tex, true);
             document.getElementById('upl').classList.add('hide');
             renderHS(cP,cS);
           }
@@ -2098,43 +2298,45 @@ function manageTextures() {
   });
 }
 
+// ── PREPARACIÓN DE TEXTURAS ───────────────────────────────────
+// Filtros, anisotropía y reducción al límite del dispositivo: lo hace el
+// motor compartido (PanoEngine.prepTexture). Esta función queda como punto
+// único para el resto del editor y del visor.
+let _texCapNotified = false;
+function _notifyTextureCap(from, to) {
+  if (_texCapNotified) return;
+  _texCapNotified = true;
+  console.info(`[AgelArq] Panorámica de ${from}px ajustada a ${to}px para este dispositivo.`);
+  try { toast(`Imagen de ${from}px ajustada a ${to}px para este dispositivo`); } catch (e) {}
+}
+function prepTexture(tex) { return pano ? pano.prepTexture(tex) : tex; }
+
 // ── THREE.JS ──
-let renderer, scene3, cam, sphere, fov = 55;
-let lon = 0, lat = 0, dn = false, lx = 0, ly = 0;
+// ══ MOTOR 360 DEL EDITOR ═════════════════════════════════════════
+// El motor vive en packages/panorama/pano-engine.js y es el MISMO que usan
+// el visor de clientes y el showroom. Aquí solo se conecta con el editor.
+let pano = null;
+// Al navegar por un hotspot de escena conservamos el encuadre (vas 'caminando'
+// hacia allá); en cambios de escena desde la lista se reinicia.
+let _keepHeading = false;
 const app = document.getElementById('app');
 const cv  = document.getElementById('panoCanvas');
 const curEl = document.getElementById('cur');
 
-function initThree() {
-  const w = app.offsetWidth, h = app.offsetHeight;
-  renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setSize(w, h);
-  scene3 = new THREE.Scene();
-  cam = new THREE.PerspectiveCamera(fov, w / h, 0.1, 1000);
-  cam.position.set(0, 0, 0.01);
-  const geo = new THREE.SphereGeometry(500, 64, 32);
-  geo.scale(-1, 1, 1);
-  sphere = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x080810 }));
-  scene3.add(sphere);
-  updateCam();
-  (function loop() {
-    requestAnimationFrame(loop);
-    if (autoRot && !dn) { lon += 0.04; updateCam(); }
-    renderer.render(scene3, cam);
-  })();
-  // Resize on orientation change / window resize
-  new ResizeObserver(() => {
-    const nw = cv.clientWidth, nh = cv.clientHeight;
-    if (nw && nh) { renderer.setSize(nw, nh, false); cam.aspect = nw/nh; cam.updateProjectionMatrix(); }
-  }).observe(cv);
-}
+function invalidate() { if (pano) pano.invalidate(); }
+function setPano(tex, instant) { if (pano) pano.setPano(tex, instant); }
+function resetView() { if (pano && !_keepHeading) pano.setView(0, 0); _keepHeading = false; }
 
-function updateCam() {
-  lat = Math.max(-85, Math.min(85, lat));
-  const phi = THREE.MathUtils.degToRad(90 - lat);
-  const th  = THREE.MathUtils.degToRad(lon);
-  cam.lookAt(Math.sin(phi)*Math.cos(th), Math.cos(phi), Math.sin(phi)*Math.sin(th));
+function initThree() {
+  pano = new AgelPano.PanoEngine({
+    canvas: cv, container: app, fov: 55,
+    isMobile: () => document.body.classList.contains('is-mobile'),
+    onFov: () => updateFovLabel(),
+    onDragStart: () => curEl.classList.add('drag'),
+    onDragEnd: () => curEl.classList.remove('drag'),
+    interceptPointerDown: e => { if (addHS) { placeHSAt(e); return true; } return false; },
+    onTextureCapped: ({ from, to }) => _notifyTextureCap(from, to)
+  });
 }
 
 // ── CURSOR ──
@@ -2145,94 +2347,11 @@ app.addEventListener('mousemove', e => {
 });
 app.addEventListener('mouseenter', () => curEl.classList.add('vis'));
 app.addEventListener('mouseleave', () => curEl.classList.remove('vis'));
+cv.addEventListener('click', () => { if (!addHS) closeAllHS(); });
 
-// ── MOUSE DRAG ──
-cv.onmousedown = e => {
-  if (addHS) { placeHSAt(e); return; }
-  dn = true; lx = e.clientX; ly = e.clientY;
-  _lastT = Date.now(); _velLon = 0; _velLat = 0;
-  curEl.classList.add('drag'); stopInertia();
-};
-cv.onmousemove = e => {
-  if (!dn) return;
-  const dx = e.clientX - lx, dy = e.clientY - ly;
-  lon -= dx * 0.06;
-  lat += dy * 0.06;
-  // Rolling average velocity — stable across all frame rates, no DPI adjustment
-  const dt = Math.max(4, Date.now() - _lastT);
-  const cap = Math.min(dt, 32);
-  _velLon = _velLon * 0.6 + (-dx * 0.06) * (16 / cap) * 0.4;
-  _velLat = _velLat * 0.6 + ( dy * 0.06) * (16 / cap) * 0.4;
-  _velLon = Math.max(-4, Math.min(4, _velLon));
-  _velLat = Math.max(-2, Math.min(2, _velLat));
-  lx = e.clientX; ly = e.clientY; _lastT = Date.now(); updateCam();
-};
-cv.onmouseup   = () => { dn = false; curEl.classList.remove('drag'); startInertia(); };
-cv.onmouseleave = () => { dn = false; curEl.classList.remove('drag'); startInertia(); };
-
-cv.addEventListener('wheel', e => {
-  e.preventDefault();
-  fov = Math.min(100, Math.max(20, fov + e.deltaY * 0.05));
-  cam.fov = fov; cam.updateProjectionMatrix(); updateFovLabel();
-}, { passive: false });
-cv.onclick = () => { if (!addHS) closeAllHS(); };
-
-// ── TOUCH with pinch + inertia ──
-let _t2 = false, _initDist = 0, _initFov = 55;
-let _velLon = 0, _velLat = 0, _lastT = 0, _inertiaRaf = null;
-
-function stopInertia() { if (_inertiaRaf) { cancelAnimationFrame(_inertiaRaf); _inertiaRaf = null; } }
-function startInertia() {
-  stopInertia();
-  (function tick() {
-    _velLon *= 0.88; _velLat *= 0.88;
-    if (Math.abs(_velLon) < 0.008 && Math.abs(_velLat) < 0.008) return;
-    lon += _velLon; lat += _velLat; updateCam();
-    _inertiaRaf = requestAnimationFrame(tick);
-  })();
-}
-
-cv.addEventListener('touchstart', e => {
-  e.preventDefault(); stopInertia(); _velLon = 0; _velLat = 0;
-  if (e.touches.length === 2) {
-    _t2 = true;
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    _initDist = Math.sqrt(dx*dx + dy*dy); _initFov = fov;
-  } else {
-    dn = true; lx = e.touches[0].clientX; ly = e.touches[0].clientY; _lastT = Date.now();
-  }
-}, { passive: false });
-
-cv.addEventListener('touchmove', e => {
-  e.preventDefault();
-  if (e.touches.length === 2 && _t2) {
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    fov = Math.min(100, Math.max(20, _initFov * (_initDist / Math.sqrt(dx*dx+dy*dy))));
-    cam.fov = fov; cam.updateProjectionMatrix(); updateFovLabel();
-  } else if (dn && e.touches.length === 1) {
-    const nx = e.touches[0].clientX, ny = e.touches[0].clientY;
-    const dt = Math.max(1, Date.now() - _lastT);
-    const dlon = (lx - nx) * 0.06, dlat = (ny - ly) * 0.06;
-    lon += dlon; lat += dlat;
-    const _tDt = Math.min(dt, 32);
-    _velLon = _velLon * 0.5 + dlon * (16/_tDt) * 0.5;
-    _velLat = _velLat * 0.5 + dlat * (16/_tDt) * 0.5;
-    _velLon = Math.max(-4, Math.min(4, _velLon));
-    _velLat = Math.max(-2, Math.min(2, _velLat));
-    lx = nx; ly = ny; _lastT = Date.now(); updateCam();
-  }
-}, { passive: false });
-
-cv.addEventListener('touchend', e => {
-  if (e.touches.length === 0) { dn = false; _t2 = false; startInertia(); }
-  else if (e.touches.length === 1) { _t2 = false; lx = e.touches[0].clientX; ly = e.touches[0].clientY; }
-});
-
-function updateFovLabel() { document.getElementById('fovLabel').textContent = Math.round(fov) + '°'; }
-function zoomIn()  { fov = Math.max(20, fov - 8); cam.fov = fov; cam.updateProjectionMatrix(); updateFovLabel(); }
-function zoomOut() { fov = Math.min(100, fov + 8); cam.fov = fov; cam.updateProjectionMatrix(); updateFovLabel(); }
+function updateFovLabel() { const l = document.getElementById('fovLabel'); if (l && pano) l.textContent = Math.round(pano.fov) + '°'; }
+function zoomIn()  { if (pano) pano.zoomBy(-8); }
+function zoomOut() { if (pano) pano.zoomBy(8); }
 
 // Generate compact thumbnail (max 400px) as base64 — only for scene list UI
 function _makeThumb(file, cb) {
@@ -2268,6 +2387,26 @@ function loadPano(e) {
   if (progressWrap) progressWrap.classList.add('show');
   if (statusEl) statusEl.textContent = `Subiendo ${sizeMB} MB a Supabase…`;
 
+  if (window.CloudMode && CloudMode.active) {
+    // Modo nube: bucket "media/<proyecto>" con tu sesión, reserva y cuota.
+    CloudMode.uploadPano(file, _pi, pct => {
+      if (progressBar) progressBar.style.width = pct + '%';
+      if (statusEl) statusEl.textContent = `Subiendo ${sizeMB} MB… ${pct}%`;
+    }).then(url => {
+      if (progressWrap) progressWrap.classList.remove('show');
+      if (statusEl) statusEl.textContent = '';
+      _applyPanoUrl(file, url, _pi, _si);
+      CloudMode.markDirty(_pi);
+    }).catch(err => {
+      if (progressWrap) progressWrap.classList.remove('show');
+      if (statusEl) statusEl.textContent = '';
+      showSceneLoading(false);
+      document.getElementById('upl').classList.remove('hide');
+      toast('No se pudo subir: ' + (err.message || err));
+    });
+    return;
+  }
+
   supaUpload(file, pct => {
     if (progressBar) progressBar.style.width = pct + '%';
     if (statusEl) statusEl.textContent = `Subiendo ${sizeMB} MB… ${pct}%`;
@@ -2288,6 +2427,29 @@ function loadPano(e) {
 
 // Load texture from any public URL using HTML Image element
 // Avoids CORS issues with Three.js TextureLoader — img tags work with all public buckets
+// ── CARGA PROGRESIVA ──────────────────────────────────────────
+// Reutiliza el endpoint de transformación de imágenes de Supabase (el mismo
+// que ya se usa para las miniaturas) para pedir una versión ligera primero.
+// El usuario ve la escena en ~200 ms en vez de esperar los 20-50 MB completos.
+// Si el endpoint no está disponible en el plan, simplemente no se usa.
+let _supaRenderOk = true;
+function _supaPreviewUrl(url, width) {
+  if (!_supaRenderOk || !url) return null;
+  const marker = `/object/public/${SUPA_BUCKET}/`;
+  const i = url.indexOf(marker);
+  if (i === -1) return null;
+  const path = url.slice(i + marker.length);
+  return `${SUPA_URL}/storage/v1/render/image/public/${SUPA_BUCKET}/${path}?width=${width}&quality=70`;
+}
+function _loadPreviewThen(url, onPreview) {
+  const pv = _supaPreviewUrl(url, 1600);
+  if (!pv) return;
+  const l = new THREE.TextureLoader(); l.crossOrigin = 'anonymous';
+  l.load(pv, tex => { prepTexture(tex); onPreview(tex); },
+         undefined,
+         () => { _supaRenderOk = false; });  // sin plan de transformaciones: se desactiva
+}
+
 function _loadTexFromUrl(url) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -2296,7 +2458,7 @@ function _loadTexFromUrl(url) {
       try {
         const tex = new THREE.Texture(img);
         tex.needsUpdate = true;
-        tex.minFilter = THREE.LinearFilter; // no mipmaps = less GPU memory
+        prepTexture(tex);
         resolve(tex);
       } catch(e) { reject(e); }
     };
@@ -2307,7 +2469,7 @@ function _loadTexFromUrl(url) {
         try {
           const tex = new THREE.Texture(img2);
           tex.needsUpdate = true;
-          tex.minFilter = THREE.LinearFilter;
+          prepTexture(tex);
           resolve(tex);
         } catch(e) { reject(e); }
       };
@@ -2326,7 +2488,7 @@ function _applyPanoUrl(file, url, pi, si) {
   // Thumbnail (small, local only)
   _makeThumb(file, tb => {
     PROJ[pi].scenes[si].thumb = tb;
-    idbSet(`thumb_${pi}_${si}`, tb);
+    if (!(window.CloudMode && CloudMode.active)) idbSet(`thumb_${pi}_${si}`, tb);
     setThumb(`sph${pi}_${si}`, tb);
     autoSave();
   });
@@ -2338,8 +2500,9 @@ function _applyPanoUrl(file, url, pi, si) {
       texCache[k(pi,si)] = tex;
       // Only apply to sphere if this is still the active scene
       if (pi === cP && si === cS) {
-        sphere.material = new THREE.MeshBasicMaterial({ map: tex });
-        lon=0; lat=0; updateCam(); renderHS(pi,si); updateClientCount();
+        ++_sceneSeq;   // invalida cualquier "escena vacía" pendiente de esta escena
+        setPano(tex, true);
+        pano.setView(0, 0); renderHS(pi,si); updateClientCount();
       }
       showSceneLoading(false);
       toast(`☁ Supabase ✓ — ${(file.size/1024/1024).toFixed(1)} MB, calidad original`);
@@ -2363,11 +2526,13 @@ function _applyPanoLocal(file, pi, si) {
     });
     const loader = new THREE.TextureLoader();
     loader.load(objUrl, tex => {
+      prepTexture(tex);
       if (texCache[k(pi,si)]) texCache[k(pi,si)].dispose();
       texCache[k(pi,si)] = tex;
       if (pi === cP && si === cS) {
-        sphere.material = new THREE.MeshBasicMaterial({ map: tex });
-        lon=0; lat=0; updateCam(); renderHS(pi,si); updateClientCount();
+        ++_sceneSeq;
+        setPano(tex, true);
+        pano.setView(0, 0); renderHS(pi,si); updateClientCount();
       }
       showSceneLoading(false);
       toast('Panorámica guardada localmente ✓');
@@ -2406,7 +2571,7 @@ function buildList() {
       `<div class="sc-v sc-ph" id="${kid}"><i class="ti ti-building-skyscraper"></i></div>` +
       `<div class="sc-grad"></div><div class="sc-pip"></div>` +
       (s.hs.length ? `<div class="sc-hb">${s.hs.length} pt</div>` : '') +
-      `<div class="sc-info"><div class="sc-n">${s.name}</div><div class="sc-m">${s.meta}</div></div>` +
+      `<div class="sc-info"><div class="sc-n">${esc(s.name)}</div><div class="sc-m">${esc(s.meta)}</div></div>` +
       `<div class="sc-actions">` +
         `<button class="sc-ab" title="Editar" onclick="event.stopPropagation();openEdit('scene-name',${i})"><i class="ti ti-pencil"></i></button>` +
         `<button class="sc-ab" title="QR/Link" onclick="event.stopPropagation();openQRForScene(${i})"><i class="ti ti-qrcode"></i></button>` +
@@ -2434,8 +2599,8 @@ function updateProgress() { document.getElementById('spFill').style.width = `${(
 
 function refreshProjHeader() {
   const p = PROJ[cP];
-  document.getElementById('sbPN').innerHTML = p.name + ' <i class="ti ti-pencil ei"></i>';
-  document.getElementById('sbPS').innerHTML = p.sub  + ' <i class="ti ti-pencil ei"></i>';
+  document.getElementById('sbPN').innerHTML = esc(p.name) + ' <i class="ti ti-pencil ei"></i>';
+  document.getElementById('sbPS').innerHTML = esc(p.sub)  + ' <i class="ti ti-pencil ei"></i>';
   document.getElementById('tbProj').textContent = p.name;
   document.getElementById('cpPN').textContent   = p.name;
   document.getElementById('cpLoc').textContent  = p.loc;
@@ -2448,14 +2613,28 @@ function refreshProjHeader() {
 // ── SELECT PROJECT / SCENE ──
 function selectProj(pi) {
   if (pi === cP) return;
+  if (window.CloudMode && CloudMode.active && PROJ[pi] && PROJ[pi]._cloud && !PROJ[pi]._cloud.loaded) {
+    CloudMode.ensureLoaded(pi).then(() => selectProj(pi)).catch(e => toast('No se pudo abrir: ' + e.message));
+    return;
+  }
   cP = pi; cS = 0;
   refreshProjHeader();
   document.querySelectorAll('.pchip').forEach((c,j) => c.classList.toggle('on', j===pi));
   buildList(); selScene(0); updateClientCount(); autoSave();
 }
 
+// ── TURNO DE ESCENA ───────────────────────────────────────────
+// Cada cambio de escena (o panorámica recién aplicada) incrementa el turno.
+// Toda respuesta asíncrona (IndexedDB, red, fundido) compara su turno con el
+// vigente antes de pintar. Sin esto, si el usuario elegía una escena vacía y
+// subía la imagen rápido, el "mostrar escena vacía" pendiente llegaba tarde
+// y dejaba la pantalla negra con la panorámica ya guardada.
+let _sceneSeq = 0;
+const _isCurrentTurn = seq => seq === _sceneSeq;
+
 function selScene(si) {
   cS = si;
+  const _seq = ++_sceneSeq;
   const s = PROJ[cP].scenes[si];
   document.querySelectorAll('.sc').forEach((c,j) => c.classList.toggle('active', j===si));
   document.querySelectorAll('.pip').forEach((p,j) => p.classList.toggle('on', j===si));
@@ -2466,10 +2645,9 @@ function selScene(si) {
   autoSave();
 
   if (texCache[k(cP,si)]) {
-    fade(() => {
-      sphere.material = new THREE.MeshBasicMaterial({ map: texCache[k(cP,si)] });
-      lon=0; lat=0; updateCam(); renderHS(cP,si); manageTextures();
-    });
+    // Textura ya en memoria → crossfade directo, sin corte a negro.
+    setPano(texCache[k(cP,si)]);
+    resetView(); renderHS(cP,si); manageTextures();
     document.getElementById('upl').classList.add('hide');
   } else {
     // Try Supabase URL first, then IndexedDB
@@ -2477,47 +2655,63 @@ function selScene(si) {
     if (supaUrl) {
       document.getElementById('upl').classList.add('hide');
       showSceneLoading(true);
-      fade(() => {
+      {
         const _capSi = si;
+        // Vista previa ligera mientras baja la panorámica completa
+        let _fullArrived = false;
+        _loadPreviewThen(supaUrl, tex => {
+          if (_fullArrived || !_isCurrentTurn(_seq)) { tex.dispose(); return; }
+          setPano(tex, true);
+          if (!_keepHeading) pano.setView(0, 0);
+          renderHS(cP,_capSi);
+        });
         _loadTexFromUrl(supaUrl)
           .then(tex => {
+            _fullArrived = true;
             if (texCache[k(cP,_capSi)]) texCache[k(cP,_capSi)].dispose();
             texCache[k(cP,_capSi)] = tex;
             PROJ[cP].scenes[_capSi].img = supaUrl;
-            if (cS === _capSi) {
-              sphere.material = new THREE.MeshBasicMaterial({ map: tex });
-              lon=0; lat=0; updateCam(); renderHS(cP,_capSi); manageTextures();
+            if (_isCurrentTurn(_seq)) {
+              setPano(tex);   // funde sobre la vista previa
+              resetView(); renderHS(cP,_capSi); manageTextures();
             }
             showSceneLoading(false);
           })
-          .catch(() => { showSceneLoading(false); toast('Error al cargar desde Supabase'); });
-      });
+          .catch(() => { if (_isCurrentTurn(_seq)) { showSceneLoading(false); toast('Error al cargar desde Supabase'); } });
+      }
     } else {
       idbGet(`img_${cP}_${si}`).then(blob => {
+        if (!_isCurrentTurn(_seq)) return;      // el usuario ya cambió de escena
         if (blob) {
           const src = (blob instanceof Blob) ? URL.createObjectURL(blob) : blob;
           PROJ[cP].scenes[si].img = src;
           document.getElementById('upl').classList.add('hide');
           showSceneLoading(true);
           fade(() => {
+            if (!_isCurrentTurn(_seq)) return;
             const loader = new THREE.TextureLoader();
             loader.load(src, tex => {
+              prepTexture(tex);
               if (texCache[k(cP,si)]) texCache[k(cP,si)].dispose();
               texCache[k(cP,si)] = tex;
-              sphere.material = new THREE.MeshBasicMaterial({ map: tex });
-              lon=0; lat=0; updateCam(); renderHS(cP,si); manageTextures();
+              if (!_isCurrentTurn(_seq)) return;   // queda en caché para cuando vuelva
+              setPano(tex, true);
+              resetView(); renderHS(cP,si); manageTextures();
               showSceneLoading(false);
             }, undefined, () => { showSceneLoading(false); toast('Error al cargar escena'); });
           });
         } else {
           fade(() => {
-            sphere.material = new THREE.MeshBasicMaterial({ color: 0x080810 });
+            if (!_isCurrentTurn(_seq)) return;
+            setPano(null, true);
             document.getElementById('upl').classList.remove('hide');
           });
         }
       }).catch(() => {
+        if (!_isCurrentTurn(_seq)) return;
         fade(() => {
-          sphere.material = new THREE.MeshBasicMaterial({ color: 0x080810 });
+          if (!_isCurrentTurn(_seq)) return;
+          setPano(null, true);
           document.getElementById('upl').classList.remove('hide');
         });
       });
@@ -2537,7 +2731,7 @@ function addNewScene() {
   buildList();
   document.querySelectorAll('.sc').forEach((c,j) => c.classList.toggle('active', j===ni));
   buildPips(); updateCount(); updateProgress(); clearHS();
-  fade(() => { sphere.material = new THREE.MeshBasicMaterial({color:0x080810}); document.getElementById('upl').classList.remove('hide'); });
+  fade(() => { setPano(null, true); document.getElementById('upl').classList.remove('hide'); });
   document.getElementById('tbScene').textContent = name;
   document.getElementById('ptN').textContent = name;
   autoSave();
@@ -2546,35 +2740,65 @@ function addNewScene() {
 
 function deleteScene(si) {
   if (PROJ[cP].scenes.length <= 1) { toast('El proyecto debe tener al menos una escena'); return; }
-  if (!confirm('¿Eliminar esta escena?')) return;
-  if (texCache[k(cP,si)]) { texCache[k(cP,si)].dispose(); delete texCache[k(cP,si)]; }
-  idbDel(`img_${cP}_${si}`);
-  idbDel(`thumb_${cP}_${si}`);
+  if (!confirm(`¿Eliminar la escena "${PROJ[cP].scenes[si].name}"?`)) return;
+  // Se guarda una copia para poder deshacer. Los blobs de IndexedDB NO se
+  // borran de inmediato: si el usuario deshace dentro de la ventana, la
+  // imagen sigue ahí. La limpieza real ocurre al expirar el undo.
+  const snapshot = JSON.parse(JSON.stringify(PROJ[cP].scenes[si]));
+  const tex = texCache[k(cP,si)] || null;
+  delete texCache[k(cP,si)];
   PROJ[cP].scenes.splice(si, 1);
   if (cS >= PROJ[cP].scenes.length) cS = PROJ[cP].scenes.length - 1;
   buildList(); selScene(cS); autoSave();
+
+  offerUndo(`Escena "${snapshot.name}" eliminada`, () => {
+    PROJ[cP].scenes.splice(si, 0, snapshot);
+    if (tex) texCache[k(cP,si)] = tex;
+    buildList(); selScene(si); autoSave();
+    toast('Escena restaurada ✓');
+  }, () => {
+    if (tex && tex.dispose) tex.dispose();
+    if (!(window.CloudMode && CloudMode.active)) { idbDel(`img_${cP}_${si}`); idbDel(`thumb_${cP}_${si}`); }
+  });
+}
+
+// ── DESHACER ──────────────────────────────────────────────────
+// Toast con acción. Antes, borrar una escena era irreversible y sin red.
+let _undoTimer = null, _undoCommit = null;
+function offerUndo(message, onUndo, onExpire, ms = 7000) {
+  const host = document.getElementById('toast');
+  if (!host) { onExpire && onExpire(); return; }
+  if (_undoTimer) { clearTimeout(_undoTimer); if (_undoCommit) _undoCommit(); }
+  _undoCommit = onExpire || null;
+  host.innerHTML = '';
+  const txt = document.createElement('span');
+  txt.textContent = message;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = 'Deshacer';
+  btn.setAttribute('aria-label', 'Deshacer la última acción');
+  btn.style.cssText = 'margin-left:12px;background:transparent;border:1px solid rgba(184,157,116,.5);color:var(--accent);border-radius:99px;padding:3px 12px;font-size:11px;cursor:pointer;font-family:Inter,sans-serif;';
+  btn.onclick = () => {
+    clearTimeout(_undoTimer); _undoTimer = null; _undoCommit = null;
+    host.classList.remove('show'); host.innerHTML = '';
+    onUndo && onUndo();
+  };
+  host.appendChild(txt); host.appendChild(btn);
+  host.classList.add('show');
+  _undoTimer = setTimeout(() => {
+    _undoTimer = null;
+    host.classList.remove('show');
+    setTimeout(() => { if (!_undoTimer) host.innerHTML = ''; }, 400);
+    if (_undoCommit) { _undoCommit(); _undoCommit = null; }
+  }, ms);
 }
 
 // ── HOTSPOTS (3D projected) ──
-let _hsRaf = null, _hsItems = [];
-
-function _pctToVec3(x, y) {
-  const lo = THREE.MathUtils.degToRad((x/100)*360 - 180);
-  const la = THREE.MathUtils.degToRad(90 - (y/100)*180);
-  return new THREE.Vector3(Math.cos(la)*Math.cos(lo), Math.sin(la), Math.cos(la)*Math.sin(lo)).multiplyScalar(500);
-}
-
-function _tickHS() {
-  const rect = cv.getBoundingClientRect();
-  _hsItems.forEach(item => {
-    const v = item.vec3.clone().project(cam);
-    if (v.z > 1) { item.dot.style.opacity = '0'; return; }
-    item.dot.style.opacity = '1';
-    item.dot.style.left = ((v.x+1)/2 * rect.width)  + 'px';
-    item.dot.style.top  = ((-v.y+1)/2 * rect.height) + 'px';
-  });
-  _hsRaf = requestAnimationFrame(_tickHS);
-}
+let _hsItems = [];   // { el, x, y } que posiciona el motor
+const _pctToVec3 = (x, y) => AgelPano.pctToVec3(x, y);
+// Compatibilidad con código antiguo que aún llama a estas funciones.
+function _hsInvalidateRect() { invalidate(); }
+function _tickHS() { invalidate(); }
 
 // ── SCENE SPOT NAVIGATION ─────────────────────────────────────
 // Zooms in to the spot position then transitions to the target scene
@@ -2593,38 +2817,28 @@ function goToSceneSpot(targetSi, dotEl) {
     veil.classList.add('active');
   }
 
-  // 2. Zoom FOV in quickly
-  const startFov = fov;
-  const targetFov = Math.max(20, fov - 28);
-  const startT = Date.now();
-  const dur = 380;
-  function zoomTick() {
-    const t = Math.min(1, (Date.now()-startT)/dur);
-    const ease = 1 - Math.pow(1-t, 3);
-    fov = startFov + (targetFov - startFov) * ease;
-    cam.fov = fov; cam.updateProjectionMatrix();
-    if (t < 1) requestAnimationFrame(zoomTick);
-    else {
-      // 3. Fade and switch scene
-      fade(() => {
-        fov = startFov; cam.fov = fov; cam.updateProjectionMatrix();
-        if (veil) veil.classList.remove('active');
-        selScene(targetSi);
-      });
-    }
-  }
-  requestAnimationFrame(zoomTick);
+  // 2. Acercamiento hacia el punto y cambio de escena. El fundido de
+  //    setPano() tapa el salto de FOV: no hace falta un corte a negro.
+  const startFov = pano.fov;
+  pano.animateFov(Math.max(20, startFov - 28), 380).then(() => {
+    _keepHeading = true;              // vas "caminando" hacia allá: conserva el rumbo
+    pano.fov = startFov;
+    if (veil) veil.classList.remove('active');
+    selScene(targetSi);
+  });
 }
 
 function renderHS(pi, si) {
-  if (_hsRaf) { cancelAnimationFrame(_hsRaf); _hsRaf = null; } _hsItems = [];
+  _hsItems = [];
   const layer = document.getElementById('hsLayer');
   layer.innerHTML = ''; layer.style.pointerEvents = 'none';
   PROJ[pi].scenes[si].hs.forEach((h, j) => {
     const isScene = h.type === 'scene';
     const dot = document.createElement('div');
     dot.className = 'hs' + (isScene ? ' scene-spot' : '');
-    dot.style.cssText = `position:absolute;transform:translate(-50%,-50%);animation-delay:${j*.85}s;opacity:0;pointer-events:all;`;
+    // Sin transform inline: la posición la maneja _syncHSPositions() vía --hx/--hy
+    dot.style.animationDelay = `${j*.85}s`;
+    dot.style.pointerEvents  = 'all';
 
     if (isScene) {
       const targetScene = PROJ[pi].scenes[h.targetScene];
@@ -2663,10 +2877,11 @@ function renderHS(pi, si) {
       // Regular info hotspot
       const card = document.createElement('div'); card.className = 'hs-card';
       card.style.cssText = `position:absolute;${h.x>50?'right':'left'}:18px;top:-5px;`;
+      const _safeImg = safeImgUrl(h.img);
       card.innerHTML =
-        (h.img ? `<img class="hc-img" src="${h.img}" alt="">` : '') +
-        `<div class="hc-body"><div class="hc-eye">${h.title}</div>` +
-        h.details.map(d => `<div class="hc-row">${d}</div>`).join('') +
+        (_safeImg ? `<img class="hc-img" src="${esc(_safeImg)}" alt="">` : '') +
+        `<div class="hc-body"><div class="hc-eye">${esc(h.title)}</div>` +
+        (h.details || []).map(d => `<div class="hc-row">${esc(d)}</div>`).join('') +
         `</div><button class="hc-x" onclick="this.closest('.hs-card').classList.remove('open')"><i class="ti ti-x"></i></button>`;
       dot.appendChild(card);
       dot.addEventListener('mouseenter', () => curEl.classList.add('onhs'));
@@ -2679,13 +2894,13 @@ function renderHS(pi, si) {
     }
 
     layer.appendChild(dot);
-    _hsItems.push({ dot, vec3: _pctToVec3(h.x, h.y) });
+    _hsItems.push({ el: dot, x: h.x, y: h.y });
   });
-  if (_hsItems.length) _tickHS();
+  if (pano) pano.setHotspots(_hsItems);
 }
 
 function clearHS() {
-  if (_hsRaf) { cancelAnimationFrame(_hsRaf); _hsRaf = null; } _hsItems = [];
+  _hsItems = []; if (pano) pano.clearHotspots();
   const l = document.getElementById('hsLayer'); l.innerHTML = ''; l.style.pointerEvents = 'none';
 }
 
@@ -2729,7 +2944,7 @@ function hsmRenderList(body) {
   let chips = `<div class="hsm-scene-selector">`;
   scenes.forEach((s,i) => {
     const cnt = s.hs ? s.hs.length : 0;
-    chips += `<div class="hsm-scene-chip${i===cS?' active':''}" onclick="hsmFilterScene(${i})">${s.name}${cnt?` <b style='color:var(--accent)'>(${cnt})</b>`:''}</div>`;
+    chips += `<div class="hsm-scene-chip${i===cS?' active':''}" onclick="hsmFilterScene(${i})">${esc(s.name)}${cnt?` <b style='color:var(--accent)'>(${cnt})</b>`:''}</div>`;
   });
   chips += `</div><div class="hsm-list" id="hsmList"></div>`;
   body.innerHTML = chips;
@@ -2746,7 +2961,7 @@ function hsmBuildList(si) {
   if (!listEl) return;
   const hs = PROJ[cP].scenes[si]?.hs || [];
   if (!hs.length) {
-    listEl.innerHTML = `<div class="hsm-empty">Sin hotspots en "<b>${PROJ[cP].scenes[si].name}</b>"<br><small>Cambia a "Agregar" para crear uno</small></div>`;
+    listEl.innerHTML = `<div class="hsm-empty">Sin hotspots en "<b>${esc(PROJ[cP].scenes[si].name)}</b>"<br><small>Cambia a "Agregar" para crear uno</small></div>`;
     return;
   }
   listEl.innerHTML = '';
@@ -2756,22 +2971,30 @@ function hsmBuildList(si) {
     const thumbHtml = isScene
       ? `<div class="hsm-item-thumb no-img" style="background:rgba(80,180,255,.1);border:1px solid rgba(80,180,255,.3);"><i class="ti ti-arrow-right-circle" style="color:rgba(80,180,255,.8);font-size:13px;"></i></div>`
       : (h.img
-        ? `<img class="hsm-item-thumb" src="${h.img}" alt="" onerror="this.style.display='none'">`
+        ? `<img class="hsm-item-thumb" src="${esc(safeImgUrl(h.img)||'')}" alt="" onerror="this.style.display='none'">`
         : `<div class="hsm-item-thumb no-img"><i class="ti ti-photo-off"></i></div>`);
     const metaText = isScene
-      ? `→ ${PROJ[cP].scenes[h.targetScene]?.name || '?'}`
-      : (h.details?.length ? h.details.join(', ') : '—');
-    item.innerHTML = `<div class="hsm-item-head">${thumbHtml}<div class="hsm-item-info"><div class="hsm-item-title">${isScene?'':''}${h.title}</div><div class="hsm-item-meta" style="${isScene?'color:rgba(80,180,255,.7);':''}">${metaText}</div></div><div class="hsm-item-actions"><button class="hsm-ibtn" title="Editar" onclick="hsmEditHS(${si},${j})"><i class="ti ti-pencil"></i></button><button class="hsm-ibtn del" title="Eliminar" onclick="hsmDelHS(${si},${j})"><i class="ti ti-trash"></i></button></div></div>`;
+      ? `→ ${esc(PROJ[cP].scenes[h.targetScene]?.name || '?')}`
+      : (h.details?.length ? esc(h.details.join(' · ')) : '—');
+    item.innerHTML = `<div class="hsm-item-head">${thumbHtml}<div class="hsm-item-info"><div class="hsm-item-title">${esc(h.title)}</div><div class="hsm-item-meta" style="${isScene?'color:rgba(80,180,255,.7);':''}">${metaText}</div></div><div class="hsm-item-actions"><button class="hsm-ibtn" title="Editar" onclick="hsmEditHS(${si},${j})"><i class="ti ti-pencil"></i></button><button class="hsm-ibtn del" title="Eliminar" onclick="hsmDelHS(${si},${j})"><i class="ti ti-trash"></i></button></div></div>`;
     listEl.appendChild(item);
   });
 }
 
 function hsmDelHS(si, j) {
-  if (!confirm(`¿Eliminar hotspot "${PROJ[cP].scenes[si].hs[j].title}"?`)) return;
+  const snap = PROJ[cP].scenes[si].hs[j];
+  if (!snap) return;
+  const copy = JSON.parse(JSON.stringify(snap));
   PROJ[cP].scenes[si].hs.splice(j, 1);
   clearHS(); renderHS(cP, cS);
   hsmBuildList(si); buildList(); autoSave();
-  toast('Hotspot eliminado');
+  // Sin confirm(): borrar un hotspot es barato de deshacer, y un diálogo
+  // modal por cada borrado interrumpe el trabajo de marcado.
+  offerUndo(`Hotspot "${copy.title}" eliminado`, () => {
+    PROJ[cP].scenes[si].hs.splice(j, 0, copy);
+    clearHS(); renderHS(cP, cS);
+    hsmBuildList(si); buildList(); autoSave();
+  });
 }
 
 function hsmEditHS(si, j) {
@@ -2798,21 +3021,21 @@ function hsmRenderAdd(body, editSi, editJ) {
   if (isEdit) {
     // Edit mode: single form, detect type
     body.innerHTML = `<div class="hsm-form">
-      <div class="hsm-form-title"><i class="ti ti-pencil"></i> Editando: ${h.title}</div>
-      <div style="font-size:10px;color:var(--accent);margin-bottom:10px;">En escena: ${scenes[editSi].name}</div>
+      <div class="hsm-form-title"><i class="ti ti-pencil"></i> Editando: ${esc(h.title)}</div>
+      <div style="font-size:10px;color:var(--accent);margin-bottom:10px;">En escena: ${esc(scenes[editSi].name)}</div>
       ${editType === 'info' ? `
         <div class="hsm-lbl">Título *</div>
-        <input class="hsm-inp" id="hsmTitle" value="${h.title}">
-        <div class="hsm-lbl">Detalles</div>
-        <input class="hsm-inp" id="hsmDetail" value="${h.details?h.details.join(', '):''}">
+        <input class="hsm-inp" id="hsmTitle" value="${esc(h.title)}">
+        <div class="hsm-lbl">Detalles <span style="opacity:.55;">— uno por línea</span></div>
+        <textarea class="hsm-inp" id="hsmDetail" rows="3" style="resize:vertical;font-family:'Inter',sans-serif;line-height:1.6;">${esc(h.details?h.details.join('\n'):'')}</textarea>
         <div class="hsm-lbl">Imagen (URL)</div>
         <div style="display:flex;gap:6px;margin-bottom:5px;">
-          <input class="hsm-inp" id="hsmImg" value="${h.img&&!h.img.startsWith('data:')?h.img:''}" oninput="hsmPreviewImg(this.value)" style="flex:1;">
+          <input class="hsm-inp" id="hsmImg" value="${esc(h.img&&!String(h.img).startsWith('data:')?h.img:'')}" oninput="hsmPreviewImg(this.value)" style="flex:1;">
           <label style="flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:7px;padding:6px 9px;cursor:pointer;font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px;">
             <i class="ti ti-upload"></i><input type="file" accept="image/*" style="display:none;" onchange="hsmLoadLocalImg(event)">
           </label>
         </div>
-        <img class="hsm-img-preview${h.img?' show':''}" id="hsmImgPreview" src="${h.img||''}" alt="">
+        <img class="hsm-img-preview${h.img?' show':''}" id="hsmImgPreview" src="${esc(safeImgUrl(h.img)||'')}" alt="">
       ` : `
         <div class="hsm-lbl">Escena destino</div>
         <select class="hsm-inp" id="hsmTargetScene">${targetOpts}</select>
@@ -2835,8 +3058,8 @@ function hsmRenderAdd(body, editSi, editJ) {
       <select class="hsm-inp" id="hsmSceneSel" style="margin-bottom:7px;">${sceneOpts}</select>
       <div class="hsm-lbl">Título *</div>
       <input class="hsm-inp" id="hsmTitle" placeholder="Ej: Acabado de piso">
-      <div class="hsm-lbl">Detalles (separados por comas)</div>
-      <input class="hsm-inp" id="hsmDetail" placeholder="Mármol travertino, 60×60">
+      <div class="hsm-lbl">Detalles <span style="opacity:.55;">— uno por línea</span></div>
+      <textarea class="hsm-inp" id="hsmDetail" rows="3" placeholder="Mármol travertino 60×60, pulido&#10;Junta de 3 mm&#10;Sellador mate" style="resize:vertical;font-family:'Inter',sans-serif;line-height:1.6;"></textarea>
       <div class="hsm-lbl">Imagen del material</div>
       <div style="display:flex;gap:6px;margin-bottom:5px;">
         <input class="hsm-inp" id="hsmImg" placeholder="URL de imagen" oninput="hsmPreviewImg(this.value)" style="flex:1;">
@@ -2896,17 +3119,8 @@ function startAddSceneSpot() {
 
 // Override placeHSAt to route to correct fields
 function placeHSAt(e) {
-  const r = cv.getBoundingClientRect();
-  const mouse = new THREE.Vector2(
-    ((e.clientX-r.left)/r.width)*2-1,
-   -((e.clientY-r.top)/r.height)*2+1
-  );
-  const ray = new THREE.Raycaster(); ray.setFromCamera(mouse, cam);
-  const hits = ray.intersectObject(sphere);
-  if (hits.length > 0) {
-    const pt = hits[0].point.normalize();
-    const xv = Math.max(1,Math.min(99,Math.round(((Math.atan2(pt.z,pt.x)+Math.PI)/(2*Math.PI))*100)));
-    const yv = Math.max(1,Math.min(99,Math.round(((Math.PI/2-Math.asin(Math.max(-1,Math.min(1,pt.y))))/Math.PI)*100)));
+  {
+    const { x: xv, y: yv } = pano.pick(e.clientX, e.clientY);
     if (_hsmPlacingType === 'scene') {
       const ex = document.getElementById('hsmSSX'); if(ex) ex.value = xv;
       const ey = document.getElementById('hsmSSY'); if(ey) ey.value = yv;
@@ -2922,7 +3136,7 @@ function placeHSAt(e) {
 function hsmSaveInfo() {
   const title   = (document.getElementById('hsmTitle')?.value||'').trim();
   const detRaw  = document.getElementById('hsmDetail')?.value||'';
-  const details = detRaw.split(',').map(s=>s.trim()).filter(Boolean);
+  const details = parseDetails(detRaw);
   const prev    = document.getElementById('hsmImgPreview');
   const localB64 = prev?.dataset?.localB64 || null;
   const imgUrl  = localB64 || (document.getElementById('hsmImg')?.value||'').trim() || null;
@@ -2981,7 +3195,7 @@ function hsmSave(editSiRaw, editJRaw) {
     const img    = b64 || (document.getElementById('hsmImg')?.value||'').trim() || h.img;
     if (!title) { toast('Escribe un título'); return; }
     h.x=x; h.y=y; h.title=title;
-    h.details=detRaw.split(',').map(s=>s.trim()).filter(Boolean);
+    h.details=parseDetails(detRaw);
     h.img=img||null;
   }
   PROJ[cP].scenes[editSi].hs[editJ] = h;
@@ -2991,8 +3205,6 @@ function hsmSave(editSiRaw, editJRaw) {
   hsmRenderList(document.getElementById('hsmBody'));
   hsmFilterScene(editSi);
 }
-
-function hsmSetType() {} // no longer used
 
 // Load local image file → base64 for hotspot
 function hsmLoadLocalImg(e) {
@@ -3019,47 +3231,13 @@ function hsmPreviewImg(url) {
   prev.onerror = () => prev.classList.remove('show');
 }
 
-function hsmSave(editSiRaw, editJRaw) {
-  const isEdit = editSiRaw !== undefined && editSiRaw !== 'undefined';
-  const editSi = isEdit ? parseInt(editSiRaw) : undefined;
-  const editJ  = isEdit ? parseInt(editJRaw)  : undefined;
-
-  // Detect type from visible fields
-  const sceneFields = document.getElementById('hsmSceneFields');
-  const type = (sceneFields && sceneFields.style.display !== 'none') ? 'scene' : 'info';
-
-  const x = parseInt(document.getElementById('hsmX')?.value)||50;
-  const y = parseInt(document.getElementById('hsmY')?.value)||50;
-  const si = isEdit ? editSi : parseInt(document.getElementById('hsmSceneSel')?.value ?? cS);
-
-  let obj;
-  if (type === 'scene') {
-    const targetScene = parseInt(document.getElementById('hsmTargetScene')?.value ?? 0);
-    const targetName  = PROJ[cP].scenes[targetScene]?.name || 'Escena';
-    obj = { type:'scene', x, y, title: targetName, details:[], img:null, targetScene, targetSceneName: targetName };
-  } else {
-    const title   = (document.getElementById('hsmTitle')?.value||'').trim();
-    const detRaw  = document.getElementById('hsmDetail')?.value||'';
-    const details = detRaw.split(',').map(s=>s.trim()).filter(Boolean);
-    const prev    = document.getElementById('hsmImgPreview');
-    const localB64 = prev?.dataset?.localB64 || null;
-    const urlVal  = (document.getElementById('hsmImg')?.value||'').trim();
-    const imgUrl  = localB64 || urlVal || null;
-    if (!title) { toast('Escribe un título para el hotspot'); return; }
-    obj = { type:'info', x, y, title, details, img: imgUrl };
-  }
-
-  if (!PROJ[cP].scenes[si].img) { toast('Carga la panorámica de esa escena primero'); return; }
-
-  if (isEdit) { PROJ[cP].scenes[si].hs[editJ] = obj; toast('Hotspot actualizado ✓'); }
-  else        { PROJ[cP].scenes[si].hs.push(obj);    toast(type==='scene'?'Punto de navegación guardado ✓':'Hotspot guardado ✓'); }
-
-  cancelAddHS();
-  clearHS(); renderHS(cP, cS); buildList(); autoSave();
-  _hsmTab = 'list'; hsmSyncTabs();
-  hsmRenderList(document.getElementById('hsmBody'));
-  hsmFilterScene(si);
-}
+/* ── hsmSave duplicada ELIMINADA ──────────────────────────────────
+   Había una segunda declaración de hsmSave() aquí que, por hoisting,
+   sobrescribía silenciosamente a la de arriba. Estaba rota: buscaba
+   #hsmSceneFields (elemento que no existe en el DOM), así que siempre
+   deducía type='info' y al editar un hotspot de navegación lo convertía
+   en hotspot de información, perdiendo targetScene.
+   La versión válida es la de arriba, que lee h.type del hotspot real. */
 
 // Compat shims
 function saveHS()        { hsmSaveInfo(); }
@@ -3107,17 +3285,51 @@ function updateClientCount() {
 }
 
 // ── SIDEBAR TOGGLE / AUTO ROTATE ──
+// Altura real de la hoja de escenas en móvil → la barra de navegación sube sobre ella.
+function _syncSheetOffset() {
+  const sb = document.getElementById('sidebar');
+  const narrow = window.matchMedia('(max-width:600px)').matches;
+  const h = (narrow && sb && !sb.classList.contains('hide')) ? Math.round(sb.getBoundingClientRect().height) : 0;
+  document.documentElement.style.setProperty('--sheet-h', h + 'px');
+  if (typeof window._updateBarPositions === 'function') window._updateBarPositions();
+}
+if (window.ResizeObserver) {
+  addEventListener('DOMContentLoaded', () => {
+    const sb = document.getElementById('sidebar');
+    if (sb) new ResizeObserver(_syncSheetOffset).observe(sb);
+  });
+}
+addEventListener('resize', () => _syncSheetOffset());
+
 function toggleSb() {
   sbVis = !sbVis;
   document.getElementById('sidebar').classList.toggle('hide', !sbVis);
+  setTimeout(_syncSheetOffset, 0); setTimeout(_syncSheetOffset, 600);
   document.getElementById('btnSb').classList.toggle('on', sbVis);
   if (sbVis && hsPanelVis) {
     hsPanelVis=false; document.getElementById('hsManager').classList.remove('show'); document.getElementById('btnHS').classList.remove('on'); cancelAddHS();
   }
 }
 
+// ── ROTACIÓN POR INACTIVIDAD ──────────────────────────────────
+// En una pantalla de sala de ventas el visor quieto parece congelado.
+// Tras 20 s sin interacción arranca solo; cualquier gesto la detiene.
+let _idleTimer = null, _idleAuto = false;
+const IDLE_MS = 20000;
+function _armIdle() {
+  clearTimeout(_idleTimer);
+  if (_idleAuto) { _idleAuto = false; if (autoRot) toggleAuto(); }
+  _idleTimer = setTimeout(() => {
+    if (!autoRot && !(pano && pano.isDragging) && !addHS && !document.hidden) { _idleAuto = true; toggleAuto(); }
+  }, IDLE_MS);
+}
+['pointerdown','wheel','keydown','touchstart'].forEach(ev =>
+  window.addEventListener(ev, _armIdle, { passive: true }));
+document.addEventListener('visibilitychange', () => { if (document.hidden) clearTimeout(_idleTimer); else _armIdle(); });
+
 function toggleAuto() {
   autoRot = !autoRot;
+  if (pano) pano.autoRotate = autoRot;
   const on  = '<i class="ti ti-player-pause"></i>';
   const off = '<i class="ti ti-player-play"></i>';
   document.getElementById('btnAuto').innerHTML = autoRot ? on : off;
@@ -3199,6 +3411,9 @@ function fade(cb) {
 let _tt;
 function toast(msg) {
   const t = document.getElementById('toast');
+  // Si hay un "Deshacer" pendiente, se confirma antes de pisar el toast,
+  // para no dejar una acción a medias sin que el usuario pueda revertirla.
+  if (_undoTimer) { clearTimeout(_undoTimer); _undoTimer = null; if (_undoCommit) { _undoCommit(); _undoCommit = null; } }
   t.textContent = msg; t.classList.add('show');
   clearTimeout(_tt); _tt = setTimeout(() => t.classList.remove('show'), 2500);
 }
@@ -3215,7 +3430,7 @@ function openEdit(type, idx) {
     document.getElementById('emTitle').textContent = 'Editar escena';
     document.getElementById('emLbl').textContent   = 'Nombre';
     inp.value = PROJ[cP].scenes[idx].name;
-    extra.innerHTML = `<div class="em-lbl">Subtítulo / nivel</div><input class="em-inp" id="emInp2" value="${PROJ[cP].scenes[idx].meta}">`;
+    extra.innerHTML = `<div class="em-lbl">Subtítulo / nivel</div><input class="em-inp" id="emInp2" value="${esc(PROJ[cP].scenes[idx].meta)}">`;
   }
   else if (type === 'cp-loc')  { document.getElementById('emTitle').textContent='Ubicación';        document.getElementById('emLbl').textContent='Ciudad'; inp.value=PROJ[cP].loc; }
   else if (type === 'cp-date') { document.getElementById('emTitle').textContent='Fecha de entrega'; document.getElementById('emLbl').textContent='Fecha'; inp.value=PROJ[cP].date; }
@@ -3249,31 +3464,43 @@ document.addEventListener('keydown', e => {
     if (addHS) cancelAddHS();
     if (document.getElementById('editModal').classList.contains('show')) closeEdit();
     if (document.getElementById('qrModal').classList.contains('show'))   closeQR();
+    return;
   }
+  // No secuestrar el teclado mientras se escribe
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+  // El visor no tenía ninguna forma de navegarse sin ratón.
+  let handled = true;
+  switch (e.key) {
+    case 'ArrowLeft':  pano.lon -= 5 * (pano.fov/55); break;
+    case 'ArrowRight': pano.lon += 5 * (pano.fov/55); break;
+    case 'ArrowUp':    pano.lat += 4 * (pano.fov/55); break;
+    case 'ArrowDown':  pano.lat -= 4 * (pano.fov/55); break;
+    case '+': case '=': zoomIn();  break;
+    case '-': case '_': zoomOut(); break;
+    case 'PageDown':   nextS(); break;
+    case 'PageUp':     prevS(); break;
+    case ' ':          toggleAuto(); break;
+    default: handled = false;
+  }
+  if (handled) e.preventDefault();
 });
 
-// ── RESIZE ──
-window.addEventListener('resize', () => {
-  if (!renderer) return;
-  renderer.setSize(app.offsetWidth, app.offsetHeight);
-  cam.aspect = app.offsetWidth / app.offsetHeight;
-  cam.updateProjectionMatrix();
-  if (vmRenderer) {
-    const vm = document.getElementById('visorMode');
-    vmRenderer.setSize(vm.offsetWidth, vm.offsetHeight);
-    vmCam.aspect = vm.offsetWidth / vm.offsetHeight;
-    vmCam.updateProjectionMatrix();
-  }
-});
+// (Redimensionar: cada motor lo resuelve con su ResizeObserver.)
 
 // ════════════════════════════════════════════════════
 // VISOR MODE (Cloudinary viewer for clients)
 // ════════════════════════════════════════════════════
 let vmScenes = [];
-let vmRenderer = null, vmScene3 = null, vmCam = null, vmSphere = null;
-let vmFov = 55, vmLon = 0, vmLat = 0, vmDn = false, vmLx = 0, vmLy = 0, vmAuto = false;
+// Motor del visor: la MISMA clase que el editor (packages/panorama/pano-engine.js).
+let vmPano = null;
+let vmAuto = false;
 let vmCurIdx = 0;
-let _vmHsRaf = null, _vmHsItems = [];
+let _vmHsItems = [];
+let _vmKeepHeading = false;
+function vmInvalidate() { if (vmPano) vmPano.invalidate(); }
+function vmSetPano(tex, instant) { if (vmPano) vmPano.setPano(tex, instant); }
+function _vmInvalidateRect() { vmInvalidate(); }
 
 function openVisorMode()  { document.getElementById('visorMode').classList.add('show'); }
 function closeVisorMode() {
@@ -3348,10 +3575,10 @@ async function vmLoadSupaFiles() {
       item.className = 'vm-supa-item';
       const cleanName = f.name.replace(/^\d+_/, '').replace(/\.[^.]+$/, '').replace(/_/g,' ');
       item.innerHTML = `
-        <img src="${thumbUrl}" alt="${cleanName}" loading="lazy"
+        <img src="${esc(thumbUrl)}" alt="${esc(cleanName)}" loading="lazy"
              onerror="this.src='${url}';this.onerror=null;"
              style="width:100%;aspect-ratio:2/1;object-fit:cover;display:block;">
-        <div class="vm-supa-name">${cleanName}</div>
+        <div class="vm-supa-name">${esc(cleanName)}</div>
         <div class="vm-supa-check"><i class="ti ti-check" style="font-size:9px;"></i></div>`;
       item.addEventListener('click', () => {
         document.querySelectorAll('.vm-supa-item').forEach(i => i.classList.remove('selected'));
@@ -3412,8 +3639,8 @@ function vmLoadEditorScenes() {
       row.innerHTML = `
         <div style="width:44px;height:28px;border-radius:5px;background:rgba(184,157,116,.12);border:1px solid rgba(184,157,116,.2);flex-shrink:0;display:flex;align-items:center;justify-content:center;"><i class="ti ti-360" style="font-size:14px;color:var(--accent);opacity:.7;"></i></div>
         <div class="vmesc-info">
-          <div class="vmesc-n">${s.name}</div>
-          <div class="vmesc-m">${p.name}${s.meta?' · '+s.meta:''}</div>
+          <div class="vmesc-n">${esc(s.name)}</div>
+          <div class="vmesc-m">${esc(p.name)}${s.meta?' · '+esc(s.meta):''}</div>
           ${hsCnt ? `<div style="font-size:8px;color:var(--muted);margin-top:1px;">${hsCnt} hotspot${hsCnt!==1?'s':''}${ssCnt?' · '+ssCnt+' SceneSpot'+( ssCnt!==1?'s':''):''}</div>` : ''}
         </div>
         <button class="vmesc-add${alreadyAdded?' added':''}" onclick="${alreadyAdded?'toast(\'Ya agregada\')':'vmAddFromEditor('+pi+','+si+')'}">
@@ -3473,8 +3700,8 @@ function vmRenderScenesList() {
     row.innerHTML =
       `<div class="vm-scene-thumb" style="display:flex;align-items:center;justify-content:center;background:rgba(184,157,116,.1);border:1px solid rgba(184,157,116,.2);"><i class="ti ti-360" style="font-size:16px;color:var(--accent);opacity:.8;"></i></div>` +
       `<div class="vm-scene-info">
-        <div class="vm-scene-n">${s.name}</div>
-        <div class="vm-scene-m">${s.meta||''}</div>
+        <div class="vm-scene-n">${esc(s.name)}</div>
+        <div class="vm-scene-m">${esc(s.meta||'')}</div>
         <button class="vm-hs-toggle" id="vmHsBtn_${i}" onclick="vmToggleSceneHS(${i})">
           <i class="ti ti-map-pin"></i> ${hsCnt} hotspot${hsCnt!==1?'s':''} <i class="ti ti-chevron-down" id="vmHsChev_${i}"></i>
         </button>
@@ -3567,7 +3794,7 @@ function vmAddHs(si) {
   const detRaw = document.getElementById(`vmHsDetail_${si}`)?.value||'';
   if (!title) { toast('Escribe un título'); return; }
   if (!vmScenes[si].hs) vmScenes[si].hs = [];
-  vmScenes[si].hs.push({ title, details:detRaw.split(',').map(s=>s.trim()).filter(Boolean), x:50, y:50, img:null });
+  vmScenes[si].hs.push({ title, details:parseDetails(detRaw), x:50, y:50, img:null });
   saveVmData(); vmRefreshHsPanel(si); toast('Hotspot agregado ✓');
 }
 
@@ -3603,7 +3830,7 @@ function vmLaunch() {
   document.getElementById('vmSetup').classList.add('hide');
   document.getElementById('vmViewer').classList.add('show');
   document.getElementById('vmTitleLabel').textContent = pname;
-  if (!vmRenderer) vmInitThree();
+  if (!vmPano) vmInitThree();
   vmCurIdx = 0; vmBuildPips();
   // Preload all scene textures in background for smooth navigation
   vmPreloadAll();
@@ -3614,186 +3841,99 @@ function vmExitViewer() {
   document.getElementById('vmSetup').classList.remove('hide');
   document.getElementById('vmViewer').classList.remove('show');
   if (vmAuto) vmToggleAuto();
-  if (_vmHsRaf) { cancelAnimationFrame(_vmHsRaf); _vmHsRaf = null; }
+  if (vmPano) vmPano.clearHotspots();
   // Free GPU textures
   Object.values(vmTexCache).forEach(tex => tex && tex.dispose());
   Object.keys(vmTexCache).forEach(k => delete vmTexCache[k]);
 }
 
 function vmInitThree() {
-  const vmApp = document.getElementById('visorMode');
-  const vmCv  = document.getElementById('vmCanvas');
-  const w = vmApp.offsetWidth, h = vmApp.offsetHeight;
-  vmRenderer = new THREE.WebGLRenderer({ canvas: vmCv, antialias: true });
-  vmRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  vmRenderer.setSize(w, h);
-  vmScene3 = new THREE.Scene();
-  vmCam = new THREE.PerspectiveCamera(vmFov, w/h, 0.1, 1000);
-  vmCam.position.set(0, 0, 0.01);
-  const geo = new THREE.SphereGeometry(500, 64, 32); geo.scale(-1,1,1);
-  vmSphere = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x080810 }));
-  vmScene3.add(vmSphere);
-  vmUpdateCam();
-  (function loop() { requestAnimationFrame(loop); if (vmAuto && !vmDn) { vmLon+=0.04; vmUpdateCam(); } vmRenderer.render(vmScene3, vmCam); })();
-
-  // Cursor
+  const vmCv   = document.getElementById('vmCanvas');
+  const vmDiv  = document.getElementById('visorMode');
   const vmCurEl = document.getElementById('vmCur');
-  const vmDiv   = document.getElementById('visorMode');
+  vmPano = new AgelPano.PanoEngine({
+    canvas: vmCv, container: vmDiv, fov: 55,
+    isMobile: () => document.body.classList.contains('is-mobile'),
+    onFov: f => { const l = document.getElementById('vmFovLabel'); if (l) l.textContent = Math.round(f) + '°'; },
+    onDragStart: () => vmCurEl && vmCurEl.classList.add('drag'),
+    onDragEnd: () => vmCurEl && vmCurEl.classList.remove('drag'),
+    onTextureCapped: ({ from, to }) => _notifyTextureCap(from, to)
+  });
+  vmPano.autoRotate = vmAuto;
+  // Realidad virtual (fase 7): el botón solo aparece si el dispositivo ofrece WebXR.
+  vmPano.xrSupported().then(ok => { const b = document.getElementById('vmBtnVR'); if (b) b.hidden = !ok; });
+  // Cursor propio
   vmDiv.addEventListener('mousemove', e => {
-    const r=vmCv.getBoundingClientRect();
-    vmCurEl.style.left=(e.clientX-r.left)+'px';
-    vmCurEl.style.top=(e.clientY-r.top)+'px';
+    const r = vmCv.getBoundingClientRect();
+    vmCurEl.style.left = (e.clientX - r.left) + 'px';
+    vmCurEl.style.top  = (e.clientY - r.top) + 'px';
   });
   vmDiv.addEventListener('mouseenter', () => vmCurEl.classList.add('vis'));
   vmDiv.addEventListener('mouseleave', () => vmCurEl.classList.remove('vis'));
-
-  // Drag + inertia
-  let _vmVLon=0, _vmVLat=0, _vmLastT=0, _vmIRaf=null;
-  function vmStopInertia() { if(_vmIRaf){cancelAnimationFrame(_vmIRaf);_vmIRaf=null;} }
-  function vmStartInertia() {
-    vmStopInertia();
-    (function tick(){
-      _vmVLon*=0.88; _vmVLat*=0.88;
-      if(Math.abs(_vmVLon)<0.008&&Math.abs(_vmVLat)<0.008)return;
-      vmLon+=_vmVLon; vmLat+=_vmVLat; vmUpdateCam();
-      _vmIRaf=requestAnimationFrame(tick);
-    })();
-  }
-
-  vmCv.onmousedown = e => {
-    vmDn=true; vmLx=e.clientX; vmLy=e.clientY;
-    _vmLastT=Date.now(); _vmVLon=0; _vmVLat=0;
-    vmCurEl.classList.add('drag'); vmStopInertia();
-  };
-  vmCv.onmousemove = e => {
-    if(!vmDn)return;
-    const dt=Math.max(1,Date.now()-_vmLastT);
-    const dlon=-(e.clientX-vmLx)*.06, dlat=(e.clientY-vmLy)*.06;
-    vmLon+=dlon; vmLat+=dlat;
-    const _vDt = Math.min(dt, 32);
-    _vmVLon = _vmVLon*0.6 + dlon*(16/_vDt)*0.4;
-    _vmVLat = _vmVLat*0.6 + dlat*(16/_vDt)*0.4;
-    _vmVLon = Math.max(-4, Math.min(4, _vmVLon));
-    _vmVLat = Math.max(-2, Math.min(2, _vmVLat));
-    vmLx=e.clientX; vmLy=e.clientY; _vmLastT=Date.now(); vmUpdateCam();
-  };
-  vmCv.onmouseup   = () => { vmDn=false; vmCurEl.classList.remove('drag'); vmStartInertia(); };
-  vmCv.onmouseleave= () => { vmDn=false; vmCurEl.classList.remove('drag'); vmStartInertia(); };
-  vmCv.addEventListener('wheel', e => {
-    e.preventDefault();
-    vmFov=Math.min(100,Math.max(20,vmFov+e.deltaY*.05));
-    vmCam.fov=vmFov; vmCam.updateProjectionMatrix();
-    document.getElementById('vmFovLabel').textContent=Math.round(vmFov)+'°';
-  }, {passive:false});
-
-  // Touch: drag + pinch-to-zoom + inertia
-  // ── DRAG + PINCH: Pointer Events (unifies mouse + touch, no passive issues) ──
-  // Attached to the canvas only — buttons in btmbar have their own events
-  let _vmPtrs = new Map(); // active pointers
-  let _vt2=false, _vInitDist=0, _vInitFov=55;
-
-  function _vmPinchDist() {
-    const pts = [..._vmPtrs.values()];
-    const dx = pts[0].x - pts[1].x, dy = pts[0].y - pts[1].y;
-    return Math.sqrt(dx*dx + dy*dy);
-  }
-
-  vmCv.addEventListener('pointerdown', e => {
-    vmCv.setPointerCapture(e.pointerId);
-    _vmPtrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
-    vmStopInertia(); _vmVLon=0; _vmVLat=0;
-    if (_vmPtrs.size === 2) {
-      _vt2=true; vmDn=false;
-      _vInitDist=_vmPinchDist(); _vInitFov=vmFov;
-    } else {
-      _vt2=false; vmDn=true;
-      vmLx=e.clientX; vmLy=e.clientY; _vmLastT=Date.now();
-    }
-  });
-
-  vmCv.addEventListener('pointermove', e => {
-    if (!_vmPtrs.has(e.pointerId)) return;
-    _vmPtrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
-
-    if (_vmPtrs.size === 2 && _vt2) {
-      const d = _vmPinchDist();
-      vmFov = Math.min(100, Math.max(20, _vInitFov*(_vInitDist/d)));
-      vmCam.fov=vmFov; vmCam.updateProjectionMatrix();
-      const lbl = document.getElementById('vmFovLabel');
-      if (lbl) lbl.textContent = Math.round(vmFov)+'°';
-    } else if (vmDn && _vmPtrs.size === 1) {
-      const nx=e.clientX, ny=e.clientY;
-      const dt = Math.max(1, Date.now()-_vmLastT);
-      const dlon=-(nx-vmLx)*.06, dlat=(ny-vmLy)*.06;
-      vmLon+=dlon; vmLat+=dlat;
-      const cap=Math.min(dt,32);
-      _vmVLon=_vmVLon*0.5+dlon*(16/cap)*0.5;
-      _vmVLat=_vmVLat*0.5+dlat*(16/cap)*0.5;
-      _vmVLon=Math.max(-4,Math.min(4,_vmVLon));
-      _vmVLat=Math.max(-2,Math.min(2,_vmVLat));
-      vmLx=nx; vmLy=ny; _vmLastT=Date.now(); vmUpdateCam();
-    }
-  });
-
-  function _vmPointerUp(e) {
-    _vmPtrs.delete(e.pointerId);
-    if (_vmPtrs.size === 0) {
-      vmDn=false; _vt2=false; vmStartInertia();
-    } else if (_vmPtrs.size === 1) {
-      // Went from pinch back to single finger — resume drag
-      _vt2=false; vmDn=true;
-      const [p] = _vmPtrs.values();
-      vmLx=p.x; vmLy=p.y; _vmLastT=Date.now();
-    }
-  }
-  vmCv.addEventListener('pointerup',     _vmPointerUp);
-  vmCv.addEventListener('pointercancel', _vmPointerUp);
-  vmCv.addEventListener('pointerleave',  _vmPointerUp);
-
-  // Wheel zoom (desktop)
-  vmCv.addEventListener('wheel', e => {
-    e.preventDefault();
-    vmFov=Math.min(100,Math.max(20,vmFov+e.deltaY*.05));
-    vmCam.fov=vmFov; vmCam.updateProjectionMatrix();
-    const lbl=document.getElementById('vmFovLabel');
-    if(lbl) lbl.textContent=Math.round(vmFov)+'°';
-  }, {passive:false});
-
-  // Resize observer — keeps renderer sharp on resize/fullscreen
-  new ResizeObserver(() => {
-    if(!vmRenderer||!vmCam)return;
-    const nw=vmCv.clientWidth, nh=vmCv.clientHeight;
-    vmRenderer.setSize(nw,nh,false);
-    vmCam.aspect=nw/nh; vmCam.updateProjectionMatrix();
-  }).observe(vmCv);
-}
-
-function vmUpdateCam() {
-  vmLat = Math.max(-85, Math.min(85, vmLat));
-  const phi = THREE.MathUtils.degToRad(90 - vmLat), th = THREE.MathUtils.degToRad(vmLon);
-  vmCam.lookAt(Math.sin(phi)*Math.cos(th), Math.cos(phi), Math.sin(phi)*Math.sin(th));
 }
 
 // VM texture cache — avoids re-loading images on every scene change
 const vmTexCache = {};
 
-function vmPreloadAll() {
-  vmScenes.forEach((s, i) => {
-    if (!vmTexCache[i] && s.url) {
-      const loader = new THREE.TextureLoader(); loader.crossOrigin = 'anonymous';
-      loader.load(s.url, tex => {
-        tex.minFilter = THREE.LinearFilter; // reduces GPU memory + no mipmap generation
-        vmTexCache[i] = tex;
-      });
-    }
+// ── CARGA DE TEXTURAS DEL VISOR ───────────────────────────────
+// Antes: vmPreloadAll() pedía TODAS las panorámicas a la vez al abrir el
+// visor. Un recorrido de 20 escenas a 8K son ~2.5 GB de VRAM: en móvil la
+// pestaña se cerraba. Ahora: carga deduplicada (una petición por escena),
+// precarga solo de vecinas y caché acotada con liberación de GPU.
+const VM_CACHE_MAX = 5;
+const _vmInflight = {};          // idx -> Promise<Texture>
+let _vmSeq = 0;                  // turno de navegación del visor
+
+function _vmLoadTex(i) {
+  if (vmTexCache[i]) return Promise.resolve(vmTexCache[i]);
+  if (_vmInflight[i]) return _vmInflight[i];
+  const url = vmScenes[i] && vmScenes[i].url;
+  if (!url) return Promise.reject(new Error('Escena sin imagen'));
+  _vmInflight[i] = new Promise((resolve, reject) => {
+    const l = new THREE.TextureLoader(); l.crossOrigin = 'anonymous';
+    l.load(url, tex => {
+      prepTexture(tex);
+      vmTexCache[i] = tex;
+      delete _vmInflight[i];
+      _vmTrimCache();
+      resolve(tex);
+    }, undefined, err => { delete _vmInflight[i]; reject(err || new Error('load')); });
   });
+  return _vmInflight[i];
+}
+
+function _vmNeighbors(idx) {
+  const n = vmScenes.length; if (n < 2) return [];
+  // Vecinas por orden + destinos de los hotspots de navegación de la escena
+  const set = new Set([(idx + 1) % n, (idx - 1 + n) % n]);
+  (vmScenes[idx]?.hs || []).forEach(h => {
+    if (h && h.type === 'scene' && Number.isInteger(h.targetScene) && h.targetScene >= 0 && h.targetScene < n) set.add(h.targetScene);
+  });
+  set.delete(idx);
+  return [...set];
+}
+
+function _vmTrimCache() {
+  const keep = new Set([vmCurIdx, ..._vmNeighbors(vmCurIdx)]);
+  const inUse = new Set(vmPano ? vmPano.texturesInUse() : []);
+  const keys = Object.keys(vmTexCache).map(Number);
+  if (keys.length <= VM_CACHE_MAX) return;
+  keys.filter(i => !keep.has(i)).forEach(i => {
+    if (Object.keys(vmTexCache).length <= VM_CACHE_MAX) return;
+    const t = vmTexCache[i];
+    if (t && !inUse.has(t)) { t.dispose(); delete vmTexCache[i]; }
+  });
+}
+
+function vmPreloadAll() {
+  // Nombre conservado por compatibilidad: ya no carga todo, solo el entorno.
+  _vmNeighbors(vmCurIdx || 0).forEach(i => _vmLoadTex(i).catch(() => {}));
 }
 
 function vmGoTo(idx) {
   vmCurIdx = idx;
   // Reset all drag/pointer state
-  vmDn = false;
-  if (typeof _vmPtrs !== 'undefined') _vmPtrs.clear();
+  if (vmPano) vmPano.isDragging = false;
   const vmCurEl = document.getElementById('vmCur');
   if (vmCurEl) vmCurEl.classList.remove('drag');
 
@@ -3803,30 +3943,24 @@ function vmGoTo(idx) {
   document.getElementById('vmTitleS').textContent = pname + (s.meta ? ' · ' + s.meta : '');
   document.getElementById('vmTitleBar').classList.add('show');
   document.querySelectorAll('.vm-pip').forEach((p,j) => p.classList.toggle('on', j===idx));
-  vmLon=0; vmLat=0;
+  if (!_vmKeepHeading && vmPano) vmPano.setView(0, 0);
+  _vmKeepHeading = false;
 
-  // Use cached texture if available
+  const seq = ++_vmSeq;
+  const show = tex => {
+    // Si el usuario ya navegó a otra escena, esta textura solo queda en caché.
+    if (seq !== _vmSeq) return;
+    vmSetPano(tex);
+    vmRenderVmHS(s);
+    vmPreloadAll();
+  };
   if (vmTexCache[idx]) {
-    vmSphere.material = new THREE.MeshBasicMaterial({ map: vmTexCache[idx] });
-    vmUpdateCam(); vmRenderVmHS(s);
-    // Preload adjacent scenes in background
-    const next = (idx+1) % vmScenes.length;
-    const prev = (idx-1+vmScenes.length) % vmScenes.length;
-    [next, prev].forEach(i => {
-      if (!vmTexCache[i] && vmScenes[i]?.url) {
-        const l = new THREE.TextureLoader(); l.crossOrigin='anonymous';
-        l.load(vmScenes[i].url, tex => { tex.minFilter=THREE.LinearFilter; vmTexCache[i]=tex; });
-      }
-    });
+    show(vmTexCache[idx]);
   } else {
-    vmSphere.material = new THREE.MeshBasicMaterial({ color: 0x080810 });
-    const loader = new THREE.TextureLoader(); loader.crossOrigin = 'anonymous';
-    loader.load(s.url, tex => {
-      tex.minFilter = THREE.LinearFilter;
-      vmTexCache[idx] = tex;
-      vmSphere.material = new THREE.MeshBasicMaterial({ map: tex });
-      vmUpdateCam(); vmRenderVmHS(s);
-    }, undefined, () => toast('Error al cargar imagen'));
+    // Mientras llega, no dejar los hotspots de la escena anterior flotando
+    // sobre una panorámica que ya no corresponde.
+    vmRenderVmHS({ hs: [] });
+    _vmLoadTex(idx).then(show).catch(() => { if (seq === _vmSeq) toast('Error al cargar imagen'); });
   }
 }
 
@@ -3925,10 +4059,16 @@ function vmReturnToViewer() {
   // Return to first scene
   vmGoTo(0);
 }
-function vmZoomIn()  { vmFov=Math.max(20,vmFov-8); vmCam.fov=vmFov; vmCam.updateProjectionMatrix(); document.getElementById('vmFovLabel').textContent=Math.round(vmFov)+'°'; }
-function vmZoomOut() { vmFov=Math.min(100,vmFov+8); vmCam.fov=vmFov; vmCam.updateProjectionMatrix(); document.getElementById('vmFovLabel').textContent=Math.round(vmFov)+'°'; }
+function vmEnterVR() {
+  if (!vmPano) return;
+  vmPano.enterVR().then(() => toast('En el visor se ve la panorámica; para cambiar de escena sal de VR'))
+    .catch(e => toast(e && e.message ? e.message : 'No se pudo entrar a VR'));
+}
+function vmZoomIn()  { if (vmPano) vmPano.zoomBy(-8); }
+function vmZoomOut() { if (vmPano) vmPano.zoomBy(8); }
 function vmToggleAuto() {
   vmAuto = !vmAuto;
+  if (vmPano) vmPano.autoRotate = vmAuto;
   document.getElementById('vmBtnAuto').innerHTML = vmAuto ? '<i class="ti ti-player-pause"></i>' : '<i class="ti ti-player-play"></i>';
   document.getElementById('vmBtnAuto').classList.toggle('on', vmAuto);
 }
@@ -3965,15 +4105,8 @@ function _vmOnFsChange() {
   // JS class drives CSS fade of vm-topbar/btmbar/exit-btn
   const vm = document.getElementById('visorMode');
   if (vm) vm.classList.toggle('fs-on', isFs);
-  // Resize Three.js renderer
-  if (vmRenderer && vmCam) {
-    const cv = document.getElementById('vmCanvas');
-    if (!cv) return;
-    setTimeout(() => {
-      const w = cv.clientWidth, h = cv.clientHeight;
-      if (w && h) { vmRenderer.setSize(w, h, false); vmCam.aspect = w/h; vmCam.updateProjectionMatrix(); }
-    }, 120); // slight delay to let browser resize settle
-  }
+  // El motor se redimensiona solo; tras la animación de pantalla completa se fuerza una vez.
+  if (vmPano) setTimeout(() => vmPano.resize(), 120);
 }
 // (listeners registered inside togglePres / _applyPres block above)
 
@@ -3993,7 +4126,7 @@ function _vmResolveTarget(h) {
 }
 
 function vmRenderVmHS(s) {
-  if (_vmHsRaf) { cancelAnimationFrame(_vmHsRaf); _vmHsRaf=null; } _vmHsItems=[];
+  _vmHsItems=[]; if (vmPano) vmPano.clearHotspots();
   const layer = document.getElementById('vmHsLayer'); if (!layer) return;
   layer.innerHTML=''; layer.style.pointerEvents='none';
   if (!s.hs || !s.hs.length) return;
@@ -4002,7 +4135,8 @@ function vmRenderVmHS(s) {
     const isScene = h.type === 'scene';
     const dot = document.createElement('div');
     dot.className = 'hs' + (isScene ? ' scene-spot' : '');
-    dot.style.cssText = `position:absolute;transform:translate(-50%,-50%);animation-delay:${j*.85}s;opacity:0;pointer-events:all;`;
+    dot.style.animationDelay = `${j*.85}s`;
+    dot.style.pointerEvents  = 'all';
 
     if (isScene) {
       // ── SceneSpot in VM viewer ──
@@ -4018,68 +4152,55 @@ function vmRenderVmHS(s) {
       // Desktop hover
       dot.addEventListener('mouseenter', () => label.classList.add('visible'));
       dot.addEventListener('mouseleave', () => label.classList.remove('visible'));
+      dot.setAttribute('aria-label', 'Ir a ' + targetName);
 
-      // Mobile: first tap shows label, second tap navigates
-      let _vssFirstTap = false, _vssTimer = null;
-      dot.addEventListener('touchstart', e => {
-        e.stopPropagation();
-        if (!_vssFirstTap) {
-          _vssFirstTap = true;
+      // Toque: el primero muestra el destino, el segundo navega. Arrastrar
+      // sobre el punto gira la vista y no navega (PanoEngine.bindMarker).
+      let _vssTimer = null;
+      const _go = info => {
+        if (info.pointerType === 'touch' && !label.classList.contains('visible')) {
           label.classList.add('visible');
-          _vssTimer = setTimeout(() => {
-            _vssFirstTap = false;
-            label.classList.remove('visible');
-          }, 2200);
-        } else {
-          clearTimeout(_vssTimer);
-          _vssFirstTap = false;
-          label.classList.remove('visible');
-          vmGoToScene(_vmResolveTarget(h), dot);
+          clearTimeout(_vssTimer); _vssTimer = setTimeout(() => label.classList.remove('visible'), 2200);
+          return;
         }
-      }, {passive:true});
-
-      dot.addEventListener('click', e => {
-        e.stopPropagation();
+        clearTimeout(_vssTimer); label.classList.remove('visible');
         vmGoToScene(_vmResolveTarget(h), dot);
-      });
+      };
+      if (vmPano) vmPano.bindMarker(dot, _go);
+      else dot.addEventListener('click', e => { e.stopPropagation(); _go({ pointerType: 'mouse' }); });
 
     } else {
       // ── Info hotspot in VM viewer ──
       const card = document.createElement('div'); card.className='hs-card';
       card.style.cssText=`position:absolute;${(h.x||50)>50?'right':'left'}:18px;top:-5px;`;
+      const _vSafeImg = safeImgUrl(h.img);
       card.innerHTML=
-        (h.img ? `<img class="hc-img" src="${h.img}" alt="" crossorigin="anonymous">` : '') +
+        (_vSafeImg ? `<img class="hc-img" src="${esc(_vSafeImg)}" alt="" crossorigin="anonymous">` : '') +
         `<div class="hc-body">` +
-        `<div class="hc-eye">${h.title||'Info'}</div>`+
-        (h.details||[]).map(d=>`<div class="hc-row">${d}</div>`).join('')+
+        `<div class="hc-eye">${esc(h.title||'Info')}</div>`+
+        (h.details||[]).map(d=>`<div class="hc-row">${esc(d)}</div>`).join('')+
         `</div>`+
         `<button class="hc-x" onclick="this.closest('.hs-card').classList.remove('open')"><i class="ti ti-x"></i></button>`;
+      card.setAttribute('data-marker-ignore', '');
       dot.appendChild(card);
-      dot.addEventListener('click', e => {
-        e.stopPropagation();
+      dot.setAttribute('aria-label', h.title || 'Información');
+      const _toggle = () => {
         const was=card.classList.contains('open');
         document.querySelectorAll('#vmHsLayer .hs-card').forEach(c=>c.classList.remove('open'));
         if(!was) card.classList.add('open');
-      });
+      };
+      if (vmPano) vmPano.bindMarker(dot, _toggle);
+      else dot.addEventListener('click', e => { e.stopPropagation(); _toggle(); });
     }
 
     layer.appendChild(dot);
     const x = h.x||((j+1)/(s.hs.length+1)*100), y = h.y||50;
-    _vmHsItems.push({dot, vec3:_pctToVec3(x,y)});
+    _vmHsItems.push({ el: dot, x, y });
   });
 
-  (function tick(){
-    if(!vmCam||!document.getElementById('vmCanvas'))return;
-    const rect=document.getElementById('vmCanvas').getBoundingClientRect();
-    _vmHsItems.forEach(item=>{
-      const v=item.vec3.clone().project(vmCam);
-      if(v.z>1){item.dot.style.opacity='0';return;}
-      item.dot.style.opacity='1';
-      item.dot.style.left=((v.x+1)/2*rect.width)+'px';
-      item.dot.style.top=((-v.y+1)/2*rect.height)+'px';
-    });
-    _vmHsRaf=requestAnimationFrame(tick);
-  })();
+  // Antes había aquí un requestAnimationFrame propio (3er loop de la app).
+  // Ahora la proyección va dentro del loop de render del visor.
+  if (vmPano) vmPano.setHotspots(_vmHsItems);
 }
 
 // Navigate to a scene by index in VM viewer with zoom transition
@@ -4089,10 +4210,7 @@ function vmGoToScene(targetIdx, dotEl) {
   if (targetIdx === vmCurIdx) return;
 
   // Zoom in toward the spot
-  const startFov = vmFov;
-  const endFov   = Math.max(20, vmFov - 26);
-  const startT   = Date.now();
-  const dur      = 360;
+  const startFov = vmPano.fov;
 
   // Veil flash
   const veil = document.getElementById('vmSceneTransVeil');
@@ -4101,27 +4219,53 @@ function vmGoToScene(targetIdx, dotEl) {
     veil.style.background = 'rgba(0,0,0,0)';
   }
 
-  function zoomTick() {
-    const t    = Math.min(1, (Date.now()-startT)/dur);
-    const ease = 1 - Math.pow(1-t, 3);
-    vmFov = startFov + (endFov-startFov)*ease;
-    vmCam.fov = vmFov; vmCam.updateProjectionMatrix();
-    if (t < 1) { requestAnimationFrame(zoomTick); return; }
-    // Fade to black then load scene
-    if (veil) {
-      veil.style.transition = 'background .25s';
-      veil.style.background = 'rgba(0,0,0,0.85)';
-    }
-    setTimeout(() => {
-      vmFov = startFov; vmCam.fov = vmFov; vmCam.updateProjectionMatrix();
-      if (veil) {
-        veil.style.transition = 'background .3s';
-        veil.style.background = 'rgba(0,0,0,0)';
-      }
-      vmGoTo(targetIdx);
-    }, 270);
+  vmPano.animateFov(Math.max(20, startFov - 26), 360).then(() => {
+    // Sin corte a negro: vmSetPano() funde una panorámica sobre la otra.
+    _vmKeepHeading = true;                 // conserva el rumbo al "avanzar"
+    vmPano.fov = startFov;
+    if (veil) { veil.style.transition='background .3s'; veil.style.background='rgba(0,0,0,0)'; }
+    vmGoTo(targetIdx);
+  });
+}
+
+// ── BUG PREEXISTENTE (grave) ──────────────────────────────────
+// saveVmData() y loadVmData() llamaban a _vmGetOpeningConfig() y
+// _vmSetOpeningConfig(), que NO estaban definidas en ninguna parte.
+// Como ambas están envueltas en try/catch con un console.warn, el fallo
+// era invisible: TODA la configuración del visor de cliente (escenas,
+// nombre de proyecto, videos de apertura y cierre) se perdía al recargar.
+// Aquí quedan implementadas con la forma que espera el resto del código.
+function _vmGetOpeningConfig() {
+  const v = id => (document.getElementById(id)?.value || '').trim();
+  const cfg = {
+    title:          v('vmOpeningTitle'),
+    sub:            v('vmOpeningSub'),
+    btnText:        v('vmOpeningBtn')  || 'Comenzar recorrido',
+    endBtnText:     v('vmEndingBtn')   || 'Regresar al recorrido',
+    videoUrl:       (typeof _vmOpeningVideoUrl !== 'undefined' ? _vmOpeningVideoUrl : null),
+    endingVideoUrl: (typeof _vmEndingVideoUrl  !== 'undefined' ? _vmEndingVideoUrl  : null)
+  };
+  // Si no hay nada configurado, no ensuciamos el config guardado.
+  const empty = !cfg.title && !cfg.sub && !cfg.videoUrl && !cfg.endingVideoUrl;
+  return empty ? null : cfg;
+}
+
+function _vmSetOpeningConfig(cfg) {
+  if (!cfg) return;
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.value = val; };
+  set('vmOpeningTitle', cfg.title);
+  set('vmOpeningSub',   cfg.sub);
+  set('vmOpeningBtn',   cfg.btnText);
+  set('vmEndingBtn',    cfg.endBtnText);
+  if (cfg.videoUrl) {
+    _vmOpeningVideoUrl = cfg.videoUrl;
+    _vmShowVidThumb('opening', cfg.videoUrl);
   }
-  requestAnimationFrame(zoomTick);
+  if (cfg.endingVideoUrl) {
+    _vmEndingVideoUrl = cfg.endingVideoUrl;
+    _vmShowVidThumb('ending', cfg.endingVideoUrl);
+  }
+  _vmOpeningCfg = cfg;
 }
 
 // VM Persistence
@@ -4133,7 +4277,7 @@ function saveVmData() {
       projSub:  document.getElementById('vmProjSub')?.value,
       opening:  _vmGetOpeningConfig()
     }));
-  } catch(e) { console.warn('saveVmData:', e); }
+  } catch(e) { console.warn('saveVmData:', e); toast('⚠ No se pudo guardar la configuración del visor'); }
 }
 function loadVmData() {
   try {
@@ -4212,10 +4356,9 @@ async function vmSaveConfigToSupa(scenes, pname, psub) {
 }
 
 async function vmLoadConfigFromSupa(id) {
-  const path = `configs/${id}.json`;
-  const res  = await fetch(`${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${path}`);
-  if (!res.ok) throw new Error('Config not found');
-  return await res.json();
+  if (!/^[a-z0-9_-]{1,64}$/i.test(String(id))) throw new ConfigError('bad_id');
+  const raw = await fetchConfigJson(`${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/configs/${id}.json`);
+  return sanitizeVisorConfig(raw);
 }
 
 function vmBuildCompactUrl(scenes, pname, psub, base) {
@@ -4291,8 +4434,8 @@ function vmOpenScenePicker(action) {
     row.className = 'vmp-row';
     row.innerHTML =
       `<input type="checkbox" class="vmp-chk" value="${i}" ${isCloud ? 'checked' : 'disabled'}>`+
-      `<span class="vmp-thumb" style="background-image:url('${isCloud ? s.url : ''}');background-color:rgba(255,255,255,.06);"></span>`+
-      `<span class="vmp-info"><b>${s.name}</b><small>${s.meta||''}</small></span>`+
+      `<span class="vmp-thumb" style="background-image:url('${esc(isCloud ? (safeImgUrl(s.url)||'') : '')}');background-color:rgba(255,255,255,.06);"></span>`+
+      `<span class="vmp-info"><b>${esc(s.name)}</b><small>${esc(s.meta||'')}</small></span>`+
       `<span style="font-size:9px;padding:2px 6px;border-radius:4px;flex-shrink:0;${isCloud ? 'color:#5DCAA5;background:rgba(93,202,165,.1);' : 'color:#E24B4A;background:rgba(226,75,74,.1);'}">`+
       `${isCloud ? '<i class="ti ti-cloud"></i> Supabase' : '<i class="ti ti-alert-triangle"></i> Local'}</span>`;
     list.appendChild(row);
@@ -4413,9 +4556,9 @@ function renderLinksPanel() {
     mainRow.style.cssText = 'display:flex;align-items:center;gap:7px;';
     mainRow.innerHTML = `
       <div class="vml-info" style="cursor:pointer;flex:1;" onclick="vmlToggleScenes('${lk.id}')">
-        <div class="vml-name">${lk.name}</div>
-        <div class="vml-meta">${lk.projName||''} · ${sceneCount} escena${sceneCount!==1?'s':''} · ${lk.created}</div>
-        ${lk.shortUrl ? `<div style="font-size:9px;color:var(--accent);opacity:.7;margin-top:1px;">${lk.shortUrl.replace('https://','')}</div>` : ''}
+        <div class="vml-name">${esc(lk.name)}</div>
+        <div class="vml-meta">${esc(lk.projName||'')} · ${sceneCount} escena${sceneCount!==1?'s':''} · ${esc(lk.created)}</div>
+        ${lk.shortUrl ? `<div style="font-size:9px;color:var(--accent);opacity:.7;margin-top:1px;">${esc(String(lk.shortUrl).replace('https://',''))}</div>` : ''}
         <i class="ti ti-chevron-down" id="vmlChev_${lk.id}" style="font-size:9px;transition:transform .25s;"></i>
       </div>
       <div class="vml-actions">
@@ -4430,7 +4573,7 @@ function renderLinksPanel() {
       acc.id = `vmlAcc_${lk.id}`;
       acc.style.cssText = 'display:none;padding:7px 4px 3px;border-top:1px solid var(--border);margin-top:7px;';
       acc.innerHTML = lk.sceneNames.map((n,i) =>
-        `<div style="font-size:10px;color:var(--muted);padding:3px 4px;display:flex;align-items:center;gap:6px;"><span style="width:16px;height:16px;border-radius:50%;background:rgba(184,157,116,.15);color:var(--accent);font-size:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</span>${n}</div>`
+        `<div style="font-size:10px;color:var(--muted);padding:3px 4px;display:flex;align-items:center;gap:6px;"><span style="width:16px;height:16px;border-radius:50%;background:rgba(184,157,116,.15);color:var(--accent);font-size:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</span>${esc(n)}</div>`
       ).join('');
       d.appendChild(acc);
     }
@@ -4484,7 +4627,7 @@ function importProjects() {
   };
   inp.click();
 }
-function downloadCurrentSceneViewer() { toast('Usa "Generar link" para compartir con clientes'); }
+/* downloadCurrentSceneViewer duplicada eliminada */
 
 // ════════════════════════════════════════════════════
 // SUPABASE STORAGE MANAGER
@@ -4552,7 +4695,7 @@ async function smgrLoad() {
         <div class="smgr-sel-chk" style="position:relative;width:16px;height:16px;flex-shrink:0;border-radius:4px;background:rgba(226,75,74,.8);display:none;align-items:center;justify-content:center;font-size:9px;color:#fff;"><i class="ti ti-check"></i></div>
         <div style="width:28px;height:28px;border-radius:5px;background:rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--muted);flex-shrink:0;letter-spacing:.05em;">${ext}</div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:10px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${f.name}">${cleanName}</div>
+          <div style="font-size:10px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(f.name)}">${esc(cleanName)}</div>
           <div style="font-size:9px;color:var(--muted);">${sizeMB} MB</div>
         </div>`;
       item.addEventListener('click', () => {
@@ -4600,13 +4743,14 @@ async function smgrDeleteSelected() {
   const delBtn = document.getElementById('smgrDelBtn');
   if (delBtn) { delBtn.disabled = true; delBtn.innerHTML = '<i class="ti ti-loader"></i> Eliminando…'; }
 
-  let deleted = 0;
+  let deleted = 0, denied = 0;
   for (const name of names) {
     try {
       const res = await fetch(`${SUPA_URL}/storage/v1/object/${SUPA_BUCKET}/${name}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${SUPA_ANON}`, 'apikey': SUPA_ANON }
       });
+      if (!res.ok && [400, 401, 403, 404].includes(res.status)) denied++;
       if (res.ok) {
         deleted++;
         // Clear supaUrl from any matching PROJ scenes
@@ -4618,6 +4762,7 @@ async function smgrDeleteSelected() {
   }
 
   if (deleted > 0) { saveData(); toast(`${deleted} imagen${deleted!==1?'es':''} eliminada${deleted!==1?'s':''} ✓`); }
+  else if (denied === names.length) toast('Sin permiso para eliminar: el bucket no permite borrar sin iniciar sesión (es intencional)');
   else toast('No se pudo eliminar ninguna imagen');
 
   // Reload panel
@@ -4849,10 +4994,12 @@ window.addEventListener('load', () => {
 
   // Show current scene
   selScene(cS);
+  _armIdle();   // arranca el contador de inactividad para la rotación automática
 
-  // Handle shared visor link (?visor=1)
+  // Handle shared visor link (?visor=1) y publicaciones (?pub=slug)
   const _params = new URLSearchParams(window.location.search);
-  if (_params.get('visor') === '1') {
+  const _pubSlug = _params.get('pub');
+  if (_params.get('visor') === '1' || _pubSlug) {
 
     function _launchVisorWithScenes(pname, psub, scenes, openingCfg) {
       if (!scenes.length) return;
@@ -4879,24 +5026,43 @@ window.addEventListener('load', () => {
       }
     }
 
+    const _linkError = err => {
+      console.error('Failed to load visor config:', err);
+      document.getElementById('visorMode').classList.add('show');
+      document.getElementById('vmSetup').classList.add('hide');
+      document.querySelector('.vm-back')?.style.setProperty('display','none');
+      showLinkError(document.getElementById('visorMode'), err, 'visor');
+    };
+    // Publicación versionada (fase 2): lo que el propietario aprobó, validado.
+    const _launchPublication = slug => AgelCloud.client()
+      .rpc('get_publication', { p_slug: slug }, { anon: true })
+      .then(pub => {
+        if (!pub || !pub.snapshot) throw new ConfigError('not_found');
+        const cfg = sanitizeVisorConfig(pub.snapshot);
+        document.title = cfg.p + ' — Recorrido 360°';
+        // Marca de la organización (fase 6): color de acento validado.
+        const acc = pub.snapshot.branding && pub.snapshot.branding.accent;
+        if (/^#[0-9A-Fa-f]{6}$/.test(acc || '')) document.documentElement.style.setProperty('--accent', acc);
+        _launchVisorWithScenes(cfg.p, cfg.sub, cfg.scenes, cfg.opening || null);
+      });
+
     const cfgId = _params.get('id');
-    if (cfgId) {
+    if (_pubSlug) {
+      _launchPublication(_pubSlug).catch(_linkError);
+    } else if (cfgId) {
       // ── NEW FORMAT: load config JSON from Supabase ──
-      vmLoadConfigFromSupa(cfgId).then(cfg => {
+      // Si el propietario mapeó este enlace antiguo a una publicación, se
+      // abre la versión aprobada; si no (o la base aún no tiene la función),
+      // se lee la configuración de siempre.
+      const _legacyLoad = () => vmLoadConfigFromSupa(cfgId).then(cfg => {
         const pname  = cfg.p   || 'Proyecto';
         const psub   = cfg.sub || '';
         const scenes = (cfg.scenes||[]).filter(s => s.url);
         _launchVisorWithScenes(pname, psub, scenes, cfg.opening || null);
-      }).catch(err => {
-        console.error('Failed to load visor config:', err);
-        document.getElementById('visorMode').classList.add('show');
-        document.getElementById('vmSetup').classList.remove('hide');
-        document.querySelector('.vm-back')?.style.setProperty('display','none');
-        const errEl = document.createElement('div');
-        errEl.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--muted);font-size:13px;line-height:2;';
-        errEl.innerHTML = '<i class="ti ti-alert-triangle" style="font-size:32px;color:#E24B4A;display:block;margin-bottom:10px;"></i>Link expirado o no disponible.<br><small>Solicita un nuevo link al arquitecto.</small>';
-        document.getElementById('visorMode').appendChild(errEl);
-      });
+      }).catch(_linkError);
+      let _mapped = Promise.resolve(null);
+      try { _mapped = AgelCloud.client().rpc('resolve_legacy_link', { p_legacy_id: cfgId, p_kind: 'visor' }, { anon: true }); } catch (_) {}
+      _mapped.catch(() => null).then(slug => slug ? _launchPublication(slug).catch(_legacyLoad) : _legacyLoad());
     } else {
       // ── LEGACY FORMAT: ?scenes=name::meta::url (no hotspots) ──
       const pname     = decodeURIComponent(_params.get('p')||'Proyecto');
@@ -4908,15 +5074,25 @@ window.addEventListener('load', () => {
           let hs = [];
           try { hs = JSON.parse(decodeURIComponent(parts[3]||'[]')); } catch(e) {}
           return { name: decodeURIComponent(parts[0]||'Escena'), meta: decodeURIComponent(parts[1]||''), url: decodeURIComponent(parts[2]||''), hs };
-        }).filter(s => s.url && _isSharableUrl(s.url));
-        _launchVisorWithScenes(pname, psub, parsed);
+        });
+        try {
+          const cfg = sanitizeVisorConfig({ p: pname, sub: psub, scenes: parsed });
+          _launchVisorWithScenes(cfg.p, cfg.sub, cfg.scenes);
+        } catch (err) {
+          document.getElementById('visorMode').classList.add('show');
+          document.getElementById('vmSetup').classList.add('hide');
+          showLinkError(document.getElementById('visorMode'), err, 'visor');
+        }
       }
     }
   }
 
-  loadVmData();
+  // En un enlace de cliente no se cargan los datos del editor de este navegador.
+  if (!(_params.get('visor') === '1' || _pubSlug)) loadVmData();
   renderLinksPanel();
   _d5Init();
+  // Modo nube (fase 1): acceso y proyectos centrales. No aplica a enlaces públicos.
+  if (window.CloudMode) CloudMode.init();
 
   // ── MOBILE / iOS DETECTION ──
   const _isIOS    = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -4935,6 +5111,7 @@ window.addEventListener('load', () => {
   // ── MOBILE BTMBAR POSITIONING ──
   // Uses visualViewport to correctly track URL-bar height on iOS & Android.
   // requestFullscreen is NOT used on mobile — we rely on 100dvh + this offset.
+  window._updateBarPositions = () => _updateBarPositions();
   function _updateBarPositions() {
     const vvh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
     const ivh = window.innerHeight;
@@ -4947,8 +5124,9 @@ window.addEventListener('load', () => {
     const vex  = document.querySelectorAll('#vmViewer .vm-exit-btn');
 
     if (_isMobile) {
-      // Keep bars above the browser chrome
-      if (bb)   bb.style.bottom    = (gap + 8) + 'px';
+      // Keep bars above the browser chrome (y sobre la hoja de escenas si está abierta)
+      const sheet = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sheet-h')) || 0;
+      if (bb)   bb.style.bottom    = (gap + 8 + sheet) + 'px';
       if (vmbb) vmbb.style.bottom  = (gap + 8) + 'px';
       if (vtb)  vtb.style.bottom   = (gap + 66) + 'px';
       vex.forEach(b => b.style.bottom = (gap + 60) + 'px');
@@ -5029,7 +5207,7 @@ window.addEventListener('load', () => {
     const d5Id = _params.get('id');
     if (d5Id) {
       d5LoadConfigFromSupa(d5Id).then(cfg => {
-        d5Models         = cfg.models   || [];
+        d5Models         = cfg.models;
         d5ProjNameVal    = cfg.p        || 'Proyecto';
         d5ProjSubVal     = cfg.sub      || '';
         d5OpeningVideoUrl= cfg.videoUrl || null;
@@ -5044,14 +5222,12 @@ window.addEventListener('load', () => {
         } else {
           d5LaunchViewer();
         }
-      }).catch(() => {
+      }).catch(err => {
         document.getElementById('d5Mode').classList.add('show');
+        // El cliente no debe ver el editor detrás del aviso.
         const editor = document.getElementById('d5Editor');
-        if (editor) { editor.classList.add('show'); }
-        const errEl = document.createElement('div');
-        errEl.style.cssText = 'position:absolute;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#080810;gap:14px;';
-        errEl.innerHTML = '<i class="ti ti-alert-triangle" style="font-size:36px;color:#E24B4A;"></i><div style="font-family:Geist,sans-serif;font-weight:300;font-size:16px;letter-spacing:.06em;color:rgba(255,255,255,.6);">Link expirado o no disponible</div><div style="font-size:10px;color:var(--muted);">Solicita un nuevo link al arquitecto</div>';
-        document.getElementById('d5Mode').appendChild(errEl);
+        if (editor) { editor.classList.remove('show'); }
+        showLinkError(document.getElementById('d5Mode'), err, 'd5');
       });
     }
   }
@@ -5134,12 +5310,26 @@ function switchAppMode(mode) {
   const btnD5  = document.getElementById('btnModeD5');
   const d5m    = document.getElementById('d5Mode');
   const editor = document.getElementById('d5Editor');
+
   if (mode === '360') {
-    d5m?.classList.remove('show');
+    // Immediately kill pointer events so clicks never reach D5 elements
+    // even during the CSS opacity transition (0.5s)
+    if (d5m) {
+      d5m.style.pointerEvents = 'none';
+      d5m.classList.remove('show');
+      // Also pause any iframe to free resources
+      const iframe = document.getElementById('d5Iframe');
+      if (iframe && iframe.src !== 'about:blank') {
+        iframe.src = 'about:blank';
+      }
+    }
     btn360?.classList.add('active');
     btnD5?.classList.remove('active');
   } else {
-    d5m?.classList.add('show');
+    if (d5m) {
+      d5m.style.pointerEvents = ''; // let CSS .show rule take over
+      d5m.classList.add('show');
+    }
     btn360?.classList.remove('active');
     btnD5?.classList.add('active');
     setTimeout(() => editor?.classList.add('show'), 50);
@@ -5219,6 +5409,25 @@ function _d5ProcessFile(file, localOnly) {
 }
 
 // CONFIRM local
+// ── BUG PREEXISTENTE ──────────────────────────────────────────
+// Los botones "Ver local · sin subir" y "Subir y compartir" del panel
+// #d5UplPaths llamaban a d5ConfirmLocal() y d5ConfirmCloudUpload(), que
+// NO existían en ninguna parte del archivo: al pulsarlos se lanzaba un
+// ReferenceError y no pasaba nada. Aquí quedan implementados.
+function d5ConfirmLocal() {
+  if (_d5UplLocalFile) { d5ConfirmUpload(); return; }   // ya hay archivo elegido
+  _d5NextActionLocal = true;
+  document.getElementById('d5FileInput')?.click();
+}
+function d5ConfirmCloudUpload() {
+  if (_d5UplLocalFile) {                                 // reencaminar a la nube
+    const f = _d5UplLocalFile; _d5UplLocalFile = null;
+    _d5ProcessFile(f, false); return;
+  }
+  _d5NextActionLocal = false;
+  document.getElementById('d5FileInput')?.click();
+}
+
 function d5ConfirmUpload() {
   const name = (document.getElementById('d5UplModelName')?.value||'').trim();
   const meta = (document.getElementById('d5UplModelMeta')?.value||'').trim();
@@ -5331,7 +5540,7 @@ async function d5LoadSupaFiles() {
       const name = f.name.replace(`${D5_MODEL_PATH}/`,'').replace(/^\d+_/,'').replace(/\.html?$/i,'').replace(/_/g,' ');
       const item = document.createElement('div');
       item.className = 'd5-supa-item';
-      item.innerHTML = `<div class="dsi-icon"><i class="ti ti-file-code"></i></div><div class="dsi-info"><div class="dsi-n">${name}</div><div class="dsi-s">${sz} MB</div></div><div class="dsi-chk"><i class="ti ti-check"></i></div>`;
+      item.innerHTML = `<div class="dsi-icon"><i class="ti ti-file-code"></i></div><div class="dsi-info"><div class="dsi-n">${esc(name)}</div><div class="dsi-s">${esc(sz)} MB</div></div><div class="dsi-chk"><i class="ti ti-check"></i></div>`;
       item.addEventListener('click',()=>{
         document.querySelectorAll('.d5-supa-item').forEach(el=>el.classList.remove('selected'));
         item.classList.add('selected');
@@ -5391,8 +5600,8 @@ function d5RenderModelsList() {
     const row = document.createElement('div');
     row.className='d5-model-item'+(isActive?' active-model':'');
     row.innerHTML=`
-      <div class="d5-model-thumb">${m.thumb?`<img src="${m.thumb}">`:'<svg viewBox="0 0 54 54" fill="none" width="22" height="22"><path d="M27 10 L40 17 L27 24 L14 17Z" stroke="rgba(184,157,116,.5)" stroke-width="1.2" fill="none"/><path d="M27 26 L40 19 L40 31 L27 38Z" stroke="rgba(184,157,116,.25)" stroke-width="1" fill="none"/><path d="M27 26 L14 19 L14 31 L27 38Z" stroke="rgba(184,157,116,.18)" stroke-width="1" fill="none"/><path d="M27 26 L27 38" stroke="rgba(184,157,116,.3)" stroke-width="1"/></svg>'}</div>
-      <div class="d5-model-info"><div class="d5-model-n">${m.name}</div><div class="d5-model-m">${m.meta||''}</div></div>
+      <div class="d5-model-thumb">${m.thumb?`<img src="${esc(safeImgUrl(m.thumb)||'')}">`:'<svg viewBox="0 0 54 54" fill="none" width="22" height="22"><path d="M27 10 L40 17 L27 24 L14 17Z" stroke="rgba(184,157,116,.5)" stroke-width="1.2" fill="none"/><path d="M27 26 L40 19 L40 31 L27 38Z" stroke="rgba(184,157,116,.25)" stroke-width="1" fill="none"/><path d="M27 26 L14 19 L14 31 L27 38Z" stroke="rgba(184,157,116,.18)" stroke-width="1" fill="none"/><path d="M27 26 L27 38" stroke="rgba(184,157,116,.3)" stroke-width="1"/></svg>'}</div>
+      <div class="d5-model-info"><div class="d5-model-n">${esc(m.name)}</div><div class="d5-model-m">${esc(m.meta||'')}</div></div>
       <span class="d5-badge ${m.isLocal?'local':'cloud'}">${m.isLocal?'Local':'Cloud'}</span>
       <button class="d5-model-del" onclick="d5DeleteModel(${i})" title="Eliminar"><i class="ti ti-trash"></i></button>`;
     el.appendChild(row);
@@ -5548,6 +5757,34 @@ function d5ExitViewer() {
   d5RenderModelsList(); // refresh active state
 }
 
+// ── AISLAMIENTO DE MODELOS HTML (B05) ─────────────────────────
+// "allow-scripts" + "allow-same-origin" juntos solo son peligrosos cuando el
+// HTML comparte origen con la app: entonces puede quitarse su propio sandbox
+// y leer localStorage, IndexedDB y la llave de Supabase del editor.
+//   • Modelo remoto en otro dominio (Supabase): conserva su PROPIO origen;
+//     no alcanza a la app. Se mantienen los permisos que ya funcionaban.
+//   • Modelo local (archivo elegido, URL blob:) o alojado en el mismo
+//     dominio que la app: hereda el origen de la app → se quita
+//     allow-same-origin y queda en un origen opaco.
+// Si algún export de D5 necesitara almacenamiento propio en vista local y
+// dejara de funcionar, cambiar a true restaura el comportamiento anterior
+// SOLO para archivos locales que tú mismo eliges.
+const D5_TRUST_LOCAL_MODELS = false;
+const D5_SANDBOX_ISOLATED = 'allow-scripts allow-forms allow-pointer-lock';
+const D5_SANDBOX_REMOTE   = 'allow-scripts allow-same-origin allow-forms allow-pointer-lock';
+
+function _d5SandboxFor(url) {
+  let sameOrigin = true;                       // ante la duda, aislar
+  try {
+    const u = new URL(url, location.href);
+    if (u.protocol === 'blob:') sameOrigin = true;
+    else if (u.protocol === 'https:' || u.protocol === 'http:') sameOrigin = (u.origin === location.origin);
+  } catch (e) {}
+  if (!sameOrigin) return D5_SANDBOX_REMOTE;
+  if (D5_TRUST_LOCAL_MODELS && /^blob:/i.test(url)) return D5_SANDBOX_REMOTE;
+  return D5_SANDBOX_ISOLATED;
+}
+
 // ── PIPS ──
 function d5BuildPips() {
   const el = document.getElementById('d5Pips'); if (!el) return;
@@ -5611,7 +5848,13 @@ function d5GoTo(idx) {
           }, 1000);
         }, 300);
       };
-      iframe.src = m.url;
+      // Validación de esquema: un config manipulado podría traer javascript:
+      const _safeSrc = /^(https?:|blob:)/i.test(String(m.url||'')) ? m.url : 'about:blank';
+      if (_safeSrc === 'about:blank') toast('URL de modelo no válida');
+      // El sandbox se decide por modelo y se aplica ANTES de navegar (un
+      // cambio de sandbox solo rige desde la siguiente navegación).
+      iframe.setAttribute('sandbox', _d5SandboxFor(_safeSrc));
+      iframe.src = _safeSrc;
     }, 60);
   }
 
@@ -5684,10 +5927,9 @@ async function d5SaveConfigToSupa(models,pname,psub) {
   return id;
 }
 async function d5LoadConfigFromSupa(id) {
-  const path = `${D5_SUPA_CONFIG_PATH}/${id}.json`;
-  const res  = await fetch(`${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${path}`);
-  if (!res.ok) throw new Error('Config not found');
-  return res.json();
+  if (!/^[a-z0-9_-]{1,64}$/i.test(String(id))) throw new ConfigError('bad_id');
+  const raw = await fetchConfigJson(`${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${D5_SUPA_CONFIG_PATH}/${id}.json`);
+  return sanitizeD5Config(raw);
 }
 async function _d5BuildLink() {
   const pname = document.getElementById('d5ProjName')?.value.trim()||'Proyecto';
@@ -5746,11 +5988,11 @@ function d5RenderLinksPanel() {
     const d=document.createElement('div');
     d.className='d5-link-item';
     d.innerHTML=`
-      <div class="d5-link-name">${lk.name}</div>
-      <div class="d5-link-meta">${lk.projName||''} · ${lk.modelCount||0} modelo${(lk.modelCount||0)!==1?'s':''} · ${lk.created}</div>
-      ${lk.shortUrl?`<div class="d5-link-url">${lk.shortUrl.replace('https://','')}</div>`:''}
+      <div class="d5-link-name">${esc(lk.name)}</div>
+      <div class="d5-link-meta">${esc(lk.projName||'')} · ${lk.modelCount||0} modelo${(lk.modelCount||0)!==1?'s':''} · ${esc(lk.created)}</div>
+      ${lk.shortUrl?`<div class="d5-link-url">${esc(String(lk.shortUrl).replace('https://',''))}</div>`:''}
       <div class="d5-link-actions">
-        <button class="d5-link-btn" onclick="window.open('${lk.url}','_blank')"><i class="ti ti-external-link"></i></button>
+        <button class="d5-link-btn" onclick="window.open('${esc(lk.url)}','_blank')"><i class="ti ti-external-link"></i></button>
         <button class="d5-link-btn" onclick="d5CopyLinkById('${lk.id}')"><i class="ti ti-copy"></i> Copiar</button>
         <button class="d5-link-btn" onclick="d5RenameLink('${lk.id}')"><i class="ti ti-pencil"></i></button>
         <button class="d5-link-btn del" onclick="d5DeleteLink('${lk.id}')"><i class="ti ti-trash"></i></button>

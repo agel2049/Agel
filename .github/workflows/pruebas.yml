@@ -1,0 +1,82 @@
+# Corre todas las pruebas en cada cambio y en cada Pull Request.
+# Si una prueba falla, GitHub marca el cambio en rojo antes de que llegue a main.
+#
+#   1. Sintaxis de todas las páginas.
+#   2. Módulos sin navegador (4D, clasificación BIM) y funciones de servidor (Deno).
+#   3. Permisos de la base: migraciones reales sobre Postgres (RLS, Storage, RPC).
+#   4. Editor en modo local (sin cuenta) en un navegador real.
+#   5. Modo nube, showroom, panel y visor BIM contra un Supabase local
+#      (Postgres + PostgREST reales; Autodesk simulado).
+name: Pruebas
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      AGEL_PG: host=localhost port=5432 user=postgres password=postgres
+      AGEL_POSTGREST: ${{ github.workspace }}/.bin/postgrest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Sintaxis y manejadores
+        run: node tests/syntax.js index.html apps/showroom/index.html apps/panel/index.html apps/bim/index.html apps/bim/pano.html
+
+      - name: Módulos 4D y clasificación
+        run: |
+          node tests/unit_fourd.js
+          node tests/unit_classify.js
+
+      - name: Funciones de servidor (Autodesk y avisos simulados)
+        run: deno test supabase/functions/tests/
+
+      - name: PostgREST (mismo que usa Supabase)
+        run: |
+          mkdir -p .bin
+          curl -sSL https://github.com/PostgREST/postgrest/releases/download/v12.2.12/postgrest-v12.2.12-linux-static-x86-64.tar.xz | tar -xJ -C .bin
+          .bin/postgrest --version
+
+      - name: Dependencias de prueba
+        run: |
+          npm ci --prefix tests/vendor
+          pip install -r tests/requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Permisos de la base (RLS, Storage, publicaciones, BIM, 4D)
+        run: python supabase/tests/run.py
+
+      - name: Editor en modo local
+        run: python tests/e2e.py index.html
+
+      - name: Modo nube
+        run: python tests/e2e_cloud.py
+
+      - name: Showroom público
+        run: python tests/e2e_showroom.py
+
+      - name: Panel y visor BIM
+        run: python tests/e2e_bim.py

@@ -1,0 +1,10 @@
+{
+  "name": "agelarq-test-vendor",
+  "private": true,
+  "description": "Copias locales de las librerías que la app carga por CDN, en las MISMAS versiones, para correr las pruebas sin red.",
+  "dependencies": {
+    "@tabler/icons-webfont": "3.49.0",
+    "qrcodejs": "1.0.0",
+    "three": "0.128.0"
+  }
+}

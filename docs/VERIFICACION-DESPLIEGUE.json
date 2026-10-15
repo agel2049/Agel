@@ -1,0 +1,34 @@
+{
+  "fecha": "2026-10-13",
+  "estado_externo": "No publicado; Supabase solo consultas SELECT",
+  "pruebas_locales": {
+    "permisos_PostgreSQL17_6": 43,
+    "editor": 21,
+    "nube": 10,
+    "showroom": 15,
+    "panel_BIM": 7,
+    "funciones_servidor_simuladas": 14,
+    "4D": 11,
+    "clasificacion": 8
+  },
+  "total": 129,
+  "sintaxis_paginas": 5,
+  "limitaciones": [
+    "Storage/Auth y Autodesk simulados; falta validación autenticada de integración real",
+    "INSERT público del bucket legado conservado hasta transición validada",
+    "margen 800 MB protege nuevas subidas de la app; no egress ni procesos externos"
+  ],
+  "supabase_inventario": {
+    "archivos": 24,
+    "bytes": 436510947,
+    "archivos_sin_tamano": 0,
+    "tablas_public_antes": 0
+  },
+  "correcciones": [
+    "Registro de assets solo servidor",
+    "Reserva conservadora bajo bloqueo; tamaño real comprobado",
+    "Scopes APS por modelo autorizado",
+    "Cabecera de caché para rutas únicas",
+    "Documentación actualizada para conservar plan gratuito"
+  ]
+}
