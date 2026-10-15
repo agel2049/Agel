@@ -1,7 +1,7 @@
 # AgelArq: showroom inmersivo y correcciones de almacenamiento
 
 Fecha: 14 de octubre de 2026.
-Estado: diseño concreto para revisión del propietario; implementación pendiente.
+Estado: aprobado por el propietario, con ajustes de dibujo incorporados; implementación pendiente de revisión del plan.
 Base: `origin/main`, commit `41c6b042d4f31a351d860d0a4f2a3971ba1208b5`.
 Rama de trabajo: `codex/showroom-inmersivo`.
 
@@ -79,6 +79,19 @@ El lateral pertenece al showroom. El miniplano aparece en la parte inferior dere
 - Una zona de habitación puede llevar a una escena configurada; un punto 360 permite el mismo acceso sin crear habitaciones en el catálogo.
 - Mostrar nombre, disponibilidad y datos comerciales configurados. Los precios siguen ocultos cuando no se autoriza publicarlos.
 - Mantener ubicación del visitante: fachada, nivel, departamento y escena; «Volver» recupera el contexto anterior.
+- Las áreas sobre renders y plantas son transparentes y sin contorno en reposo. Solo la zona bajo el ratón se destaca, sin cubrir el resto de la imagen. Con teclado se muestra la zona enfocada; en pantallas táctiles se destaca la seleccionada durante la interacción. El estado de disponibilidad aparece en su etiqueta o ficha, sin colorear permanentemente toda la planta.
+
+### 2.3.1 Dibujo de áreas: ajuste aprobado por el propietario
+
+- Añadir un botón compacto «90°», con estado activo visible y `aria-pressed`, para restringir cada nuevo segmento a horizontal o vertical respecto de la imagen.
+- El botón puede activarse y desactivarse durante el dibujo de una misma figura. Cambiarlo no cierra la figura, no elimina puntos y no cambia los segmentos ya dibujados. Solo afecta el segmento que se está colocando.
+- Elegir automáticamente el eje más cercano al movimiento del puntero desde el último vértice. Mostrar la previsualización del segmento antes de colocarlo. La tecla Shift permite restricción temporal mientras se mantiene pulsada; los campos de texto no deben capturar ese atajo.
+- «Cerrar zona» sigue disponible después de tres vértices válidos. El cierre conecta con el inicio sin deformar silenciosamente los puntos para forzar 90°; las figuras de ángulos mixtos siguen siendo válidas.
+- Permitir redondear esquinas de figuras cerradas mediante «Redondear esquinas» y un control de radio. Guardar los vértices originales y el radio por zona; radio cero conserva esquinas rectas. El radio se expresa de 0 a 2 % del lado menor de la imagen, con valor inicial de 0,5 % al activar el redondeo.
+- Construir curvas tangentes a los segmentos; limitar el radio por la longitud de los lados vecinos. Soportar polígonos cóncavos simples, evitar valores no finitos, lados de longitud cero, áreas degeneradas y cruces del contorno.
+- Redondear no cambia el destino ni convierte la figura en una imagen: edición posterior, selección y visualización pública usan la misma geometría. El área interactiva coincide con el contorno redondeado.
+- Conservar deshacer punto, empezar de nuevo, redibujar, quitar zona y la protección frente a figuras sin cerrar.
+- Las figuras siguen visibles dentro del panel de edición para poder dibujarlas. La transparencia en reposo corresponde al showroom publicado y a su vista previa.
 
 ### 2.4 Recorrido y hotspots
 
@@ -212,6 +225,9 @@ Las comprobaciones se limitan a los cambios de panel, almacenamiento, publicaci�
 9. Los presets BIM se validan con conjuntos de elementos reales o fixtures de clasificación. Una clasificación ausente se informa; no se simula una vista de obra gris como si fuera real.
 10. No hay recortes ni controles superpuestos en escritorio y móvil. Navegación por teclado, foco, contraste y movimiento reducido funcionan.
 11. La publicación rechaza recursos pendientes/locales y conserva las versiones y enlaces existentes. No hay aumento de cuotas ni cambio de plan.
+12. El botón «90°» se puede alternar a mitad de una figura sin perder puntos; los segmentos posteriores respetan el modo elegido. Deshacer y cierre funcionan con ángulos mixtos.
+13. Redondear una figura cerrada conserva sus vértices y destino, limita el radio en lados pequeños y mantiene la misma forma en el panel, la vista previa y la publicación.
+14. Las zonas son transparentes en reposo; ratón, foco de teclado y selección táctil revelan únicamente la zona pertinente. Las áreas transparentes siguen siendo seleccionables sin bloquear los puntos 360 superpuestos.
 
 ## 10. Preparación del propietario
 
@@ -219,4 +235,4 @@ El panel nuevo permitirá cargar los recursos reales; no es necesario compartir 
 
 ## 11. Punto de revisión
 
-Este documento concreta lo solicitado y la decisión de BIM privado. Falta la revisión del propietario antes del plan de implementación y los cambios de producto, conforme al flujo de la habilidad `brainstorming`. La rama contiene solo documentación en esta etapa; no modifica el sitio publicado ni Supabase.
+El propietario aprobó el diseño y añadió el botón 90° con alternancia durante el dibujo, redondeo de vértices cerrados y transparencia de las áreas en reposo. Estos ajustes están incorporados. El siguiente punto de revisión es el plan de implementación y su método de ejecución, conforme al flujo de las habilidades `brainstorming` y `writing-plans`. La rama contiene solo documentación en esta etapa; no modifica el sitio publicado ni Supabase.
