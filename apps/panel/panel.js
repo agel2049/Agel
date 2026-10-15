@@ -204,6 +204,8 @@
     const localImg=ref=>{const el=h('img',{alt:'',loading:'lazy'});S.workspace.resolveMedia(ref).then(url=>el.src=url).catch(fail);return el;};
     const sr = Object.assign({}, p.showroom || {});
     const views = JSON.parse(JSON.stringify(Array.isArray(sr.views) ? sr.views : []));
+    const settingsBox=h('div');let settings;
+    settings=await AgelExperienceSettings.mount(settingsBox,{workspace:S.workspace,views,onChange:next=>Object.assign(sr,next.showroom)});
     const progress = JSON.parse(JSON.stringify(Array.isArray(sr.progress) ? sr.progress : []));
     const loc = sr.location || {}, ct = sr.contact || {}, seo = sr.seo || {};
     const gallery = (sr.gallery || []).map(g => typeof g === 'string' ? { url: g, caption: '' } : Object.assign({}, g));
@@ -261,7 +263,7 @@
             h('small', { class: 'pn-muted' }, `${(v.regions || []).length} zonas, ${(v.spots || []).length} puntos 360°`,
               broken ? h('span', { class: 'ag-error' }, ` · ${broken} apuntan a algo que ya no existe`) : null)),
           h('span', { class: 'pn-media-act' },
-            h('button', { type: 'button', class: 'ag-btn primary', onclick: () => editView(v, spaces, scenes, () => { drawViews(); form.requestSubmit(); }) }, 'Dibujar zonas'),
+            h('button', { type: 'button', class: 'ag-btn primary', onclick: () => editView(v, spaces, scenes, views, () => { drawViews(); form.requestSubmit(); }) }, 'Dibujar zonas'),
             h('button', { type: 'button', class: 'ag-btn', 'aria-label': 'Subir', disabled: i === 0, onclick: () => { [views[i - 1], views[i]] = [views[i], views[i - 1]]; drawViews(); } }, icon('arrow-up')),
             h('button', { type: 'button', class: 'ag-btn danger', 'aria-label': 'Quitar vista', onclick: () => { if (confirm('¿Quitar esta vista y sus zonas?')) { views.splice(i, 1); drawViews(); } } }, icon('trash'))));
       }));
@@ -303,7 +305,8 @@
       e.preventDefault(); err.textContent = '';
       for (const [k, label] of [['map_url', 'El enlace del mapa'], ['webhook', 'El webhook'], ['model_url', 'El modelo 3D']])
         if (!httpsOrEmpty(f[k].value.trim())) { err.textContent = `${label} debe empezar con https://`; f[k].focus(); return; }
-      const next = Object.assign({}, sr, {
+      let experience;try{experience=settings.read();}catch(ex){err.textContent=ex.message;return;}
+      const next = Object.assign({}, sr, experience.showroom, {
         tagline: f.tagline.value.trim(), description: f.description.value.trim(),
         highlights: lines(f.highlights.value).slice(0, 12), amenities: lines(f.amenities.value).slice(0, 30),
         gallery: gallery.map(g => ({ url: g.url, caption: (g.caption || '').trim() })),
@@ -321,7 +324,7 @@
       });
       busy(save, true, 'Guardando…');
       try {
-        const d=await S.workspace.load();d.showroom=next;Object.assign(d.tree.project,{kind:f.kind.value,subtitle:f.subtitle.value.trim(),location:f.location.value.trim(),delivery:f.delivery.value.trim()});await S.workspace.save(d);
+        const d=await S.workspace.load();d.showroom=next;d.privateSettings=experience.privateSettings;Object.assign(d.tree.project,{kind:f.kind.value,subtitle:f.subtitle.value.trim(),location:f.location.value.trim(),delivery:f.delivery.value.trim()});await S.workspace.save(d);
         Object.assign(sr, next);
         notify('Guardado en este dispositivo. Usa Subir a la nube antes de crear una versión pública.');
       } catch (ex) { err.textContent = ex.message; }
@@ -345,7 +348,7 @@
         uploader('Agregar vista (render o planta)', 'image/jpeg,image/png,image/webp', 'image', async (url, file) => {
           const dims = await new Promise(res => { const im = new Image(); const objectUrl=URL.createObjectURL(file); im.onload = () => {URL.revokeObjectURL(objectUrl);res({ w: im.naturalWidth, h: im.naturalHeight });}; im.onerror = () => {URL.revokeObjectURL(objectUrl);res({});}; im.src = objectUrl; });
           views.push({ id: 'v' + Math.random().toString(36).slice(2, 8), title: file.name.replace(/\.[^.]+$/, ''), kind: 'render', image: url, w: dims.w, h: dims.h, regions: [], spots: [] });
-          drawViews();
+          drawViews();settings.refreshViews(views);
         })),
       h('fieldset', null, h('legend', null, 'Avance de obra'),
         h('p', { class: 'pn-muted' }, 'Fotos e hitos aprobados para el público. Es distinto del calendario 4D técnico.'),
@@ -368,13 +371,13 @@
         h('div', { class: 'pn-grid' }, field('Correo para avisos de prospectos', f.notify_email),
           field('Webhook de CRM', f.webhook, 'Se envía un POST con cada prospecto nuevo (ver docs).'))),
       err, h('div', { class: 'pn-actions' }, save));
-    put(body, form);
+    put(body, settingsBox, form);
   }
 
   // Editor de zonas: dibuja polígonos sobre el render o plano y coloca los
   // puntos de las escenas 360°. Coordenadas en % de la imagen (0–100).
-  function editView(v, spaces, scenes, onDone) {
-    return AgelViewEditor.open({ view: v, spaces, scenes, resolveMedia:ref=>S.workspace.resolveMedia(ref),
+  function editView(v, spaces, scenes, views, onDone) {
+    return AgelViewEditor.open({ view: v, spaces, scenes, views, resolveMedia:ref=>S.workspace.resolveMedia(ref),
       onSave: next => { Object.assign(v, next); onDone(); } });
   }
 
