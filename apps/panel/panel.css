@@ -157,3 +157,10 @@ button, input, select, textarea { font: inherit; }
 .ag-modal-box.pn-phone-box { width: min(480px, 100%); }
 .pn-phone { display: grid; place-items: center; padding: 12px; background: #000; border-radius: 28px; }
 .pn-phone iframe { border: 0; border-radius: 18px; background: #fff; max-width: 100%; }
+
+/* The authoring stage keeps the same aspect as the image and SVG. */
+.pn-vstage { max-height:none; width:min(100%,calc(58dvh * var(--image-ratio,1.7778))); margin-inline:auto; }
+.pn-vstage img { object-fit:contain; }
+.pn-ortho[aria-pressed="true"] { background:var(--ag-accent); color:#16130E; border-color:var(--ag-accent); }
+.pn-vmodal h3 { font-size:13px; margin:12px 0 8px; }
+.pn-local-controls{flex-wrap:wrap;width:100%;padding-top:12px}.pn-head:has(.pn-local-controls){flex-wrap:wrap}.pn-entry-stage{position:relative;max-width:700px;cursor:crosshair}.pn-entry-stage img{display:block;width:100%;height:auto}.pn-entry-dot{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:32px;height:32px;border:1px solid #b89d74;border-radius:50%;color:#b89d74;background:#161616;pointer-events:none}

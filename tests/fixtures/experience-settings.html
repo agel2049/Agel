@@ -1,0 +1,6 @@
+<!doctype html><meta charset="utf-8"><div id="app"></div>
+<script src="../../packages/core/dom.js"></script><script src="../../packages/core/local-media.js"></script><script src="../../packages/core/workspace.js"></script><script src="../../packages/showroom/geometry.js"></script><script src="../../packages/showroom/relations.js"></script><script src="../../apps/panel/experience-settings.js"></script>
+<script>
+window.writes=[];const user={id:'owner'};window.cloud={user,select:async()=>[],rpc:async name=>{if(name==='load_workspace_settings')return {};if(name==='load_project_tree')return {role:'owner',revision:1,project:{id:'p',showroom:{views:[{id:'f',title:'Fachada',image:'https://example.test/f.jpg',role:'facade'},{id:'l',title:'Lobby',image:'https://example.test/l.jpg',role:'lobby'}]}},scenes:[{id:'sa',name:'Sala',hs:[{id:'ha',type:'info',title:'Material',payload:{}}]}]};writes.push(name);throw Error('Unexpected cloud write');}};
+(async()=>AgelExperienceSettings.mount(document.getElementById('app'),{workspace:await AgelWorkspace.open({cloud,ownerId:user.id,projectId:'p'})}))();
+</script>

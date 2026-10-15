@@ -50,6 +50,7 @@ jobs:
         run: |
           node tests/unit_fourd.js
           node tests/unit_classify.js
+          node --test tests/unit_showroom_*.cjs tests/unit_catalog_import.cjs tests/unit_bim_presets.cjs
 
       - name: Funciones de servidor (Autodesk y avisos simulados)
         run: deno test supabase/functions/tests/
@@ -67,7 +68,25 @@ jobs:
           python -m playwright install --with-deps chromium
 
       - name: Permisos de la base (RLS, Storage, publicaciones, BIM, 4D)
-        run: python supabase/tests/run.py
+        run: |
+          python supabase/tests/run.py
+          python scripts/build-showroom-migration.py
+          git diff --exit-code -- supabase/manual/03-showroom-inmersivo-revisado.sql
+          python supabase/tests/incremental.py
+
+      - name: Guardado local y showroom inmersivo (motor simulado)
+        run: |
+          python tests/e2e_panel_areas.py
+          python tests/e2e_local_media.py
+          python tests/e2e_workspace.py
+          python tests/e2e_workspace_sync.py
+          python tests/e2e_experience_settings.py
+          python tests/e2e_showroom_experience.py
+          python tests/e2e_showroom_fullscreen.py
+          python tests/e2e_review_fixes.py
+          python tests/e2e_review_buildings.py
+          python tests/e2e_d5_persistence.py
+          python tests/e2e_media_batch.py
 
       - name: Editor en modo local
         run: python tests/e2e.py index.html

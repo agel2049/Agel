@@ -147,6 +147,11 @@ def shot(p, name):
 
 
 # ───────────────────────── pruebas ─────────────────────────
+def sync_panel(p):
+    p.pg.get_by_role('button',name='Subir a la nube',exact=True).click()
+    p.pg.get_by_role('button',name='Confirmar subida',exact=True).click()
+    p.pg.wait_for_selector('text=Contenido sincronizado',timeout=10000)
+
 @test
 def panel_sube_y_convierte_modelo(w):
     d = setup_project(w)
@@ -199,6 +204,12 @@ def visor_bim_indexa_filtra_y_4d(w):
     check(sorted(p.ev('__fake.isolated')) == [1, 6, 11, 16], f'aisló {p.ev("__fake.isolated")}')
     p.pg.get_by_role('button', name='Ver todo').click()
     p.wait("__fake.isolated === null", 4000)
+    p.pg.get_by_role('button',name='MEP',exact=True).click()
+    p.wait("__fake.isolated && __fake.isolated.length === 15",6000)
+    p.pg.get_by_role('button',name='Completo',exact=True).click()
+    p.wait("__fake.isolated === null",4000)
+    p.pg.get_by_role('button',name='Con acabados',exact=True).click()
+    p.pg.wait_for_selector('text=Configura los elementos de esta vista')
     # propiedades
     p.pg.locator('.fake-viewer button[data-dbid="2"]').click()
     p.pg.wait_for_selector('#bm-panel h2:has-text("Pipes 2")')
@@ -261,6 +272,18 @@ def vistas_incidencias_y_360(w):
     check(not p.errors, f'errores JS: {p.errors}')
 
 @test
+def cambio_rapido_tab_no_sobrescribe(w):
+    d=setup_project(w);m,v=ready_version(w,d);p=w.page(d['email'])
+    p.pg.goto(w.base+f'apps/bim/?v={v}')
+    p.pg.wait_for_selector('.fake-viewer button',timeout=10000)
+    p.ev('__fake.propsDelay=300')
+    p.pg.locator('.fake-viewer button[data-dbid="3"]').click()
+    p.pg.get_by_role('tab',name='Incidencias').click()
+    p.pg.get_by_role('button',name='Nueva',exact=True).wait_for()
+    p.pg.wait_for_timeout(800)
+    check(p.pg.get_by_role('button',name='Nueva',exact=True).count()==1,'Una respuesta de Propiedades sobrescribió Incidencias')
+
+@test
 def accesos_del_visor(w):
     aps_calls_before = len(w.aps.calls)
     d = setup_project(w)
@@ -288,11 +311,12 @@ def panel_showroom_catalogo_y_publicacion(w):
     p.pg.get_by_label('Puntos destacados').fill('Terreno de 300 m²\nPaneles solares')
     p.pg.get_by_label('Correo para avisos de prospectos').fill('ventas@pinos.mx')
     p.pg.get_by_label('Webhook de CRM').fill('http://inseguro.example/hook')
-    p.pg.locator('.pn-form').get_by_role('button', name='Guardar', exact=True).click()
+    p.pg.locator('.pn-form').get_by_role('button', name='Guardar en este dispositivo', exact=True).click()
     p.pg.wait_for_selector('.ag-error:has-text("https://")')
     p.pg.get_by_label('Webhook de CRM').fill('')
-    p.pg.locator('.pn-form').get_by_role('button', name='Guardar', exact=True).click()
-    p.pg.wait_for_selector('text=Guardado.', timeout=6000)
+    p.pg.locator('.pn-form').get_by_role('button', name='Guardar en este dispositivo', exact=True).click()
+    p.pg.wait_for_selector('text=Guardado en este dispositivo.', timeout=6000)
+    sync_panel(p)
     sr = w.sb.sql('select showroom from public.projects where id = %s', (d['project'],))[0][0]
     check(sr['tagline'].startswith('Casas entre pinos') and sr['highlights'] == ['Terreno de 300 m²', 'Paneles solares'], f'showroom: {sr}')
     # catálogo
@@ -304,6 +328,7 @@ def panel_showroom_catalogo_y_publicacion(w):
     p.pg.get_by_label('Cuarto de máquinas').check()
     modal_btn(p, 'Guardar').click()
     p.pg.wait_for_selector('.pn-table th:has-text("Casa 7")', timeout=6000)
+    sync_panel(p)
     # publicación
     p.pg.get_by_role('link', name='Publicaciones').click()
     p.pg.get_by_role('button', name='Nueva publicación').click()
@@ -408,12 +433,14 @@ def panel_vistas_zonas_y_revision(w):
     b = stage.bounding_box()
     for fx, fy in [(.1, .1), (.3, .1), (.3, .4), (.1, .4)]:
         p.pg.mouse.click(b['x'] + b['width'] * fx, b['y'] + b['height'] * fy)
+    p.pg.get_by_label('Zona de',exact=True).select_option(str(u1))
     p.pg.get_by_role('button', name='Cerrar zona').click()
-    check('1 de 2 unidades' in p.pg.inner_text('.ag-modal'), p.pg.inner_text('.ag-modal')[:300])
+    check(p.pg.locator('.pn-vstage path').count()>0,'no se dibujó la zona')
     p.pg.get_by_role('button', name='Colocar escenas 360°').click()
     p.pg.mouse.click(b['x'] + b['width'] * .6, b['y'] + b['height'] * .5)
     modal_btn(p, 'Listo y guardar').click()
-    p.pg.wait_for_selector('text=Guardado.', timeout=8000)
+    p.pg.wait_for_selector('text=Guardado en este dispositivo.', timeout=8000)
+    sync_panel(p)
     sr = w.sb.sql('select showroom from public.projects where id = %s', (d['project'],))[0][0]
     v = sr['views'][0]
     check(sr['area_label'] == 'interior' and v['regions'][0]['space'] == str(u1) and len(v['regions'][0]['points']) == 4, f'zonas: {v}')
@@ -465,7 +492,9 @@ def main():
             w = World(browser, base, sb, aps); t0 = time.time()
             try: t(w); status, info = 'PASS', ''
             except AssertionError as e: status, info = 'FAIL', str(e)
-            except Exception as e: status, info = 'ERROR', f'{type(e).__name__}: {str(e).splitlines()[0][:240]}'
+            except Exception as e:
+                __import__('traceback').print_exc()
+                status, info = 'ERROR', f'{type(e).__name__}: {str(e).splitlines()[0][:240]}'
             if status != 'PASS' and os.environ.get('AGEL_DEBUG'):
                 for ci, c in enumerate(w.ctxs):
                     for pi, pg in enumerate(c.pages):

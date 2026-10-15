@@ -186,27 +186,27 @@ def arranque_sin_errores(ctx, base, supa):
 def subir_panoramica_y_mostrarla(ctx, base, supa):
     p = Page(ctx, base).open()
     p.upload_pano('pano_a.jpg')
-    p.wait("PROJ[cP].scenes[cS].supaUrl", 8000)
+    p.wait("PROJ[cP].scenes[cS].img", 8000)
     p.wait("pano.sphere.material.map && pano.sphere.material.map.image", 8000)
-    check('pano_a' in (map_src(p) or ''), f'la esfera no muestra la panorámica subida: {map_src(p)}')
+    check(p.ev("pano.sphere.material.map === texCache[k(cP,cS)]"), f'la esfera no muestra la panorámica subida: {map_src(p)}')
     check(not p.errors, f'errores JS: {p.errors}')
 
 def _prepare_two_scenes(p):
-    p.upload_pano('pano_a.jpg'); p.wait("PROJ[cP].scenes[0].supaUrl", 8000)
+    p.upload_pano('pano_a.jpg'); p.wait("PROJ[cP].scenes[0].img", 8000)
     p.ev("selScene(1)")
-    p.upload_pano('pano_b.jpg'); p.wait("PROJ[cP].scenes[1].supaUrl", 8000)
+    p.upload_pano('pano_b.jpg'); p.wait("PROJ[cP].scenes[1].img", 8000)
     p.ev("selScene(0)")
-    p.wait("pano.sphere.material.map && /pano_a/.test(pano.sphere.material.map.image.src)", 8000)
+    p.wait("pano.sphere.material.map && pano.sphere.material.map===texCache[k(cP,cS)]", 8000)
 
 @test
 def subida_rapida_tras_elegir_escena_vacia(ctx, base, supa):
     # Antes: la llamada pendiente de "mostrar escena vacía" llegaba tarde y
     # dejaba la pantalla negra con la panorámica ya guardada.
     p = Page(ctx, base).open()
-    p.upload_pano('pano_a.jpg'); p.wait("PROJ[cP].scenes[0].supaUrl", 8000)
+    p.upload_pano('pano_a.jpg'); p.wait("PROJ[cP].scenes[0].img", 8000)
     p.ev("selScene(1)"); p.upload_pano('pano_b.jpg')       # sin esperar
-    p.wait("PROJ[cP].scenes[1].supaUrl", 8000); p.pg.wait_for_timeout(1500)
-    check('pano_b' in (map_src(p) or ''), f'la panorámica subida no se muestra: {map_src(p)}')
+    p.wait("PROJ[cP].scenes[1].img", 8000); p.pg.wait_for_timeout(1500)
+    check(p.ev("pano.sphere.material.map === texCache[k(cP,cS)]"), f'la panorámica subida no se muestra: {map_src(p)}')
 
 @test
 def iconos_cargan(ctx, base, supa):
@@ -254,7 +254,7 @@ def persistencia_tras_recargar(ctx, base, supa):
     p.ev("PROJ[cP].scenes[0].name = 'Lobby verificado'; saveData();")
     p.open()
     check(p.ev("PROJ[cP].scenes[0].name") == 'Lobby verificado', 'el nombre de escena no persistió')
-    check(p.ev("!!PROJ[cP].scenes[1].supaUrl"), 'la URL de la panorámica no persistió')
+    check(p.ev("!!PROJ[cP].scenes[1].img"), 'la URL de la panorámica no persistió')
 
 @test
 def borrar_escena_y_deshacer(ctx, base, supa):
@@ -425,7 +425,7 @@ def respaldo_recupera_imagen_solo_local(ctx, base, supa):
     p = Page(ctx, base).open()
     p.upload_pano('pano_c.jpg')
     p.wait("pano.sphere.material.map && pano.sphere.material.map.image", 8000)
-    check(p.ev("!PROJ[cP].scenes[0].supaUrl"), 'la imagen no quedó solo en local')
+    check(p.ev("!PROJ[cP].scenes[0].supaUrl && PROJ[cP].scenes[0].img.startsWith('blob:')"), 'la imagen no quedó solo en local')
     with p.pg.expect_download() as dl:
         p.ev("exportBackup()")
     path = dl.value.path()

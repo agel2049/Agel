@@ -20,7 +20,7 @@
   try { cloud = AgelCloud.client(); }
   catch (e) { app.append(h('p', { class: 'pn-empty' }, 'Falta config.js con los datos de Supabase.')); return; }
 
-  const S = { access: null, orgId: null, projectId: null, tab: 'showroom', project: null };
+  const S = { access: null, orgId: null, projectId: null, tab: 'showroom', project: null, workspace: null };
   const ROLE = { owner: 'Propietario', editor: 'Editor', reviewer: 'Revisor', viewer: 'Lector' };
   const KIND = { desarrollo: 'Desarrollo (varias unidades)', edificio: 'Edificio', vivienda: 'Vivienda', ambiente: 'Ambiente o interiorismo', producto: 'Producto' };
   const SPACE_KIND = { conjunto: 'Conjunto', edificio: 'Edificio o torre', nivel: 'Nivel', unidad: 'Unidad', area: 'Área común',
@@ -159,7 +159,7 @@
       h('span', { class: 'pn-grow' }),
       h('a', { class: 'ag-btn', href: ROOT + 'index.html' }, icon('edit'), 'Editor'),
       h('span', { class: 'pn-user' }, (cloud.user && cloud.user.email) || ''),
-      h('button', { class: 'ag-btn', type: 'button', onclick: async () => { await cloud.signOut(); location.hash = ''; loginView(); } }, 'Salir'));
+      h('button', { class: 'ag-btn', type: 'button', onclick: async () => { S.workspace?.close(); S.workspace=null; await cloud.signOut(); location.hash = ''; loginView(); } }, 'Salir'));
     const main = h('main', { class: 'pn-main', id: 'pn-main' });
     put(app, top, h('div', { class: 'pn-body' }, side, main));
     if (S.projectId) projectView(main); else orgView(main);
@@ -170,7 +170,7 @@
       h('a', { href: href(id), class: 'pn-tab' + (id === current ? ' is-on' : ''), 'aria-current': id === current ? 'page' : null }, icon(ic), label)));
   }
 
-  function projectView(main) {
+  async function projectView(main) {
     const tabs = PTABS.filter(t => t[3]());
     if (!tabs.some(t => t[0] === S.tab)) { location.hash = `#/p/${S.projectId}/${tabs[0][0]}`; return; }
     const body = h('section', { class: 'pn-content' });
@@ -178,6 +178,10 @@
       h('h1', null, S.project.name),
       h('span', { class: 'ag-pill' }, ROLE[role()] || role())),
       tabsBar(tabs, S.tab, id => `#/p/${S.projectId}/${id}`), body);
+    try {
+      if(S.workspace?.projectId!==S.projectId){S.workspace?.close();S.workspace=await AgelWorkspace.open({cloud,ownerId:cloud.user.id,projectId:S.projectId});}
+      if(canEdit())AgelMediaControls.mount(main.querySelector('.pn-head'),{workspace:S.workspace});
+    } catch(e){put(body,h('p',{class:'ag-error'},e.message));return;}
     const fn = { showroom: tabShowroom, catalogo: tabCatalog, publicaciones: tabPublications, prospectos: tabLeads,
                  equipo: tabTeam, modelos: tabModels, actividad: tabActivity, exportar: tabExport }[S.tab];
     body.append(h('p', { class: 'pn-muted' }, 'Cargando…'));
@@ -196,12 +200,13 @@
 
   // ═════════════════════════════ showroom ═════════════════════════════
   async function tabShowroom(body) {
-    const [[p], spaces, scenes] = await Promise.all([
-      cloud.select('projects', `id=eq.${S.projectId}&select=id,name,subtitle,location,delivery,kind,showroom`),
-      cloud.select('spaces', `project_id=eq.${S.projectId}&select=id,parent_id,kind,name,code&order=position.asc,name.asc`),
-      cloud.select('scenes', `project_id=eq.${S.projectId}&select=id,name,pano_url&order=position.asc`)]);
+    const workspace=S.workspace;
+    const draft=await workspace.load(), p={...draft.tree.project,showroom:draft.showroom},spaces=draft.spaces,scenes=draft.tree.scenes;
+    const localImg=ref=>{const el=h('img',{alt:'',loading:'lazy'});workspace.resolveMedia(ref).then(url=>el.src=url).catch(fail);return el;};
     const sr = Object.assign({}, p.showroom || {});
     const views = JSON.parse(JSON.stringify(Array.isArray(sr.views) ? sr.views : []));
+    const editSession={revision:draft.localRevision},settingsBox=h('div');let settings;
+    settings=await AgelExperienceSettings.mount(settingsBox,{workspace,views,editSession,onChange:next=>Object.assign(sr,next.showroom)});
     const progress = JSON.parse(JSON.stringify(Array.isArray(sr.progress) ? sr.progress : []));
     const loc = sr.location || {}, ct = sr.contact || {}, seo = sr.seo || {};
     const gallery = (sr.gallery || []).map(g => typeof g === 'string' ? { url: g, caption: '' } : Object.assign({}, g));
@@ -235,7 +240,7 @@
     function mediaRow(list, arr, i, render) {
       const it = arr[i];
       return h('li', null,
-        /\.pdf(\?|$)/i.test(it.url) ? h('span', { class: 'pn-pdf' }, 'PDF') : h('img', { src: it.url, alt: '', loading: 'lazy' }),
+        /\.pdf(\?|$)/i.test(it.url) ? h('span', { class: 'pn-pdf' }, 'PDF') : localImg(it.url),
         render(it),
         h('span', { class: 'pn-media-act' },
           h('button', { type: 'button', class: 'ag-btn', 'aria-label': 'Subir', disabled: i === 0, onclick: () => { [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]]; draw(); } }, icon('arrow-up')),
@@ -253,13 +258,13 @@
     function drawViews() {
       put(viewList, views.map((v, i) => {
         const broken = (v.regions || []).filter(r => !spaceIds.has(r.space)).length + (v.spots || []).filter(sp => !sceneIds.has(sp.scene)).length;
-        return h('li', null, h('img', { src: v.image, alt: '', loading: 'lazy' }),
+        return h('li', null, localImg(v.image),
           h('div', { class: 'pn-view-meta' },
             input({ value: v.title || '', 'aria-label': 'Título de la vista', maxlength: 80, oninput: e => { v.title = e.target.value; } }),
             h('small', { class: 'pn-muted' }, `${(v.regions || []).length} zonas, ${(v.spots || []).length} puntos 360°`,
               broken ? h('span', { class: 'ag-error' }, ` · ${broken} apuntan a algo que ya no existe`) : null)),
           h('span', { class: 'pn-media-act' },
-            h('button', { type: 'button', class: 'ag-btn primary', onclick: () => editView(v, spaces, scenes, () => { drawViews(); form.requestSubmit(); }) }, 'Dibujar zonas'),
+            h('button', { type: 'button', class: 'ag-btn primary', onclick: () => editView(v, spaces, scenes, views, workspace, () => { drawViews(); form.requestSubmit(); }) }, 'Dibujar zonas'),
             h('button', { type: 'button', class: 'ag-btn', 'aria-label': 'Subir', disabled: i === 0, onclick: () => { [views[i - 1], views[i]] = [views[i], views[i - 1]]; drawViews(); } }, icon('arrow-up')),
             h('button', { type: 'button', class: 'ag-btn danger', 'aria-label': 'Quitar vista', onclick: () => { if (confirm('¿Quitar esta vista y sus zonas?')) { views.splice(i, 1); drawViews(); } } }, icon('trash'))));
       }));
@@ -273,7 +278,7 @@
           field('Mes', input({ type: 'month', value: (e.date || '').slice(0, 7), oninput: ev => { e.date = ev.target.value; } })),
           field('Hito', input({ value: e.title || '', maxlength: 120, placeholder: 'Ej. Losa del nivel 4', oninput: ev => { e.title = ev.target.value; } }))),
         field('Nota', h('textarea', { rows: 2, maxlength: 600, oninput: ev => { e.note = ev.target.value; } }, e.note || '')),
-        h('div', { class: 'pn-thumbs' }, (e.images || []).map((u, k) => h('span', null, h('img', { src: typeof u === 'string' ? u : u.url, alt: '' }),
+        h('div', { class: 'pn-thumbs' }, (e.images || []).map((u, k) => h('span', null, localImg(typeof u === 'string' ? u : u.url),
           h('button', { type: 'button', class: 'ag-btn danger', 'aria-label': 'Quitar foto', onclick: () => { e.images.splice(k, 1); drawProgress(); } }, icon('x'))))),
         h('div', { class: 'pn-actions' },
           uploader('Agregar fotos', 'image/jpeg,image/png,image/webp', 'image', url => { (e.images = e.images || []).push(url); drawProgress(); }),
@@ -286,8 +291,8 @@
       const btn = h('button', { type: 'button', class: 'ag-btn', onclick: () => fi.click() }, icon('upload'), label);
       fi.addEventListener('change', async () => {
         for (const file of fi.files) {
-          busy(btn, true, `Subiendo ${file.name}…`);
-          try { const r = await cloud.upload(S.projectId, file, { kind, contentType: /\.glb$/i.test(file.name) ? 'model/gltf-binary' : undefined }); onDone(r.url, file); }
+          busy(btn, true, `Guardando ${file.name}…`);
+          try { const r = await workspace.addMedia(file,kind,{expectedRevision:editSession.revision});editSession.revision=r.localRevision; await onDone(r.ref,file);if(!await saveContent())break; }
           catch (e) { fail(e); }
         }
         busy(btn, false); fi.value = ''; draw();
@@ -295,13 +300,14 @@
       return h('span', null, btn, fi);
     }
     const err = h('p', { class: 'ag-error', role: 'alert' });
-    const save = h('button', { type: 'submit', class: 'ag-btn primary' }, 'Guardar');
-    const httpsOrEmpty = v => !v || /^https:\/\//i.test(v);
-    const form = h('form', { class: 'pn-form', onsubmit: async e => {
-      e.preventDefault(); err.textContent = '';
+    const save = h('button', { type: 'submit', class: 'ag-btn primary' }, 'Guardar en este dispositivo');
+    const httpsOrEmpty = v => !v || /^https:\/\//i.test(v) || /^agel-local:[\w-]+$/.test(v);
+    async function saveContent(){
+      err.textContent = '';
       for (const [k, label] of [['map_url', 'El enlace del mapa'], ['webhook', 'El webhook'], ['model_url', 'El modelo 3D']])
-        if (!httpsOrEmpty(f[k].value.trim())) { err.textContent = `${label} debe empezar con https://`; f[k].focus(); return; }
-      const next = Object.assign({}, sr, {
+        if (!httpsOrEmpty(f[k].value.trim())) { err.textContent = `${label} debe empezar con https://`; f[k].focus(); return false; }
+      let experience;try{experience=settings.read();}catch(ex){err.textContent=ex.message;return false;}
+      const next = Object.assign({}, sr, experience.showroom, {
         tagline: f.tagline.value.trim(), description: f.description.value.trim(),
         highlights: lines(f.highlights.value).slice(0, 12), amenities: lines(f.amenities.value).slice(0, 30),
         gallery: gallery.map(g => ({ url: g.url, caption: (g.caption || '').trim() })),
@@ -313,19 +319,19 @@
         model3d: f.model_url.value.trim() ? { url: f.model_url.value.trim(), title: f.model_title.value.trim() } : null,
         area_label: f.area_label.value,
         views: views.map(v => ({ id: v.id, title: (v.title || '').trim(), kind: v.kind || 'render', image: v.image, w: v.w, h: v.h,
-                                 regions: (v.regions || []).filter(r => spaceIds.has(r.space)), spots: (v.spots || []).filter(sp => sceneIds.has(sp.scene)) })),
+                                 spaceId: v.spaceId || null, role: v.role || (v.kind === 'plano' ? 'floor' : 'facade'), regions: (v.regions || []).filter(r => !r.space || spaceIds.has(r.space)), spots: (v.spots || []).filter(sp => sceneIds.has(sp.scene)) })),
         progress: progress.filter(e => (e.title || '').trim() || (e.images || []).length)
           .map(e => ({ date: e.date || '', title: (e.title || '').trim(), note: (e.note || '').trim(), images: (e.images || []).map(u => typeof u === 'string' ? u : u.url) }))
       });
-      busy(save, true, 'Guardando…');
+      let saved=false;busy(save, true, 'Guardando…');
       try {
-        await cloud.update('projects', `id=eq.${S.projectId}`, { kind: f.kind.value, subtitle: f.subtitle.value.trim(),
-          location: f.location.value.trim(), delivery: f.delivery.value.trim(), showroom: next });
-        Object.assign(sr, next);
-        notify('Guardado. Crea una versión en Publicaciones para que el público lo vea.');
+        const d=await workspace.load();if(d.localRevision!==editSession.revision)throw Error('Hay cambios de otra pestaña. Recarga antes de guardar.');d.showroom=next;d.privateSettings=experience.privateSettings;AgelExperienceSettings.applyMarkers(d,experience.markerEdits);Object.assign(d.tree.project,{kind:f.kind.value,subtitle:f.subtitle.value.trim(),location:f.location.value.trim(),delivery:f.delivery.value.trim()});await workspace.save(d);editSession.revision=d.localRevision;
+        saved=true;Object.assign(sr, next);
+        notify('Guardado en este dispositivo. Usa Subir a la nube antes de crear una versión pública.');
       } catch (ex) { err.textContent = ex.message; }
-      busy(save, false);
-    } },
+      busy(save, false);return saved;
+    }
+    const form = h('form', { class: 'pn-form', onsubmit: e=>{e.preventDefault();saveContent();} },
       h('div', { class: 'pn-note' }, icon('info-circle'), 'Lo que guardes aquí aparece en el showroom cuando creas y publicas una versión nueva. Las escenas 360° se editan en el editor.'),
       h('fieldset', null, h('legend', null, 'Proyecto'),
         h('div', { class: 'pn-grid' }, field('Tipo', f.kind, 'Cambia cómo se nombran las unidades en el showroom.'), field('Ubicación', f.location),
@@ -342,9 +348,9 @@
         h('p', { class: 'pn-muted' }, 'Sube un render del conjunto o una planta. Luego dibuja sobre ella las zonas de cada edificio o unidad (el color muestra si está disponible) y coloca los puntos de las escenas 360°. El mismo plano sirve de «Estás aquí» dentro del recorrido.'),
         viewList,
         uploader('Agregar vista (render o planta)', 'image/jpeg,image/png,image/webp', 'image', async (url, file) => {
-          const dims = await new Promise(res => { const im = new Image(); im.onload = () => res({ w: im.naturalWidth, h: im.naturalHeight }); im.onerror = () => res({}); im.src = URL.createObjectURL(file); });
+          const dims = await new Promise(res => { const im = new Image(); const objectUrl=URL.createObjectURL(file); im.onload = () => {URL.revokeObjectURL(objectUrl);res({ w: im.naturalWidth, h: im.naturalHeight });}; im.onerror = () => {URL.revokeObjectURL(objectUrl);res({});}; im.src = objectUrl; });
           views.push({ id: 'v' + Math.random().toString(36).slice(2, 8), title: file.name.replace(/\.[^.]+$/, ''), kind: 'render', image: url, w: dims.w, h: dims.h, regions: [], spots: [] });
-          drawViews();
+          drawViews();settings.refreshViews(views);
         })),
       h('fieldset', null, h('legend', null, 'Avance de obra'),
         h('p', { class: 'pn-muted' }, 'Fotos e hitos aprobados para el público. Es distinto del calendario 4D técnico.'),
@@ -367,108 +373,20 @@
         h('div', { class: 'pn-grid' }, field('Correo para avisos de prospectos', f.notify_email),
           field('Webhook de CRM', f.webhook, 'Se envía un POST con cada prospecto nuevo (ver docs).'))),
       err, h('div', { class: 'pn-actions' }, save));
-    put(body, form);
+    put(body, settingsBox, form);
   }
 
   // Editor de zonas: dibuja polígonos sobre el render o plano y coloca los
   // puntos de las escenas 360°. Coordenadas en % de la imagen (0–100).
-  function editView(v, spaces, scenes, onDone) {
-    const work = { regions: JSON.parse(JSON.stringify(v.regions || [])), spots: JSON.parse(JSON.stringify(v.spots || [])) };
-    const byId = new Map(spaces.map(x => [x.id, x]));
-    const hasKids = new Set(spaces.filter(x => x.parent_id).map(x => x.parent_id));
-    const path = x => { const out = []; let c = x, g = 0; while (c && g++ < 10) { out.unshift(c.name + (c.code ? ' ' + c.code : '')); c = c.parent_id && byId.get(c.parent_id); } return out.join(' › '); };
-    const leaves = spaces.filter(x => !hasKids.has(x.id)), groups = spaces.filter(x => hasKids.has(x.id));
-    let mode = 'zone', draft = [];
-    const target = h('select', { 'aria-label': 'Zona de' },
-      groups.length ? h('optgroup', { label: 'Edificios, niveles y grupos' }, groups.map(x => h('option', { value: x.id }, path(x)))) : null,
-      h('optgroup', { label: 'Unidades y espacios' }, leaves.map(x => h('option', { value: x.id }, path(x)))));
-    const firstFree = () => { const z = new Set(work.regions.map(r => r.space)); const f = leaves.find(x => !z.has(x.id)) || groups.find(x => !z.has(x.id)); if (f) target.value = f.id; };
-    firstFree();
-    const sceneSel = h('select', { 'aria-label': 'Escena' }, scenes.filter(x => x.pano_url).map(x => h('option', { value: x.id }, x.name)));
-    const kindSel = h('select', { 'aria-label': 'Tipo de vista' }, [['render', 'Render o vista del conjunto'], ['plano', 'Plano o planta']].map(([k, t]) => h('option', { value: k, selected: (v.kind || 'render') === k }, t)));
-    const svgNS = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(svgNS, 'svg');
-    svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('preserveAspectRatio', 'none'); svg.setAttribute('class', 'pn-vsvg');
-    const dots = h('div', { class: 'pn-vdots' });
-    const stage = h('div', { class: 'pn-vstage', style: { aspectRatio: v.w && v.h ? `${v.w} / ${v.h}` : '16 / 9' } }, h('img', { src: v.image, alt: '' }), svg, dots);
-    const zoneList = h('ul', { class: 'ag-list pn-zlist' }), spotList = h('ul', { class: 'ag-list pn-zlist' });
-    const coverage = h('p', { class: 'pn-muted' });
-    const closeBtn = h('button', { type: 'button', class: 'ag-btn primary', onclick: () => closeDraft() }, 'Cerrar zona');
-    const undoBtn = h('button', { type: 'button', class: 'ag-btn', onclick: () => { draft.pop(); paint(); } }, 'Deshacer punto');
-    const cancelBtn = h('button', { type: 'button', class: 'ag-btn', onclick: () => { draft = []; paint(); } }, 'Empezar de nuevo');
-    const zoneTools = h('div', { class: 'pn-inline' }, field('Zona de', target), closeBtn, undoBtn, cancelBtn);
-    const spotTools = h('div', { class: 'pn-inline', hidden: true }, field('Escena 360°', sceneSel), h('span', { class: 'pn-muted' }, 'Toca el plano donde está esa escena.'));
-    const modeBtns = [['zone', 'Dibujar zonas'], ['spot', 'Colocar escenas 360°']].map(([k, t]) => h('button', { type: 'button', class: 'ag-btn', 'aria-pressed': String(k === mode), onclick: () => {
-      mode = k; draft = []; modeBtns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.m === mode))); zoneTools.hidden = mode !== 'zone'; spotTools.hidden = mode !== 'spot'; paint();
-    }, 'data-m': k }, t));
-    const pct = e => { const r = stage.getBoundingClientRect(); return [Math.round(Math.max(0, Math.min(100, (e.clientX - r.left) / r.width * 100)) * 100) / 100,
-                                                                     Math.round(Math.max(0, Math.min(100, (e.clientY - r.top) / r.height * 100)) * 100) / 100]; };
-    stage.addEventListener('click', e => {
-      if (e.target.closest('.pn-vspot')) return;
-      const p = pct(e);
-      if (mode === 'zone') {
-        if (draft.length >= 3 && Math.abs(p[0] - draft[0][0]) < 1.5 && Math.abs(p[1] - draft[0][1]) < 2.5) return closeDraft();
-        draft.push(p);
-      } else {
-        if (!sceneSel.value) return;
-        work.spots = work.spots.filter(sp => sp.scene !== sceneSel.value);
-        work.spots.push({ scene: sceneSel.value, x: p[0], y: p[1] });
-        const opts = [...sceneSel.options]; const next = opts.find(o => !work.spots.some(sp => sp.scene === o.value)); if (next) sceneSel.value = next.value;
-      }
-      paint();
-    });
-    stage.addEventListener('dblclick', e => { e.preventDefault(); if (mode === 'zone' && draft.length >= 3) closeDraft(); });
-    function closeDraft() {
-      if (draft.length < 3) return;
-      work.regions = work.regions.filter(r => r.space !== target.value);
-      work.regions.push({ space: target.value, points: draft });
-      draft = []; firstFree(); paint();
-    }
-    function paint() {
-      const els = [];
-      for (const r of work.regions) {
-        const pg = document.createElementNS(svgNS, 'polygon');
-        pg.setAttribute('points', r.points.map(p => p.join(',')).join(' '));
-        pg.setAttribute('class', 'pn-zone' + (r.space === target.value ? ' is-current' : ''));
-        const t = document.createElementNS(svgNS, 'title'); t.textContent = byId.has(r.space) ? path(byId.get(r.space)) : 'Espacio eliminado'; pg.append(t);
-        els.push(pg);
-      }
-      if (draft.length) {
-        const pl = document.createElementNS(svgNS, 'polyline');
-        pl.setAttribute('points', draft.map(p => p.join(',')).join(' ')); pl.setAttribute('class', 'pn-draft'); els.push(pl);
-      }
-      svg.replaceChildren(...els);
-      put(dots, draft.map((p, i) => h('span', { class: 'pn-vpt' + (i === 0 ? ' is-first' : ''), style: { left: p[0] + '%', top: p[1] + '%' } })),
-        work.spots.map(sp => { const sc = scenes.find(x => x.id === sp.scene); return h('span', { class: 'pn-vspot', title: sc ? sc.name : 'Escena eliminada', style: { left: sp.x + '%', top: sp.y + '%' } }); }));
-      closeBtn.disabled = draft.length < 3; undoBtn.disabled = !draft.length; cancelBtn.disabled = !draft.length;
-      put(zoneList, work.regions.map((r, i) => h('li', null, h('span', { class: 'pn-grow' }, byId.has(r.space) ? path(byId.get(r.space)) : h('span', { class: 'ag-error' }, 'Espacio eliminado')),
-        h('button', { type: 'button', class: 'ag-btn', onclick: () => { target.value = r.space; draft = r.points.slice(); work.regions.splice(i, 1); mode === 'zone' || modeBtns[0].click(); paint(); } }, 'Redibujar'),
-        h('button', { type: 'button', class: 'ag-btn danger', 'aria-label': 'Quitar zona', onclick: () => { work.regions.splice(i, 1); paint(); } }, icon('trash')))));
-      put(spotList, work.spots.map((sp, i) => { const sc = scenes.find(x => x.id === sp.scene); return h('li', null, h('span', { class: 'pn-grow' }, sc ? sc.name : h('span', { class: 'ag-error' }, 'Escena eliminada')),
-        h('button', { type: 'button', class: 'ag-btn danger', 'aria-label': 'Quitar punto', onclick: () => { work.spots.splice(i, 1); paint(); } }, icon('trash'))); }));
-      const zoned = new Set(work.regions.map(r => r.space));
-      coverage.textContent = `${leaves.filter(x => zoned.has(x.id)).length} de ${leaves.length} unidades o espacios tienen zona en esta vista. ${work.spots.length} escenas ubicadas.`;
-    }
-    target.addEventListener('change', paint);
-    paint();
-    const m = modal({ title: `Zonas: ${v.title || 'vista'}`, wide: true, dismissable: false,
-      body: [h('div', { class: 'pn-inline' }, modeBtns, field('Tipo', kindSel)),
-             h('p', { class: 'pn-muted' }, 'Toca el contorno punto por punto; cierra tocando el primer punto, con doble clic o con «Cerrar zona». Cada unidad tiene una zona por vista.'),
-             zoneTools, spotTools, stage, coverage,
-             h('div', { class: 'pn-grid' }, h('div', null, h('h3', { class: 'pn-h3' }, 'Zonas'), zoneList), h('div', null, h('h3', { class: 'pn-h3' }, 'Escenas 360°'), spotList))],
-      actions: [{ label: 'Cancelar', onClick: () => m.close() }, { label: 'Listo y guardar', primary: true, onClick: () => {
-        if (draft.length >= 3 && confirm('Hay una zona sin cerrar. ¿Cerrarla?')) closeDraft();
-        v.regions = work.regions; v.spots = work.spots; v.kind = kindSel.value;
-        m.close(); onDone();
-      } }] });
-    m.el.classList.add('pn-vmodal');
+  function editView(v, spaces, scenes, views, workspace, onDone) {
+    return AgelViewEditor.open({ view: v, spaces, scenes, views, resolveMedia:ref=>workspace.resolveMedia(ref),
+      onSave: next => { Object.assign(v, next); onDone(); } });
   }
 
   // ═════════════════════════════ catálogo ═════════════════════════════
   async function tabCatalog(body) {
-    const [spaces, scenes] = await Promise.all([
-      cloud.select('spaces', `project_id=eq.${S.projectId}&select=*&order=position.asc,name.asc`),
-      cloud.select('scenes', `project_id=eq.${S.projectId}&select=id,name,position&order=position.asc`)]);
+    const workspace=S.workspace;
+    const draft=await workspace.load(),spaces=draft.spaces,scenes=draft.tree.scenes;
     const byParent = new Map();
     spaces.forEach(s => { const k = s.parent_id || ''; if (!byParent.has(k)) byParent.set(k, []); byParent.get(k).push(s); });
     const rows = [];
@@ -518,7 +436,7 @@
         actions: [
           !isNew && isOwner() ? { label: 'Eliminar', danger: true, onClick: async () => {
             if (!confirm(`¿Eliminar ${v.name} y todo lo que contiene?`)) return;
-            try { await cloud.remove('spaces', `id=eq.${v.id}`); m.close(); notify('Eliminado'); tabCatalog(body); } catch (e) { err.textContent = e.message; }
+            try { await workspace.deleteSpace(v.id,{expectedRevision:draft.localRevision}); m.close(); notify('Eliminado'); tabCatalog(body); } catch (e) { err.textContent = e.message; }
           } } : null,
           { label: 'Cancelar', onClick: () => m.close() },
           { label: 'Guardar', primary: true, onClick: async () => {
@@ -532,8 +450,7 @@
               scene_ids: [...F.scenes.querySelectorAll('input:checked')].map(x => x.value) };
             m.setBusy(true, 'Guardando…');
             try {
-              if (isNew) await cloud.insert('spaces', Object.assign(row, { position: spaces.length }));
-              else await cloud.update('spaces', `id=eq.${v.id}`, row);
+              await workspace.updateSpace({...row,id:v.id,position:v.position??spaces.length},{expectedRevision:draft.localRevision});
               m.close(); notify('Guardado'); tabCatalog(body);
             } catch (e) { err.textContent = e.message; m.setBusy(false); m.setActions([{ label: 'Cerrar', onClick: () => m.close() }]); }
           } }].filter(Boolean) });
@@ -543,46 +460,20 @@
       const fi = h('input', { type: 'file', accept: '.csv,text/csv' });
       const err = h('p', { class: 'ag-error', role: 'alert' });
       const m = modal({ title: 'Importar unidades desde CSV', wide: true,
-        body: [h('p', null, 'Columnas reconocidas: grupo (torre o edificio), nombre, clave, m2, recamaras, banos, estacionamientos, precio, mostrar_precio (si/no), estado (disponible, apartada, vendida).'),
-               h('p', null, 'Los grupos que no existan se crean. Las unidades con la misma clave se actualizan.'), fi, err],
+        body: [h('p', null, 'Columnas reconocidas: grupo (torre o edificio), nivel (opcional), nombre, clave, m2, recamaras, banos, estacionamientos, precio, mostrar_precio (si/no), estado (disponible, apartada, vendida).'),
+               h('p', null, 'Se crean edificios y niveles. Las claves repetidas dentro del archivo se rechazan antes de importar; las claves existentes se actualizan.'), fi, err],
         actions: [{ label: 'Cancelar', onClick: () => m.close() }, { label: 'Importar', primary: true, onClick: async () => {
           const file = fi.files[0]; if (!file) { err.textContent = 'Elige un archivo'; return; }
-          const rows = AgelFourD.parseCSV(await file.text());
-          if (rows.length < 2) { err.textContent = 'El archivo no tiene filas'; return; }
-          const n = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-          const head = rows[0].map(n);
-          const col = (...names) => head.findIndex(x => names.includes(x));
-          const c = { grupo: col('grupo', 'torre', 'edificio'), nombre: col('nombre', 'unidad', 'name'), clave: col('clave', 'codigo', 'code'),
-                      m2: col('m2', 'area', 'superficie'), rec: col('recamaras', 'habitaciones'), ban: col('banos'), est: col('estacionamientos', 'cajones'),
-                      precio: col('precio', 'price'), mostrar: col('mostrar_precio', 'mostrar precio'), estado: col('estado', 'disponibilidad') };
-          if (c.nombre < 0 && c.clave < 0) { err.textContent = 'Falta la columna nombre o clave'; return; }
+          const parsed = AgelCatalogImport.parse(await file.text());
+          if (parsed.problems.length) { err.textContent = parsed.problems.slice(0, 10).join(' · '); return; }
           m.setBusy(true, 'Importando…');
-          const groups = new Map(spaces.filter(s => !s.parent_id).map(s => [n(s.name), s.id]));
-          const byCode = new Map(spaces.filter(s => s.code).map(s => [n(s.code), s]));
-          const val = (r, i) => i >= 0 ? String(r[i] || '').trim() : '';
-          const numv = (r, i) => { const x = val(r, i).replace(/[$,\s]/g, ''); return x === '' || isNaN(+x) ? null : +x; };
-          let created = 0, updated = 0; const problems = [];
-          for (const [i, r] of rows.slice(1).entries()) {
-            try {
-              let parent = null; const g = val(r, c.grupo);
-              if (g) {
-                parent = groups.get(n(g));
-                if (!parent) { const [x] = await cloud.insert('spaces', { project_id: S.projectId, kind: 'edificio', name: g.slice(0, 120), position: groups.size }); parent = x.id; groups.set(n(g), parent); }
-              }
-              const st = n(val(r, c.estado));
-              const row = { project_id: S.projectId, parent_id: parent, kind: 'unidad', name: (val(r, c.nombre) || val(r, c.clave)).slice(0, 120), code: val(r, c.clave).slice(0, 40),
-                area_m2: numv(r, c.m2), bedrooms: numv(r, c.rec), bathrooms: numv(r, c.ban), parking: numv(r, c.est), price: numv(r, c.precio),
-                show_price: /^(si|sí|yes|1|true|x)$/i.test(val(r, c.mostrar)),
-                availability: ['disponible', 'apartada', 'vendida'].includes(st) ? st : (st ? 'no_aplica' : 'disponible') };
-              const ex = row.code && byCode.get(n(row.code));
-              if (ex) { await cloud.update('spaces', `id=eq.${ex.id}`, row); updated++; }
-              else { await cloud.insert('spaces', Object.assign(row, { position: spaces.length + i })); created++; }
-            } catch (e) { problems.push(`Fila ${i + 2}: ${e.message}`); }
-          }
-          m.close();
-          modal({ title: 'Importación terminada', body: [h('p', null, `${created} creadas, ${updated} actualizadas.`),
-            problems.length ? h('ul', { class: 'ag-list' }, problems.slice(0, 20).map(p => h('li', null, p))) : null],
-            actions: [{ label: 'Cerrar', primary: true, onClick: x => x.close() }] });
+          try {
+            const result = workspace ? await workspace.importCatalog(parsed,{expectedRevision:draft.localRevision})
+              : await cloud.rpc('import_catalog', { p_project: S.projectId, p_catalog: parsed });
+            m.close();
+            modal({ title: 'Importación terminada', body: [h('p', null, `${result.created} creadas, ${result.updated} actualizadas.`)],
+              actions: [{ label: 'Cerrar', primary: true, onClick: x => x.close() }] });
+          } catch (e) { err.textContent = e.message; m.setBusy(false); return; }
           tabCatalog(body);
         } }] });
     }
@@ -720,6 +611,7 @@
       }
     } catch (e) { busy(btn, false); return fail(e); }
     busy(btn, false);
+    if(S.workspace?.dirty){busy(btn,false);return notify('Primero sube el borrador a la nube con Subir a la nube.','error');}
     const create = async () => {
       busy(btn, true, 'Creando…');
       try { await cloud.rpc('create_publication_version', { p_publication: pub.id, p_note: '' }); notify('Versión creada. Revísala en Vista previa antes de publicarla.'); reload(); }

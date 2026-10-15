@@ -197,10 +197,17 @@
       const type = contentType || file.type || 'application/octet-stream';
       const r = await this.rpc('reserve_upload', { p_project: projectId, p_bucket: bucket, p_kind: kind,
                                                    p_filename: name, p_bytes: file.size, p_mime: type });
+      await this.transferReserved(r,file,{onProgress,contentType:type});
+      await this.rpc('complete_upload', { p_asset: r.asset_id, p_width: width || null, p_height: height || null });
+      return Object.assign({}, r, { url: this.publicUrl(bucket, r.path) });
+    }
+    async transferReserved(r,file,{signal,onProgress,contentType}={}) {
+      const type=contentType||file.type||'application/octet-stream';
       const token = await this.accessToken();
+      if(signal?.aborted)throw new CloudError('Subida pausada');
       await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${this.url}/storage/v1/object/${bucket}/${r.path.split('/').map(encodeURIComponent).join('/')}`);
+        xhr.open('POST', `${this.url}/storage/v1/object/${r.bucket}/${r.path.split('/').map(encodeURIComponent).join('/')}`);
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         xhr.setRequestHeader('apikey', this.anonKey);
         xhr.setRequestHeader('Content-Type', type);
@@ -214,10 +221,11 @@
           reject(new CloudError(friendly(d.message || d.error || xhr.responseText, Number(d.statusCode) || xhr.status), { status: xhr.status }));
         };
         xhr.onerror = () => reject(new CloudError('Sin conexión con el servidor al subir', { status: 0 }));
+        const abort=()=>xhr.abort();signal?.addEventListener('abort',abort,{once:true});
+        xhr.onabort=()=>reject(new CloudError('Subida pausada'));
+        xhr.onloadend=()=>signal?.removeEventListener('abort',abort);
         xhr.send(file);
       });
-      await this.rpc('complete_upload', { p_asset: r.asset_id, p_width: width || null, p_height: height || null });
-      return Object.assign({}, r, { url: this.publicUrl(bucket, r.path) });
     }
     /** URL temporal para archivos privados (bucket technical). */
     async signedUrl(bucket, path, expiresIn = 600) {

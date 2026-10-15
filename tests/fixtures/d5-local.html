@@ -1,0 +1,9 @@
+<!doctype html><meta charset="utf-8"><input id="d5ProjName"><input id="d5ProjSub"><input id="d5OpeningBtn"><input id="d5UplModelName"><input id="d5UplModelMeta">
+<script src="../../packages/core/local-media.js"></script><script>
+var owner=null,d5Models=[],d5OpeningVideoUrl=null,d5OpeningBtnText='',D5_SAVE_KEY='agelarq_d5_v2',_d5NextActionLocal=false,_d5UplLocalFile=null,_d5UplPendingUrl=null;
+window.CloudMode={cloud:{get user(){return owner?{id:owner}:null;}}};window.messages=[];window.toast=x=>messages.push(x);window.d5RenderModelsList=()=>{};window.d5UpdateCenter=()=>{};window._d5RestoreVideoThumb=()=>{};window._d5ResetUploadPanel=()=>{};window._d5ProcessFile=(file,local)=>window.lastLocal=local;
+(async()=>{const src=await(await fetch('../../index.html')).text();
+ const part=(a,b)=>src.slice(src.indexOf(a),src.indexOf(b,src.indexOf(a)));
+ window.eval(part('let d5VideoRef=','function d5SaveMeta()')+'\n'+part('function d5HandleFileSelect(e)','// ── CORE:')+'\n'+part('async function d5HandleVideo(e)','function _d5RestoreVideoThumb')+'\n'+part('async function d5ConfirmUpload()','function d5CancelUpload()')+'\nwindow.d5FixtureReady=true;');
+})();
+</script>

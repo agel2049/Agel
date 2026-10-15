@@ -209,3 +209,9 @@ Para repetirlas: ver `README.md`, sección Pruebas.
 - **Cuota de Supabase:** el panel muestra "Grace period is over". Al agotarse, los enlaces de tus clientes dejan de cargar.
 - Barra superior en móvil: el botón "Presentar" se corta en el borde a 390 px.
 - Unificar los dos motores 360 (`PanoEngine`), modularizar, BIM y showroom: fases 2–5 del plan.
+
+## Showroom inmersivo — octubre de 2026
+
+Opening sin Ending, fachada a pantalla completa, acceso al lobby, niveles y plantas por UUID de espacio. Controles flotantes de cristal con opacidad al reposar, áreas transparentes y redondeadas al pasar el ratón/foco, 90° alternable durante dibujo. Escenas por ámbito, miniplano de unidad automático, regreso con contexto y apariencia orientable de hotspots. Borradores y medios locales por cuenta, respaldos y subida explícita con reservas idempotentes, conflictos y límites gratuitos conservados. Configuración BIM privada y presets reales. Motor PanoEngine sin cambios.
+
+Las migraciones incrementales son 13–16; no repetir el despliegue inicial. Consulta SHOWROOM-INMERSIVO.md. Autodesk real permanece sujeto a credenciales y conversión configuradas por el propietario.

@@ -696,6 +696,123 @@ def avisos_de_prospectos_solo_servidor(w):
     w.run('service', 'select public.mark_lead_notified(%s)', (lead,))
     check(w.run('service', 'select count(*) from public.pending_lead_notifications(10)', fetch='val') == 0, 'sigue pendiente tras avisar')
 
+@test
+def catalogo_niveles_importacion_atomica(w):
+    org=w.org('ana');p=w.project('ana',org)
+    data={'groups':[{'key':'a','name':'Torre A'},{'key':'b','name':'Torre B'}],
+          'levels':[{'key':'a/1','groupKey':'a','name':'Nivel 1'},{'key':'b/1','groupKey':'b','name':'Nivel 1'}],
+          'units':[{'groupKey':'a','levelKey':'a/1','data':{'name':'101','code':'A101','availability':'disponible'}},
+                   {'groupKey':'b','levelKey':'b/1','data':{'name':'101','code':'B101','availability':'vendida'}}], 'problems':[]}
+    r=w.run('ana','select public.import_catalog(%s,%s)',(p,json.dumps(data)),fetch='val')
+    check(r['created']==2,'no importó dos unidades')
+    levels=w.run('ana',"select parent_id from public.spaces where project_id=%s and kind='nivel'",(p,))
+    check(len(levels)==2 and levels[0][0]!=levels[1][0],'mezcló niveles de torres diferentes')
+    before=w.run('ana','select count(*) from public.spaces where project_id=%s',(p,),fetch='val')
+    data['units'][1]['data']['code']='a101'
+    check(w.denied('ana','select public.import_catalog(%s,%s)',(p,json.dumps(data))),'permitió claves repetidas')
+    check(w.run('ana','select count(*) from public.spaces where project_id=%s',(p,),fetch='val')==before,'dejó importación parcial')
+
+@test
+def catalogo_importacion_exige_edicion(w):
+    org=w.org('ana');p=w.project('ana',org);w.add_member('ana',p,'lector','viewer');w.org('otro')
+    data=json.dumps({'groups':[],'levels':[],'units':[],'problems':[]})
+    check(w.denied('lector','select public.import_catalog(%s,%s)',(p,data)),'lector importó catálogo')
+    check(w.denied('otro','select public.import_catalog(%s,%s)',(p,data)),'otra organización importó catálogo')
+    check(w.denied('anon','select public.import_catalog(%s,%s)',(p,data)),'anónimo importó catálogo')
+
+@test
+def workspace_sync_reserva_idempotente(w):
+    org=w.org('ana');p=w.project('ana',org);w.add_member('ana',p,'lector','viewer')
+    args=(p,'local-a','media','image','foto.png',1000,'image/png')
+    r=w.run('ana','select public.begin_sync_asset(%s,%s,%s,%s,%s,%s,%s)',args,fetch='val')
+    again=w.run('ana','select public.begin_sync_asset(%s,%s,%s,%s,%s,%s,%s)',args,fetch='val')
+    check(r['asset_id']==again['asset_id'],'reserva duplicada')
+    check(w.denied('lector','select public.complete_sync_asset(%s)',(r['asset_id'],)),'lector completó')
+    check(w.run('ana','select public.complete_sync_asset(%s)',(r['asset_id'],),fetch='val')['status']=='uploading','objeto ausente se marcó completo')
+    w.run('ana',"insert into storage.objects(bucket_id,name,owner,metadata) values('media',%s,auth.uid(),%s)",(r['path'],json.dumps({'size':1000,'mimetype':'image/png'})),fetch='none')
+    a=w.run('ana','select public.complete_sync_asset(%s)',(r['asset_id'],),fetch='val')
+    b=w.run('ana','select public.complete_sync_asset(%s)',(r['asset_id'],),fetch='val')
+    check(a['status']==b['status']=='ready','completar no idempotente')
+    changed=(*args[:5],1001,args[6])
+    check(w.denied('ana','select public.begin_sync_asset(%s,%s,%s,%s,%s,%s,%s)',changed),'local ID cambió archivo')
+
+@test
+def workspace_sync_snapshot_atomico(w):
+    org=w.org('ana');p=w.project('ana',org);sid=str(uuid.uuid4());space=str(uuid.uuid4())
+    tree={'project':{'id':str(p),'name':'Nuevo'},'scenes':[{'id':sid,'name':'Sala','pano_url':'https://example.test/a.jpg','hs':[]}]}
+    data={'tree':tree,'spaces':[{'id':space,'name':'Departamento','kind':'unidad','scene_ids':[sid]}],'showroom':{'description':'Borrador'},'privateSettings':{}}
+    r=w.run('ana','select public.save_workspace_snapshot(%s,%s,%s)',(p,json.dumps(data),0),fetch='val')
+    check(r['revision']==1,'revisión no incrementada')
+    check(w.run('ana','select name from public.spaces where id=%s',(space,),fetch='val')=='Departamento','catálogo no guardado')
+    data['tree']['project']['name']='Perdido'
+    check(w.denied('ana','select public.save_workspace_snapshot(%s,%s,%s)',(p,json.dumps(data),0)),'pisó revisión')
+    check(w.run('ana','select name from public.projects where id=%s',(p,),fetch='val')=='Nuevo','conflicto alteró proyecto')
+
+@test
+def workspace_sync_mime_revocado_y_ciclo(w):
+    org=w.org('ana');p=w.project('ana',org);w.add_member('ana',p,'ed','editor')
+    r=w.run('ed','select public.begin_sync_asset(%s,%s,%s,%s,%s,%s,%s)',(p,'x','media','image','a.png',10,'image/png'),fetch='val')
+    w.run('ed',"insert into storage.objects(bucket_id,name,owner,metadata) values('media',%s,auth.uid(),%s)",(r['path'],json.dumps({'size':10,'mimetype':'text/html'})),fetch='none')
+    check(w.denied('ed','select public.complete_sync_asset(%s)',(r['asset_id'],)),'MIME real incorrecto aceptado')
+    w.run('ana',"delete from public.project_members where project_id=%s and user_id=%s",(p,w.user('ed')),fetch='none')
+    check(w.denied('ed','select public.complete_sync_asset(%s)',(r['asset_id'],)),'rol revocado completó')
+    a,b=str(uuid.uuid4()),str(uuid.uuid4())
+    data={'tree':{'project':{'id':str(p),'name':'Ciclo'},'scenes':[]},'spaces':[{'id':a,'parent_id':b,'kind':'nivel','name':'A'},{'id':b,'parent_id':a,'kind':'nivel','name':'B'}],'showroom':{}}
+    check(w.denied('ana','select public.save_workspace_snapshot(%s,%s,0)',(p,json.dumps(data))),'ciclo guardado')
+    check(w.run('ana','select revision from public.projects where id=%s',(p,),fetch='val')==0,'ciclo no hizo rollback')
+
+@test
+def showroom_experience_snapshot_privado(w):
+    org=w.org('ana');p=w.project('ana',org)
+    sr={'description':'Comercial','bimVersionId':'SECRETO','privateSettings':{'token':'NO'},'opening':{'title':'Hola','secret':'NO'},'views':[{'id':'f','image':'https://example.test/f.jpg','role':'facade','secret':'NO'}],'experience':{'version':1,'facadeViewId':'f'}}
+    w.run('ana','update public.projects set showroom=%s where id=%s',(json.dumps(sr),p),fetch='none')
+    snap=w.conn.execute('select app.build_snapshot(%s,%s)',(p,'showroom')).fetchone()[0]
+    check('SECRETO' not in json.dumps(snap) and 'NO' not in json.dumps(snap),'filtró contenido privado')
+    sr['experience']['entryTargetViewId']='f'
+    w.run('ana','update public.projects set showroom=%s where id=%s',(json.dumps(sr),p),fetch='none')
+    try:w.conn.execute('select app.build_snapshot(%s,%s)',(p,'showroom'));raise AssertionError('entrada a sí misma aceptada')
+    except errors.RaiseException:pass
+
+@test
+def showroom_experience_geometria_y_destinos(w):
+    org=w.org('ana');p=w.project('ana',org)
+    valid={'views':[{'id':'f','image':'https://example.test/f.jpg','regions':[{'points':[[0,0],[100,0],[100,100],[0,100]],'radius':0.5}]}],'experience':{'version':1,'facadeViewId':'f'},'model3d':None}
+    w.conn.execute('select app.validate_showroom_experience(%s,%s)',(p,json.dumps(valid)))
+    import copy
+    cases=[]
+    x=copy.deepcopy(valid);x['views'][0]['regions'][0]['radius']=3;cases.append(x)
+    x=copy.deepcopy(valid);x['views'][0]['regions'][0]['points']=[[0,0],[100,100],[0,100],[100,0]];cases.append(x)
+    x=copy.deepcopy(valid);x['views'][0]['spaceId']=str(uuid.uuid4());cases.append(x)
+    x=copy.deepcopy(valid);x['views'][0]['image']='javascript:alert(1)';cases.append(x)
+    x=copy.deepcopy(valid);x['views']*=257;cases.append(x)
+    for x in cases:
+        try:w.conn.execute('select app.validate_showroom_experience(%s,%s)',(p,json.dumps(x)));raise AssertionError('entrada inválida aceptada')
+        except errors.RaiseException:pass
+
+@test
+def showroom_bim_privado_acceso(w):
+    org=w.org('ana');p=w.project('ana',org);w.add_member('ana',p,'lector','viewer');w.org('ajeno')
+    model=w.run('ana',"insert into public.models(project_id,name) values(%s,'Modelo') returning id",(p,),fetch='val')
+    version=w.run('ana','select public.create_model_version(%s,%s,%s,%s)',(model,'v1','a.nwd',100),fetch='val')['id']
+    pub=w.run('ana','select public.create_publication(%s,%s,%s)',(p,'showroom','bim-prueba'),fetch='val')
+    settings=json.dumps({'bimVersionId':version,'presets':{'mep':{'disciplines':['Eléctrica','Hidrosanitaria']}}})
+    w.run('ana','select public.save_workspace_settings(%s,%s)',(p,settings))
+    check(w.run('lector','select public.showroom_bim_access(%s)',(pub,),fetch='val') is None,'versión no lista abierta')
+    w.conn.execute("update public.model_versions set status='ready',aps_urn='prueba' where id=%s",(version,))
+    check(w.run('lector','select public.showroom_bim_access(%s)',(pub,),fetch='val')['version_id']==version,'lector autorizado sin acceso')
+    check(w.denied('anon','select public.showroom_bim_access(%s)',(pub,)),'anónimo accedió')
+    check(w.denied('ajeno','select public.showroom_bim_access(%s)',(pub,)),'ajeno accedió')
+    check(w.denied('lector','select public.save_workspace_settings(%s,%s)',(p,settings)),'lector cambió BIM')
+    check(w.run('lector','select public.load_workspace_settings(%s)',(p,),fetch='val')['bimVersionId']==version,'configuración no recuperada')
+
+@test
+def showroom_experience_solo_imagen_publicable(w):
+    org=w.org('ana');p=w.project('ana',org)
+    sr={'views':[{'id':'facade','image':'https://example.test/f.jpg','role':'facade'}],'experience':{'version':1,'facadeViewId':'facade'}}
+    w.run('ana','update public.projects set showroom=%s where id=%s',(json.dumps(sr),p),fetch='none')
+    pub=w.run('ana','select public.create_publication(%s,%s,%s)',(p,'showroom','solo-imagen'),fetch='val')
+    check(w.run('ana','select public.create_publication_version(%s)',(pub,),fetch='val') is not None,'imagen no publicable')
+
 # ───────────────────────── ejecución ─────────────────────────
 def main():
     only = sys.argv[sys.argv.index('-k') + 1] if '-k' in sys.argv else None

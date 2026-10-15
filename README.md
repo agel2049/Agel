@@ -2,6 +2,7 @@
 
 Plataforma para presentar proyectos arquitectónicos: editor de recorridos 360°, showroom comercial con catálogo y prospectos, panel de gestión para el equipo, y visor BIM con calendario 4D.
 
+- **Configurar el showroom inmersivo:** [`docs/SHOWROOM-INMERSIVO.md`](docs/SHOWROOM-INMERSIVO.md).
 - **Para subirla a GitHub y Supabase:** [`docs/PUBLICAR.md`](docs/PUBLICAR.md), paso a paso.
 - **Límites durante la prueba gratuita:** [`docs/PLAN-GRATUITO.md`](docs/PLAN-GRATUITO.md).
 - **Qué cambió y cómo se probó:** [`docs/CAMBIOS.md`](docs/CAMBIOS.md).
@@ -11,7 +12,7 @@ Plataforma para presentar proyectos arquitectónicos: editor de recorridos 360°
 
 | Dirección | Para quién | Qué hace |
 |---|---|---|
-| `index.html` | tú y tu equipo | editor de escenas y hotspots; con cuenta guarda en la nube, sin cuenta funciona como antes, en este navegador |
+| `index.html` | tú y tu equipo | editor de escenas y hotspots; guarda borradores y archivos en el dispositivo; la subida a la nube es explícita |
 | `index.html?pub=<dirección>` | clientes | recorrido 360° publicado (versión aprobada) |
 | `apps/showroom/?p=<dirección>` | público | página comercial: unidades, galería, planos, recorrido, contacto |
 | `apps/panel/` | equipo | showroom, catálogo, publicaciones, prospectos, equipo, modelos, marca y uso |

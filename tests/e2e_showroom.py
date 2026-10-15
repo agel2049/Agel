@@ -556,7 +556,9 @@ def main():
             w = World(browser, base, sb); t0 = time.time()
             try: fn(w); status, info = 'PASS', ''
             except AssertionError as e: status, info = 'FAIL', str(e)
-            except Exception as e: status, info = 'ERROR', f'{type(e).__name__}: {str(e).splitlines()[0][:220]}'
+            except Exception as e:
+                if os.environ.get('AGEL_DEBUG'): __import__('traceback').print_exc()
+                status, info = 'ERROR', f'{type(e).__name__}: {str(e).splitlines()[0][:220]}'
             w.close(); results.append(status)
             print(f'{status:5}  {fn.__name__:44} {time.time()-t0:5.1f}s  {info[:300]}', flush=True)
         browser.close()

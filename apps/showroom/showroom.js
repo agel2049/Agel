@@ -82,6 +82,10 @@
   }
 
   async function boot() {
+    if(params.get('local')){
+      try{if(!cloud?.user)throw Error('Inicia sesión con la cuenta que creó el borrador');const ws=await AgelWorkspace.open({cloud,ownerId:cloud.user.id,projectId:params.get('local')});state.preview='local';hydrate(null,'Local',await ws.previewManifest());window.addEventListener('pagehide',()=>ws.close(),{once:true});}
+      catch(e){showState('Borrador local no disponible',e.message);}return;
+    }
     const pre = embedded();
     if (pre) hydrate(pre.snapshot, pre.version);
     else app.append(h('div', { class: 'sr-loading', role: 'progressbar', 'aria-label': 'Cargando' }));
@@ -103,6 +107,7 @@
       }
       if (!pre || pre.version !== pub.version) hydrate(pub.snapshot, pub.version);
       if (pub.audience === 'link') document.head.append(h('meta', { name: 'robots', content: 'noindex' }));   // solo con enlace: fuera de buscadores
+      if(state.experience&&cloud.session&&pub.id){try{const access=await cloud.rpc('showroom_bim_access',{p_publication:pub.id});if(access)state.experience.setBimAccess(()=>{const url=new URL(ROOT+'apps/bim/',location.href);url.searchParams.set('v',access.version_id);url.searchParams.set('return',location.pathname+location.search);location.href=url.href;});}catch{}}
       track('page_view');
     } catch (e) {
       console.warn('[showroom]', e);
@@ -112,10 +117,11 @@
     }
   }
 
-  function hydrate(snapshot, version) {
+  function hydrate(snapshot, version, providedModel) {
     let m;
-    try { m = sanitizeShowroom(snapshot); }
+    try { m = providedModel || sanitizeShowroom(snapshot); }
     catch (e) { showState('Esta página no está disponible', 'La publicación tiene un formato que no se pudo leer.'); return; }
+    state.experience?.dispose();state.experience=null;
     state.m = m; state.version = version;
     state.x = AgelShowroom.model(m);
     const root = document.documentElement;
@@ -130,9 +136,15 @@
     // renderBody escapa todo texto con esc() y solo recibe URLs https validadas
     // por sanitizeShowroom (ver tests/e2e_showroom.py: inyeccion_no_ejecuta).
     app.innerHTML = AgelShowroom.renderBody(m, { preview: state.preview ? version : null });
+    if(m.content.experience?.version===1){
+      document.body.classList.add('sr-immersive');
+      const host=h('div');app.querySelector('.sr-top')?.after(host);if(!host.isConnected)app.prepend(host);
+      state.navigation=AgelShowroomNavigation.create(m);state.experience=AgelShowroomExperience.mount(host,{manifest:m,navigation:state.navigation,openTour:args=>AgelTourBridge.open({...args,openExisting:openTour})});
+    }else document.body.classList.remove('sr-immersive');
     loadSelection();
-    bindHorizon(); bindExplore(); bindUnits(); bindTourButtons(); bindGallery(); bindForm(); bindModel();
+    if(!state.experience){bindHorizon();bindExplore();}bindUnits(); bindTourButtons(); bindGallery(); bindForm(); bindModel();
     renderSelection();
+    if(m.content.experience?.version===1)return;
     const u = params.get('unidad');
     if (u) {
       if (leaf(u)) openUnit(u, true);
@@ -457,6 +469,7 @@
 
   // ── ficha de unidad ──────────────────────────────────────────────────
   function openUnit(id, fromUrl) {
+    if(state.experience){state.navigation.dispatch({type:'OPEN_SPACE',id});app.querySelector('.ax-experience')?.scrollIntoView({behavior:reduceMotion()?'auto':'smooth'});return;}
     const L = state.x.labels, x = state.x, S = AgelShowroom;
     const u = leaf(id);
     if (!u) return;
@@ -548,12 +561,14 @@
   const viewsWithScene = i => (state.m.content.views || []).map((v, vi) => ({ v, vi, spot: v.spots.find(s => s.scene === i) })).filter(o => o.spot);
   const viewsWithSpots = () => (state.m.content.views || []).filter(v => v.spots.length);
 
-  function openTour(index, subset, fromUnit) {
+  function openTour(index, subset, fromUnit, options={}) {
     const m = state.m;
     if (!m.scenes.length) return;
     const list = (subset && subset.length ? subset : m.scenes.map((_, i) => i)).filter(i => m.scenes[i]);
     const opener = document.activeElement;
-    let engine = null, current = -1, closed = false, mapOpen = false, mapView = null;
+    let engine = null, current = -1, closed = false, mapOpen = !!options.autoMap, mapView = null,goSeq=0;
+    const mapViews=()=>options.mapViews||viewsWithSpots();
+    const mapHere=i=>mapViews().filter(v=>v.spots.some(sp=>sp.scene===i)).map(v=>({v}));
     const cache = new Map();
     track('tour_open');
     const L = AgelShowroom.LABELS[m.project.kind] || AgelShowroom.LABELS.desarrollo;
@@ -561,6 +576,7 @@
       closed = true;
       setParam('escena', null);
       if (engine) { cache.forEach(t => t.dispose && t.dispose()); engine.dispose(); engine = null; }
+      options.onClose?.();
       if (opener && opener.focus && document.contains(opener)) opener.focus();
     });
     const canvas = h('canvas', { 'aria-hidden': 'true' });
@@ -574,11 +590,12 @@
     const scenesNav = h('ol', { class: 'sr-tour-scenes', 'aria-label': 'Ambientes' });
     const mini = h('div', { class: 'sr-minimap', hidden: true, role: 'region', 'aria-label': 'Plano de ubicación' });
     let card = null;
-    if (fromUnit && leaf(fromUnit)) {
+    if(options.immersive){tools.append(h('button',{type:'button',onclick:()=>d.close()},'Volver al departamento'));}
+    else if (fromUnit && leaf(fromUnit)) {
       tools.append(h('button', { type: 'button', onclick: () => { d.close(); openUnit(fromUnit); } }, `Volver a ${leaf(fromUnit).name}`));
     }
     let mapBtn = null;
-    if (viewsWithSpots().length) {
+    if (mapViews().length) {
       mapBtn = h('button', { type: 'button', 'aria-pressed': 'false', 'aria-controls': 'sr-minimap', onclick: () => { mapOpen = !mapOpen; drawMap(); } }, 'Plano');
       mini.id = 'sr-minimap';
       tools.append(mapBtn);
@@ -601,8 +618,8 @@
       mapBtn.setAttribute('aria-pressed', String(mapOpen));
       mini.hidden = !mapOpen;
       if (!mapOpen) return;
-      const here = viewsWithScene(current);
-      const all = viewsWithSpots();
+      const here = mapHere(current);
+      const all = mapViews();
       if (!mapView || !all.includes(mapView)) mapView = here.length ? here[0].v : all[0];
       const v = mapView;
       put(mini,
@@ -640,12 +657,13 @@
     }
     async function go(i) {
       if (closed || i === current) return;
+      if(!list.includes(i))return;const seq=++goSeq;
       const sc = m.scenes[i];
       closeCard();
       msg.hidden = false; msg.textContent = `Cargando ${sc.name}…`;
       try {
         const t = await texture(i);
-        if (closed) return;
+        if (closed||seq!==goSeq) {if(closed)t.dispose?.();return;}
         engine.setPano(t, current < 0);
         engine.setView(sc.heading || 0, 0, engine.fov);
         current = i; msg.hidden = true;
@@ -654,17 +672,18 @@
       }
       put(title, document.createTextNode(sc.name), sc.meta ? h('small', { text: sc.meta }) : null);
       $$('button', scenesNav).forEach(b => b.setAttribute('aria-current', String(+b.dataset.go === i)));
-      setParam('escena', String(i));
+      if(!options.immersive)setParam('escena', String(i));options.onSceneChange?.(i);
       put(layer);
-      const items = sc.hs.map(hs => {
+      const items = sc.hs.filter(hs=>hs.type!=='scene'||list.includes(hs.targetScene)).map(hs => {
         const el = hs.type === 'scene'
           ? h('button', { type: 'button', class: 'sr-hs sr-hs-scene', 'aria-label': `Ir a ${hs.targetSceneName || hs.title}` }, h('span', { text: hs.title }))
           : h('button', { type: 'button', class: 'sr-hs sr-hs-info', 'aria-label': `Información: ${hs.title}`, title: hs.title });
         // Arrastrar sobre el marcador gira la vista; solo un toque lo activa.
         engine.bindMarker(el, () => hs.type === 'scene' ? go(hs.targetScene) : info(hs));
         layer.append(el);
-        return { el, x: hs.x, y: hs.y };
+        return { el, hs, x: hs.x, y: hs.y };
       });
+      if(options.immersive)AgelHotspotPresentation.mount(layer,{engine,items});
       engine.setHotspots(items);
       drawMap();
       track('scene_view');
@@ -696,6 +715,7 @@
       }
       go(index);
     }).catch(() => { msg.textContent = 'No se pudo abrir el recorrido. Revisa tu conexión e inténtalo de nuevo.'; track('load_error'); });
+    return {close:()=>d.close()};
   }
 
   // ── modelo 3D (model-viewer, se descarga solo al pedirlo) ────────────

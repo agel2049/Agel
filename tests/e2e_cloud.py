@@ -97,7 +97,8 @@ def new_project_via_menu(p, name='Torre Nube'):
     p.wait("CloudMode.active && PROJ[cP]._cloud && PROJ[cP]._cloud.loaded && PROJ[cP].name === %s" % json.dumps(name), 8000)
 
 def wait_saved(p, timeout=10000):
-    p.wait("!CloudMode.pending() && document.getElementById('cmStatus').textContent === 'Guardado'", timeout)
+    p.wait("!CloudMode.pending()", timeout)
+    p.ev('CloudMode.syncCurrent()')
 
 def owner_with_project(w, scenes=('pano_a.jpg',), name='Torre Nube'):
     email = w.user('ana'); p = w.page().open()
@@ -105,7 +106,7 @@ def owner_with_project(w, scenes=('pano_a.jpg',), name='Torre Nube'):
     for i, fx in enumerate(scenes):
         if i: p.ev("addNewScene()"); p.pg.wait_for_timeout(300)
         p.upload_pano(fx)
-        p.wait(f"PROJ[cP].scenes[{i}].supaUrl && /media/.test(PROJ[cP].scenes[{i}].supaUrl)", 10000)
+        p.wait(f"PROJ[cP].scenes[{i}].localRef && PROJ[cP].scenes[{i}].img",10000)
     wait_saved(p)
     return email, p
 
@@ -153,6 +154,8 @@ def conflicto_no_pisa_trabajo(w):
     p2.wait("CloudMode.active && PROJ[cP]._cloud && PROJ[cP]._cloud.loaded", 10000)
     p1.ev("PROJ[cP].scenes[0].name = 'Versión de la pestaña 1'; autoSave()"); wait_saved(p1)
     p2.ev("PROJ[cP].scenes[0].name = 'Versión de la pestaña 2'; autoSave()")
+    p2.wait('!CloudMode.pending()',10000)
+    p2.ev('CloudMode.syncCurrent().catch(()=>{})')
     p2.pg.wait_for_selector('text=Otra persona guardó cambios', timeout=10000)
     name = w.sb.sql('select name from public.scenes where project_id = %s', (pid,))[0][0]
     check(name == 'Versión de la pestaña 1', f'se pisó el trabajo: {name}')
@@ -222,7 +225,9 @@ def direccion_repetida_avisa(w):
 def importar_proyectos_del_navegador(w):
     # 1) Trabajo previo en modo local: una escena subida al bucket heredado y otra solo en este navegador
     p = w.page(local_mode=True).open()
-    p.upload_pano('pano_a.jpg'); p.wait("PROJ[0].scenes[0].supaUrl", 10000)
+    p.upload_pano('pano_a.jpg'); p.wait("PROJ[0].scenes[0].img", 10000)
+    w.sb.objects[('panoramas','legacy/a.jpg')]=((FIXTURES/'pano_a.jpg').read_bytes(),'image/jpeg')
+    p.ev("PROJ[0].scenes[0].supaUrl='"+HOST+"/storage/v1/object/public/panoramas/legacy/a.jpg';saveData()")
     p.ev("""async () => {
         const c = document.createElement('canvas'); c.width = 64; c.height = 32;
         const blob = await new Promise(res => c.toBlob(res, 'image/jpeg'));
