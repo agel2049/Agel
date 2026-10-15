@@ -13,8 +13,9 @@
    h('button',{class:'ag-btn primary',onclick:()=>run(async()=>{
     if(!root.AgelSync)throw Error('La sincronización todavía no está disponible');
     const plan=await AgelSync.plan(await workspace.load(),workspace.store);
-    const m=modal({title:'Subir a la nube',body:[h('p',null,`${plan.assets.length} archivos · ${AgelDOM.formatBytes(plan.totalBytes)}`),h('p',null,'Los originales se conservan en este dispositivo.'),h('ul',null,plan.blocked.map(x=>h('li',null,x)))],
-     actions:[{label:'Cancelar',onClick:()=>m.close()},{label:'Confirmar subida',primary:true,disabled:!!plan.blocked.length,onClick:async()=>{if(plan.blocked.length)return;m.setBusy(true);try{await AgelSync.run({workspace,cloud:workspace.cloud,onProgress:text=>status.textContent=text});m.close();refresh();notify('Contenido sincronizado');}catch(e){m.setBusy(false);notify(e.message,'error');}}}]});
+    const controller=new AbortController(),pause=h('button',{class:'ag-btn',onclick:()=>controller.abort()},'Pausar sincronización');
+    const m=modal({title:'Subir a la nube',body:[pause,h('p',null,`${plan.assets.length} archivos · ${AgelDOM.formatBytes(plan.totalBytes)}`),h('p',null,'Los originales se conservan en este dispositivo.'),h('ul',null,plan.blocked.map(x=>h('li',null,x)))],
+     actions:[{label:'Cancelar',onClick:()=>m.close()},{label:'Confirmar subida',primary:true,disabled:!!plan.blocked.length,onClick:async()=>{if(plan.blocked.length)return;m.setBusy(true);try{await AgelSync.run({workspace,cloud:workspace.cloud,signal:controller.signal,onProgress:text=>status.textContent=text});m.close();refresh();notify('Contenido sincronizado');}catch(e){m.setBusy(false);notify(e.message,'error');}}}]});
    })},'Subir a la nube')));return {refresh};
  }};
 })(window);

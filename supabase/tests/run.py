@@ -720,6 +720,47 @@ def catalogo_importacion_exige_edicion(w):
     check(w.denied('otro','select public.import_catalog(%s,%s)',(p,data)),'otra organización importó catálogo')
     check(w.denied('anon','select public.import_catalog(%s,%s)',(p,data)),'anónimo importó catálogo')
 
+@test
+def workspace_sync_reserva_idempotente(w):
+    org=w.org('ana');p=w.project('ana',org);w.add_member('ana',p,'lector','viewer')
+    args=(p,'local-a','media','image','foto.png',1000,'image/png')
+    r=w.run('ana','select public.begin_sync_asset(%s,%s,%s,%s,%s,%s,%s)',args,fetch='val')
+    again=w.run('ana','select public.begin_sync_asset(%s,%s,%s,%s,%s,%s,%s)',args,fetch='val')
+    check(r['asset_id']==again['asset_id'],'reserva duplicada')
+    check(w.denied('lector','select public.complete_sync_asset(%s)',(r['asset_id'],)),'lector completó')
+    check(w.run('ana','select public.complete_sync_asset(%s)',(r['asset_id'],),fetch='val')['status']=='uploading','objeto ausente se marcó completo')
+    w.run('ana',"insert into storage.objects(bucket_id,name,owner,metadata) values('media',%s,auth.uid(),%s)",(r['path'],json.dumps({'size':1000,'mimetype':'image/png'})),fetch='none')
+    a=w.run('ana','select public.complete_sync_asset(%s)',(r['asset_id'],),fetch='val')
+    b=w.run('ana','select public.complete_sync_asset(%s)',(r['asset_id'],),fetch='val')
+    check(a['status']==b['status']=='ready','completar no idempotente')
+    changed=(*args[:5],1001,args[6])
+    check(w.denied('ana','select public.begin_sync_asset(%s,%s,%s,%s,%s,%s,%s)',changed),'local ID cambió archivo')
+
+@test
+def workspace_sync_snapshot_atomico(w):
+    org=w.org('ana');p=w.project('ana',org);sid=str(uuid.uuid4());space=str(uuid.uuid4())
+    tree={'project':{'id':str(p),'name':'Nuevo'},'scenes':[{'id':sid,'name':'Sala','pano_url':'https://example.test/a.jpg','hs':[]}]}
+    data={'tree':tree,'spaces':[{'id':space,'name':'Departamento','kind':'unidad','scene_ids':[sid]}],'showroom':{'description':'Borrador'},'privateSettings':{}}
+    r=w.run('ana','select public.save_workspace_snapshot(%s,%s,%s)',(p,json.dumps(data),0),fetch='val')
+    check(r['revision']==1,'revisión no incrementada')
+    check(w.run('ana','select name from public.spaces where id=%s',(space,),fetch='val')=='Departamento','catálogo no guardado')
+    data['tree']['project']['name']='Perdido'
+    check(w.denied('ana','select public.save_workspace_snapshot(%s,%s,%s)',(p,json.dumps(data),0)),'pisó revisión')
+    check(w.run('ana','select name from public.projects where id=%s',(p,),fetch='val')=='Nuevo','conflicto alteró proyecto')
+
+@test
+def workspace_sync_mime_revocado_y_ciclo(w):
+    org=w.org('ana');p=w.project('ana',org);w.add_member('ana',p,'ed','editor')
+    r=w.run('ed','select public.begin_sync_asset(%s,%s,%s,%s,%s,%s,%s)',(p,'x','media','image','a.png',10,'image/png'),fetch='val')
+    w.run('ed',"insert into storage.objects(bucket_id,name,owner,metadata) values('media',%s,auth.uid(),%s)",(r['path'],json.dumps({'size':10,'mimetype':'text/html'})),fetch='none')
+    check(w.denied('ed','select public.complete_sync_asset(%s)',(r['asset_id'],)),'MIME real incorrecto aceptado')
+    w.run('ana',"delete from public.project_members where project_id=%s and user_id=%s",(p,w.user('ed')),fetch='none')
+    check(w.denied('ed','select public.complete_sync_asset(%s)',(r['asset_id'],)),'rol revocado completó')
+    a,b=str(uuid.uuid4()),str(uuid.uuid4())
+    data={'tree':{'project':{'id':str(p),'name':'Ciclo'},'scenes':[]},'spaces':[{'id':a,'parent_id':b,'kind':'nivel','name':'A'},{'id':b,'parent_id':a,'kind':'nivel','name':'B'}],'showroom':{}}
+    check(w.denied('ana','select public.save_workspace_snapshot(%s,%s,0)',(p,json.dumps(data))),'ciclo guardado')
+    check(w.run('ana','select revision from public.projects where id=%s',(p,),fetch='val')==0,'ciclo no hizo rollback')
+
 # ───────────────────────── ejecución ─────────────────────────
 def main():
     only = sys.argv[sys.argv.index('-k') + 1] if '-k' in sys.argv else None
