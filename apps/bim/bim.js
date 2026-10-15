@@ -21,7 +21,7 @@
 
   let cloud;
   try { cloud = AgelCloud.client(); } catch (e) { app.append(h('p', { class: 'bm-msg' }, 'Falta config.js.')); return; }
-  const S = { v: null, model: null, versions: [], view: null, token: null, tab: 'filtros', filters: {}, extMap: null, scenes: [] };
+  const S = { v: null, model: null, versions: [], view: null, token: null, tab: 'filtros', filters: {}, renderToken:0, extMap: null, scenes: [] };
   const canEdit = () => S.v && S.v.can_edit;
   const canComment = () => S.v && ['owner', 'editor', 'reviewer'].includes(S.v.role);
   const fail = e => { console.warn(e); notify(e && e.message || 'Algo salió mal', 'error'); };
@@ -106,7 +106,7 @@
     const p = document.getElementById('bm-panel');
     if (!p) return;
     const fn = { filtros: tabFilters, propiedades: tabProps, vistas: tabViews, incidencias: tabIssues, '4d': tab4D, datos: tabData }[S.tab];
-    Promise.resolve(fn(p)).catch(e => put(p, h('p', { class: 'ag-error' }, e.message)));
+    const result=fn(p),token=S.renderToken;Promise.resolve(result).catch(e=>{if(token===S.renderToken)put(p,h('p',{class:'ag-error'},e.message));});
   }
 
   // ── índice de elementos ──────────────────────────────────────────────
@@ -160,10 +160,12 @@
 
   // ── filtros ──────────────────────────────────────────────────────────
   async function tabFilters(p) {
+    const renderToken=++S.renderToken;
     const f = S.facets || {};
     const presets=h('div',{class:'pn-actions'},...[['complete','Completo'],['mep','MEP'],['finishes','Con acabados'],['grey','Obra gris']].map(([id,label])=>h('button',{class:'ag-btn',type:'button',onclick:()=>applyPreset(id)},label)));
     if (!f.total) { put(p,presets, h('p', { class: 'bm-muted' }, 'Indexa los elementos para filtrar por disciplina, sistema, nivel y etapa.')); return; }
     const active = Object.entries(S.filters);
+    if(renderToken!==S.renderToken)return;
     put(p,presets,
       h('p', { class: 'bm-muted' }, `${f.total} elementos indexados${f.sin_clasificar ? `, ${f.sin_clasificar} sin clasificar` : ''}.`),
       active.length ? h('div', { class: 'bm-chips' }, active.map(([k, v]) => h('button', { type: 'button', class: 'ag-pill warn', onclick: () => { delete S.filters[k]; applyFilters(); } },
@@ -202,12 +204,14 @@
 
   // ── propiedades ──────────────────────────────────────────────────────
   async function tabProps(p) {
+    const renderToken=++S.renderToken;
     const sel = S.view ? S.view.selection() : [];
     if (sel.length !== 1) { put(p, h('p', { class: 'bm-muted' }, sel.length ? `${sel.length} elementos seleccionados. Elige uno para ver sus propiedades.` : 'Selecciona un elemento en el modelo.')); return; }
     const r = await S.view.props(sel[0]);
     const [map] = r.externalId ? await cloud.select('element_mappings', `model_version_id=eq.${S.v.id}&source_id=eq.${encodeURIComponent(r.externalId)}&select=discipline,system,level,zone,category,phase,classification`) : [];
     const groups = {};
     (r.properties || []).forEach(x => { if (x.hidden) return; (groups[x.displayCategory || 'General'] = groups[x.displayCategory || 'General'] || []).push(x); });
+    if(renderToken!==S.renderToken)return;
     put(p,
       h('h2', null, r.name || `Elemento ${sel[0]}`),
       map ? h('dl', { class: 'bm-dl bm-class' }, [['Disciplina', map.discipline], ['Sistema', map.system], ['Nivel', map.level], ['Zona', map.zone], ['Etapa', map.phase]]
@@ -221,6 +225,7 @@
 
   // ── vistas y 360° ────────────────────────────────────────────────────
   async function tabViews(p) {
+    const renderToken=++S.renderToken;
     const vps = await cloud.select('viewpoints', `project_id=eq.${S.v.project_id}&model_id=eq.${S.v.model_id}&select=*&order=created_at.desc`);
     const sceneName = id => (S.scenes.find(s => s.id === id) || {}).name;
     const save = () => {
@@ -232,6 +237,7 @@
           try { await createViewpoint(name.value.trim(), scene.value || null); m.close(); renderTab(); notify('Vista guardada'); } catch (e) { fail(e); }
         } }] });
     };
+    if(renderToken!==S.renderToken)return;
     put(p,
       canComment() ? h('button', { type: 'button', class: 'ag-btn primary', onclick: save }, icon('camera-plus'), 'Guardar vista actual') : null,
       vps.length ? h('ul', { class: 'bm-list' }, vps.map(vp => h('li', null,
@@ -273,9 +279,11 @@
 
   // ── incidencias ──────────────────────────────────────────────────────
   async function tabIssues(p, filter) {
+    const renderToken=++S.renderToken;
     filter = filter || 'abiertas';
     const q = filter === 'abiertas' ? '&status=in.(abierta,en_proceso)' : '';
     const issues = await cloud.select('issues', `project_id=eq.${S.v.project_id}&model_id=eq.${S.v.model_id}${q}&select=*&order=created_at.desc&limit=300`);
+    if(renderToken!==S.renderToken)return;
     put(p,
       h('div', { class: 'bm-row' },
         canComment() ? h('button', { type: 'button', class: 'ag-btn primary', onclick: () => newIssue() }, icon('plus'), 'Nueva') : null,
@@ -331,7 +339,9 @@
   let player = null;
   function stopPlayer() { if (player) { clearInterval(player); player = null; } }
   async function tab4D(p) {
+    const renderToken=++S.renderToken;
     const sch = await cloud.rpc('schedule_for_version', { p_version: S.v.id });
+    if(renderToken!==S.renderToken)return;
     const tasks = sch.tasks || [];
     if (!tasks.length) {
       put(p, h('p', { class: 'bm-muted' }, 'Este modelo no tiene calendario. Impórtalo desde el panel (Modelos y 4D → Importar calendario) con el CSV de TimeLiner o un XML de Microsoft Project.'));
@@ -371,6 +381,7 @@
     }
     const late = AgelFourD.variance(tasks, today);
     const rep = sch.report || {};
+    if(renderToken!==S.renderToken)return;
     put(p,
       h('div', { class: 'bm-row' }, play, modeSel), slider, dateOut, counts,
       h('h3', null, 'Activas en esta fecha'), activeList,
@@ -383,6 +394,7 @@
 
   // ── datos: reglas, reindexar, comparar versiones ─────────────────────
   async function tabData(p) {
+    const renderToken=++S.renderToken;
     const rules = await cloud.select('classification_rules', `project_id=eq.${S.v.project_id}&select=*&order=position.asc`);
     const FIELDS = { discipline: 'Disciplina', system: 'Sistema', level: 'Nivel', zone: 'Zona', category: 'Categoría', phase: 'Etapa' };
     const OPS = { equals: 'es igual a', contains: 'contiene', starts_with: 'empieza con', regex: 'cumple la expresión', exists: 'existe' };
@@ -403,6 +415,7 @@
     const older = S.versions.filter(x => x.id !== S.v.id && x.status === 'ready');
     const cmpSel = h('select', { 'aria-label': 'Versión a comparar' }, older.map(x => h('option', { value: x.id }, `v${x.version}${x.label ? ' ' + x.label : ''}`)));
     const cmpOut = h('div');
+    if(renderToken!==S.renderToken)return;
     put(p,
       h('h3', null, 'Índice de elementos'),
       h('p', { class: 'bm-muted' }, S.facets && S.facets.total ? `${S.facets.total} elementos indexados.` : 'Sin indexar.'),

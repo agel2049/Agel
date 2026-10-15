@@ -51,7 +51,7 @@
       this.addEventListener = (ev, fn) => { (listeners[ev] = listeners[ev] || []).push(fn); };
       this.getSelection = () => F.selection.slice();
       this.select = ids => { F.selection = ids.slice(); draw(); };
-      this.getProperties = (id, ok) => { const e = els[id - 1]; ok({ dbId: id, name: e.name, externalId: e.externalId, properties: e.properties }); };
+      this.getProperties = (id, ok) => { const e = els[id - 1],done=()=>ok({ dbId: id, name: e.name, externalId: e.externalId, properties: e.properties });if(F.propsDelay)setTimeout(done,F.propsDelay);else done(); };
       this.isolate = ids => { F.isolated = ids.slice(); draw(); };
       this.showAll = () => { F.isolated = null; F.hidden.clear(); draw(); };
       this.hide = ids => { ids.forEach(i => F.hidden.add(i)); draw(); };

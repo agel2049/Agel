@@ -272,6 +272,18 @@ def vistas_incidencias_y_360(w):
     check(not p.errors, f'errores JS: {p.errors}')
 
 @test
+def cambio_rapido_tab_no_sobrescribe(w):
+    d=setup_project(w);m,v=ready_version(w,d);p=w.page(d['email'])
+    p.pg.goto(w.base+f'apps/bim/?v={v}')
+    p.pg.wait_for_selector('.fake-viewer button',timeout=10000)
+    p.ev('__fake.propsDelay=300')
+    p.pg.locator('.fake-viewer button[data-dbid="3"]').click()
+    p.pg.get_by_role('tab',name='Incidencias').click()
+    p.pg.get_by_role('button',name='Nueva',exact=True).wait_for()
+    p.pg.wait_for_timeout(800)
+    check(p.pg.get_by_role('button',name='Nueva',exact=True).count()==1,'Una respuesta de Propiedades sobrescribió Incidencias')
+
+@test
 def accesos_del_visor(w):
     aps_calls_before = len(w.aps.calls)
     d = setup_project(w)
@@ -480,7 +492,9 @@ def main():
             w = World(browser, base, sb, aps); t0 = time.time()
             try: t(w); status, info = 'PASS', ''
             except AssertionError as e: status, info = 'FAIL', str(e)
-            except Exception as e: status, info = 'ERROR', f'{type(e).__name__}: {str(e).splitlines()[0][:240]}'
+            except Exception as e:
+                __import__('traceback').print_exc()
+                status, info = 'ERROR', f'{type(e).__name__}: {str(e).splitlines()[0][:240]}'
             if status != 'PASS' and os.environ.get('AGEL_DEBUG'):
                 for ci, c in enumerate(w.ctxs):
                     for pi, pg in enumerate(c.pages):
