@@ -7,6 +7,10 @@ with local_page('tests/fixtures/vm-local-videos.html') as pg:
   return {posts:posts.length,local:!!url?.startsWith('blob:'),bytes:url?.startsWith('blob:')?(await(await fetch(url)).blob()).size:0};
  }''')
  assert result=={'posts':0,'local':True,'bytes':80*1024*1024},result
+ pg.evaluate("vmScenes=[{name:'Sala',url:'https://example.test/pano.jpg'}];vmLaunch();")
+ assert pg.locator('#vmOpening').evaluate("e=>e.classList.contains('show')")
+ assert pg.locator('#vmOpeningVideo').get_attribute('src')==pg.locator('#vmVidThumb').get_attribute('src')
+ assert not pg.locator('#vmViewer').evaluate("e=>e.classList.contains('show')")
  pg.reload();pg.wait_for_function('window.vmFixtureReady')
  assert pg.locator('#vmVidThumb').get_attribute('src').startswith('blob:')
  assert pg.evaluate("JSON.stringify(JSON.parse(localStorage.getItem('agelarq_vm'))).includes('blob:')")==False

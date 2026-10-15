@@ -187,7 +187,7 @@ def visor_bim_indexa_filtra_y_4d(w):
     d = setup_project(w)
     m, v = ready_version(w, d)
     p = w.page(d['email'])
-    p.pg.goto(w.base + f'apps/bim/?v={v}')
+    p.pg.goto(w.base + f'apps/bim/?v={v}&tools=advanced')
     p.pg.wait_for_selector('.fake-viewer button', timeout=10000)
     check(p.ev('__fake.token') == 'aps:data:read:urn:adsk.objects:os.object:b/k', f'token del visor: {p.ev("__fake.token")}')
     check(p.ev('__fake.urn') == 'dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6Yi9r', 'abrió otra URN')
@@ -245,7 +245,7 @@ def vistas_incidencias_y_360(w):
     rev_email, rev = w.user('revisor')
     w.as_user(d['uid'], 'select public.add_project_member(%s, %s, %s)', (d['project'], rev_email, 'reviewer'))
     p = w.page(rev_email)
-    p.pg.goto(w.base + f'apps/bim/?v={v}')
+    p.pg.goto(w.base + f'apps/bim/?v={v}&tools=advanced')
     p.pg.wait_for_selector('.fake-viewer button', timeout=10000)
     check(p.pg.get_by_role('button', name='Indexar ahora').count() == 0, 'un revisor puede indexar')
     p.pg.locator('.fake-viewer button[data-dbid="3"]').click()
@@ -267,14 +267,14 @@ def vistas_incidencias_y_360(w):
     frame.locator('#m[hidden]').wait_for(state='attached', timeout=10000)
     # abrir por enlace directo restaura la vista y selecciona sus elementos
     vp = w.sb.sql("select id from public.viewpoints where name = 'Cuarto de bombas'")[0][0]
-    p.pg.goto(w.base + f'apps/bim/?v={v}&vp={vp}')
+    p.pg.goto(w.base + f'apps/bim/?v={v}&vp={vp}&tools=advanced')
     p.wait("window.__fake && __fake.restored && __fake.selection.length === 1", 10000)
     check(not p.errors, f'errores JS: {p.errors}')
 
 @test
 def cambio_rapido_tab_no_sobrescribe(w):
     d=setup_project(w);m,v=ready_version(w,d);p=w.page(d['email'])
-    p.pg.goto(w.base+f'apps/bim/?v={v}')
+    p.pg.goto(w.base+f'apps/bim/?v={v}&tools=advanced')
     p.pg.wait_for_selector('.fake-viewer button',timeout=10000)
     p.ev('__fake.propsDelay=300')
     p.pg.locator('.fake-viewer button[data-dbid="3"]').click()
@@ -282,6 +282,38 @@ def cambio_rapido_tab_no_sobrescribe(w):
     p.pg.get_by_role('button',name='Nueva',exact=True).wait_for()
     p.pg.wait_for_timeout(800)
     check(p.pg.get_by_role('button',name='Nueva',exact=True).count()==1,'Una respuesta de Propiedades sobrescribió Incidencias')
+
+@test
+def visor_bim_solo_filtros(w):
+    d=setup_project(w);m,v=ready_version(w,d);p=w.page(d['email'])
+    p.pg.goto(w.base+f'apps/bim/?v={v}')
+    p.pg.wait_for_selector('.fake-viewer button',timeout=10000)
+    check(p.pg.get_by_role('tab',name='Incidencias',exact=True).count()==0,'La interfaz básica aún muestra incidencias')
+    check(p.pg.get_by_role('tab').count()==1,'La interfaz básica no se limita a filtros')
+    p.pg.get_by_role('button',name='Indexar ahora',exact=True).click()
+    p.pg.wait_for_selector('text=Indexación terminada',timeout=10000);modal_btn(p,'Cerrar').click()
+    p.pg.get_by_role('button',name='Albañilería',exact=True).click()
+    p.wait('__fake.isolated && __fake.isolated.length===4',6000)
+    check(sorted(p.ev('__fake.isolated'))==[4,9,14,19],'Albañilería no usa las categorías reales')
+    p.pg.get_by_role('button',name='Estructura',exact=True).click()
+    p.wait('__fake.hidden.size===20',6000)
+    p.pg.get_by_role('button',name='Completo',exact=True).click()
+    p.wait('__fake.hidden.size===0',4000)
+    p.pg.get_by_role('button',name='MEP',exact=True).click()
+    p.wait('__fake.isolated && __fake.isolated.length===15',6000)
+    p.pg.locator('.bm-facet summary',has_text='Nivel').click()
+    p.pg.locator('.bm-facet button',has_text='Level 2').click()
+    p.wait('__fake.isolated && __fake.isolated.length===7',6000)
+    check(sorted(p.ev('__fake.isolated'))==[11,12,13,15,16,17,18],'Nivel no restringe las instalaciones activas')
+    p.pg.locator('.fake-viewer button[data-dbid="12"]').click()
+    check(p.pg.get_by_role('tab').count()==1 and p.pg.get_by_role('button',name='MEP',exact=True).count()==1,'Seleccionar una pieza abrió herramientas ajenas a filtros')
+    p.pg.get_by_role('button',name='Completo',exact=True).click()
+    p.ev("""(()=>{const c=AgelCloud.client(),select=c.select.bind(c);c.select=async(table,q)=>{const rows=await select(table,q);if(table==='element_mappings')await new Promise(r=>setTimeout(r,350));return rows;};})()""")
+    p.pg.get_by_role('button',name='MEP',exact=True).click()
+    p.pg.get_by_role('button',name='Completo',exact=True).click()
+    p.pg.wait_for_timeout(700)
+    check(p.ev('__fake.isolated') is None,'Una respuesta MEP tardía sobrescribió Completo')
+    check(not p.errors,f'errores JS: {p.errors}')
 
 @test
 def accesos_del_visor(w):

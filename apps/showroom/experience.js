@@ -4,7 +4,7 @@
  const h=(tag,attrs={},...kids)=>{const el=document.createElement(tag);for(const [k,v]of Object.entries(attrs)){if(v==null||v===false)continue;if(k.startsWith('on'))el.addEventListener(k.slice(2),v);else el.setAttribute(k,String(v));}for(const child of kids.flat())if(child!=null)el.append(child.nodeType?child:document.createTextNode(String(child)));return el;};
  const svg=(tag,attrs={})=>{const el=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const[k,v]of Object.entries(attrs))el.setAttribute(k,v);return el;};
  const arrow=()=>{const s=svg('svg',{viewBox:'0 0 24 24','aria-hidden':'true',width:20,height:20});s.append(svg('path',{d:'M5 12h14M13 6l6 6-6 6',fill:'none',stroke:'currentColor','stroke-width':1.5}));return s;};
- function mount(container,{manifest:m,navigation:n,resolveMedia=ref=>ref,openTour,onBim}){
+ function mount(container,{manifest:m,navigation:n,resolveMedia=ref=>ref,openTour,onBim,onLocalModel}){
   let fitMode=false,disposed=false,sequence=0,tour=null,video=null,restoring=false,selected=null,bimHandler=onBim;
   const scopeSpaces=R.normalizeSpaces(m.spaces,m.scenes),views=m.content.views,ex=m.content.experience;
   const button=(label,action,attrs={})=>h('button',{type:'button',...attrs,onclick:action},label);
@@ -14,7 +14,7 @@
   const loc=m.content.location||{};locationPanel.append(...[h('h2',{},'Ubicación'),h('p',{},loc.address||m.project.location||'Ubicación por confirmar'),loc.notes?h('p',{},loc.notes):null,
    loc.map_url?h('a',{href:loc.map_url,target:'_blank',rel:'noopener noreferrer'},'Abrir mapa'):null,button('Cerrar ubicación',()=>{locationPanel.hidden=true;locationButton.setAttribute('aria-expanded','false');locationButton.focus();},{class:'ax-quiet'})].filter(Boolean));
   const bim=button('Modelo BIM · equipo',()=>bimHandler?.(),{hidden:!bimHandler});
-  const lower=h('div',{class:'ax-lower'},locationButton,bim,h('a',{href:'#contacto'},'Solicitar información'));
+  const lower=h('div',{class:'ax-lower'},locationButton,bim,...(m.content.model3d?[onLocalModel?button('Modelo 3D local',onLocalModel):h('a',{href:'#modelo'},'Modelo 3D')]:[]),h('a',{href:'#contacto'},'Solicitar información'));
   const sidebar=h('aside',{class:'ax-sidebar'},h('a',{class:'ax-brand',href:'#'},m.brand.name||'AgelArq'),h('h2',{},m.project.name),levelNav,lower);
   const body=h('div',{class:'ax-workspace'},sidebar,h('div',{class:'ax-main'},h('div',{class:'ax-top'},back,crumb,button('Ver imagen completa',ev=>{fitMode=!fitMode;ev.currentTarget.setAttribute('aria-pressed',String(fitMode));fit();},{class:'ax-quiet','aria-pressed':false}),button('Fachada',()=>dispatch({type:'FACADE'}),{class:'ax-quiet'})),status,stage,content,locationPanel));
   const section=h('section',{class:'ax-experience','aria-label':'Explorar proyecto'});container.append(section);

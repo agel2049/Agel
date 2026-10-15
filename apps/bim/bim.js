@@ -12,6 +12,7 @@
   const put = (el, ...kids) => { el.replaceChildren(); return AgelDOM.append(el, kids); };
   const app = document.getElementById('app');
   const params = new URLSearchParams(location.search);
+  const advanced = params.get('tools') === 'advanced';
   const ROOT = '../../';
   const COLORS = { construyendo: '#3FA36B', demoliendo: '#D9534F', temporal: '#E0A526' };
   const STATE_LABEL = { oculto: 'Aún no existe', normal: 'Terminado', construyendo: 'En construcción', demoliendo: 'En demolición', temporal: 'Temporal' };
@@ -21,7 +22,7 @@
 
   let cloud;
   try { cloud = AgelCloud.client(); } catch (e) { app.append(h('p', { class: 'bm-msg' }, 'Falta config.js.')); return; }
-  const S = { v: null, model: null, versions: [], view: null, token: null, tab: 'filtros', filters: {}, renderToken:0, extMap: null, scenes: [] };
+  const S = { v: null, model: null, versions: [], view: null, token: null, tab: 'filtros', filters: {}, preset:'complete', filterToken:0, renderToken:0, extMap: null, scenes: [] };
   const canEdit = () => S.v && S.v.can_edit;
   const canComment = () => S.v && ['owner', 'editor', 'reviewer'].includes(S.v.role);
   const fail = e => { console.warn(e); notify(e && e.message || 'Algo salió mal', 'error'); };
@@ -29,6 +30,12 @@
 
   // ── arranque ─────────────────────────────────────────────────────────
   async function boot() {
+    const local=params.get('local');
+    if(local){
+      if(!/^[0-9a-f-]{36}$/i.test(local))return msg('Proyecto local inválido','Abre el GLB desde el panel.');
+      try{return await AgelLocalGLB.mount(app,{cloud,projectId:local,returnUrl:params.get('return')});}
+      catch(e){return msg('No se pudo abrir el GLB local',e.message,h('a',{class:'ag-btn',href:`${ROOT}apps/panel/`},'Ir al panel'));}
+    }
     const id = params.get('v');
     if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return msg('Falta la versión del modelo', 'Abre el visor desde el panel, en Modelos y 4D.', h('a', { class: 'ag-btn primary', href: ROOT + 'apps/panel/' }, 'Ir al panel'));
     if (!cloud.session) return msg('Inicia sesión', 'El visor BIM es privado para el equipo del proyecto.', h('a', { class: 'ag-btn primary', href: ROOT + 'apps/panel/' }, 'Entrar desde el panel'));
@@ -49,11 +56,11 @@
       put(document.getElementById('bm-viewer'), h('div', { class: 'bm-msg' }, h('h1', null, 'No se pudo mostrar el modelo'), h('p', null, e.message)));
       return;
     }
-    S.view.onSelect(ids => { if (S.tab === 'propiedades') renderTab(); else if (ids.length === 1) setTab('propiedades'); });
+    S.view.onSelect(ids => { if(advanced){if (S.tab === 'propiedades') renderTab(); else if (ids.length === 1) setTab('propiedades');} });
     await checkIndex();
     renderTab();
-    if (params.get('vp')) openViewpoint(params.get('vp'));
-    if (params.get('i')) openIssue(params.get('i'));
+    if (advanced&&params.get('vp')) openViewpoint(params.get('vp'));
+    if (advanced&&params.get('i')) openIssue(params.get('i'));
   }
 
   async function getToken() {
@@ -76,8 +83,8 @@
   }
 
   // ── estructura ───────────────────────────────────────────────────────
-  const TABS = [['filtros', 'Filtros', 'filter'], ['propiedades', 'Propiedades', 'list-details'], ['vistas', 'Vistas y 360°', 'camera'],
-                ['incidencias', 'Incidencias', 'message-report'], ['4d', '4D', 'calendar-time'], ['datos', 'Datos', 'database']];
+  const TABS = advanced?[['filtros', 'Filtros', 'filter'], ['propiedades', 'Propiedades', 'list-details'], ['vistas', 'Vistas y 360°', 'camera'],
+                ['incidencias', 'Incidencias', 'message-report'], ['4d', '4D', 'calendar-time'], ['datos', 'Datos', 'database']]:[['filtros','Filtros','filter']];
   function layout() {
     const verSel = h('select', { 'aria-label': 'Versión del modelo', onchange: e => { location.search = `?v=${e.target.value}`; } },
       S.versions.filter(x => x.status === 'ready').map(x => h('option', { value: x.id, selected: x.id === S.v.id }, `v${x.version}${x.label ? ' ' + x.label : ''}`)));
@@ -89,7 +96,7 @@
         h('span', { class: 'ag-pill' }, { owner: 'Propietario', editor: 'Editor', reviewer: 'Revisor', viewer: 'Lector' }[S.v.role] || S.v.role)),
       h('div', { class: 'bm-body' },
         h('aside', { class: 'bm-side' },
-          h('nav', { class: 'bm-tabs', role: 'tablist', 'aria-label': 'Herramientas' }, TABS.map(([id, label, ic]) =>
+          h('nav', { class: 'bm-tabs'+(!advanced?' bm-tabs-simple':''), role: 'tablist', 'aria-label': 'Herramientas' }, TABS.map(([id, label, ic]) =>
             h('button', { type: 'button', role: 'tab', id: `t-${id}`, 'aria-selected': String(id === S.tab), 'aria-controls': 'bm-panel', onclick: () => setTab(id) }, icon(ic), h('span', null, label)))),
           h('div', { id: 'bm-banner' }),
           h('section', { id: 'bm-panel', class: 'bm-panel', role: 'tabpanel', 'aria-labelledby': `t-${S.tab}` })),
@@ -152,7 +159,7 @@
       modal({ title: 'Indexación terminada', body: [
         h('p', null, `${s.total} elementos. ${s.sin_clasificar} sin clasificar y ${s.sin_nivel} sin nivel.`),
         h('ul', { class: 'ag-list' }, Object.entries(s.por_disciplina).sort((a, b) => b[1] - a[1]).map(([k, v]) => h('li', null, h('span', { class: 'bm-grow' }, k), String(v)))),
-        s.sin_clasificar ? h('p', null, 'Para clasificar el resto agrega reglas en la pestaña Datos (por ejemplo: si la capa empieza con «E-», disciplina Eléctrica) y vuelve a indexar.') : null],
+        s.sin_clasificar ? h('p', null, advanced?'Para clasificar el resto agrega reglas en la pestaña Datos y vuelve a indexar.':'Algunos elementos no tienen una disciplina reconocida. Se conservan visibles en Completo; exporta sus categorías y propiedades para filtrarlos.') : null],
         actions: [{ label: 'Cerrar', primary: true, onClick: x => x.close() }] });
       await checkIndex(); renderTab();
     } catch (e) { m.close(); fail(e); }
@@ -162,14 +169,14 @@
   async function tabFilters(p) {
     const renderToken=++S.renderToken;
     const f = S.facets || {};
-    const presets=h('div',{class:'pn-actions'},...[['complete','Completo'],['mep','MEP'],['finishes','Con acabados'],['grey','Obra gris']].map(([id,label])=>h('button',{class:'ag-btn',type:'button',onclick:()=>applyPreset(id)},label)));
+    const presets=h('div',{class:'pn-actions'},...[['complete','Completo'],['mep','MEP'],['masonry','Albañilería'],['structure','Estructura'],['finishes','Con acabados'],['grey','Obra gris']].map(([id,label])=>h('button',{class:'ag-btn',type:'button','aria-pressed':String(S.preset===id),onclick:()=>applyPreset(id)},label)));
     if (!f.total) { put(p,presets, h('p', { class: 'bm-muted' }, 'Indexa los elementos para filtrar por disciplina, sistema, nivel y etapa.')); return; }
     const active = Object.entries(S.filters);
     if(renderToken!==S.renderToken)return;
     put(p,presets,
       h('p', { class: 'bm-muted' }, `${f.total} elementos indexados${f.sin_clasificar ? `, ${f.sin_clasificar} sin clasificar` : ''}.`),
       active.length ? h('div', { class: 'bm-chips' }, active.map(([k, v]) => h('button', { type: 'button', class: 'ag-pill warn', onclick: () => { delete S.filters[k]; applyFilters(); } },
-        `${FACETS.find(x => x[0] === k)[1]}: ${v}`, icon('x'))), h('button', { type: 'button', class: 'ag-btn link', onclick: () => { S.filters = {}; applyFilters(); } }, 'Ver todo')) : null,
+        `${FACETS.find(x => x[0] === k)[1]}: ${v}`, icon('x'))), h('button', { type: 'button', class: 'ag-btn link', onclick: () => { S.filters = {};S.preset='complete'; applyFilters(); } }, 'Ver todo')) : null,
       FACETS.map(([k, label]) => {
         const values = Object.entries(f[k] || {}).sort((a, b) => b[1] - a[1]);
         if (!values.length || (values.length === 1 && /^sin /.test(values[0][0]))) return null;
@@ -180,25 +187,31 @@
           } }, h('span', null, val), h('small', null, String(n)))))));
       }));
   }
+  async function indexedElements(query='',token=S.filterToken){
+    const rows=[];let offset=0;
+    while(true){if(token!==S.filterToken)return null;const batch=await cloud.select('element_mappings',`model_version_id=eq.${S.v.id}&${query}select=dbid,discipline,category,level&order=dbid.asc&limit=1000&offset=${offset}`);if(token!==S.filterToken)return null;rows.push(...batch);if(batch.length<1000)return rows;offset+=batch.length;if(offset>=200000)throw Error('El modelo supera el límite de elementos de esta vista');}
+  }
   async function applyPreset(id){
-    if(id==='complete'){S.view.showAll();S.view.fit();return;}
+    const token=++S.filterToken;
+    if(id==='complete'){S.filters={};S.preset=id;S.view.showAll();S.view.fit();renderTab();return;}
     const preset=S.privateSettings?.presets?.[id]||AgelBimPresets.defaults[id];
     try{
-     const rows=[];let offset=0;
-     while(true){const batch=await cloud.select('element_mappings',`model_version_id=eq.${S.v.id}&select=dbid,discipline,category,level&order=dbid.asc&limit=1000&offset=${offset}`);rows.push(...batch);if(batch.length<1000)break;offset+=batch.length;if(offset>=200000)throw Error('El modelo supera el límite de elementos de esta vista');}
-     const ids=AgelBimPresets.selectIds(rows,preset);if(ids===null){notify('Configura los elementos de esta vista','error');return;}if(!ids.length){notify('No se encontraron elementos para esta vista','error');return;}
-     S.view.isolate(ids);S.view.fit(ids);notify(`${ids.length} elementos`);
-    }catch(e){fail(e);}
+     const rows=await indexedElements('',token);if(rows===null)return;
+     const ids=AgelBimPresets.selectIds(rows,preset);if(ids===null){notify('Configura los elementos de esta vista','error');return;}
+     S.filters={};S.preset=id;S.view.isolate(ids);if(ids.length)S.view.fit(ids);notify(`${ids.length} elementos`);renderTab();
+    }catch(e){if(token===S.filterToken)fail(e);}
   }
   async function applyFilters() {
+    const token=++S.filterToken,selectedPreset=S.preset;
     const q = Object.entries(S.filters).map(([k, v]) => /^sin (clasificar|nivel|etapa)$/.test(v) ? `${k}=eq.` : `${k}=eq.${encodeURIComponent(v)}`);
-    if (!q.length) { S.view.showAll(); S.view.fit(); renderTab(); return; }
+    if (!q.length&&S.preset==='complete') { S.view.showAll(); S.view.fit(); renderTab(); return; }
     try {
-      const rows = await cloud.select('element_mappings', `model_version_id=eq.${S.v.id}&${q.join('&')}&select=dbid&limit=200000`);
-      const ids = rows.map(r => r.dbid).filter(x => x != null);
-      S.view.isolate(ids); S.view.fit(ids);
+      const rows = await indexedElements(q.length?q.join('&')+'&':'',token);if(rows===null)return;
+      const preset=selectedPreset==='complete'?{all:true}:S.privateSettings?.presets?.[selectedPreset]||AgelBimPresets.defaults[selectedPreset];
+      const ids = AgelBimPresets.selectIds(rows,preset);if(ids===null)throw Error('Configura los elementos de esta vista');
+      S.view.isolate(ids); if(ids.length)S.view.fit(ids);
       notify(`${ids.length} elementos`);
-    } catch (e) { fail(e); }
+    } catch (e) { if(token!==S.filterToken)return;fail(e); }
     renderTab();
   }
 
