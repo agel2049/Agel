@@ -205,13 +205,14 @@ function sanitizeShowroom(raw) {
   // puntos de escena 360°. Coordenadas en % de la imagen (0–100).
   const sceneIdx = new Map(scenes.map((sc, i) => [sc.id, i]).filter(([k]) => k));
   const pct = v => { const n = Number(v); return Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n * 100) / 100)) : null; };
-  const views = _list(sr.views, 8).map((v, vi) => {
+  if (Array.isArray(sr.views) && sr.views.length > 256) throw new ConfigError('Máximo 256 vistas por proyecto');
+  const views = _list(sr.views, 256).map((v, vi) => {
     if (!v || typeof v !== 'object') return null;
     const image = _https(v.image); if (!image) return null;
     const regions = _list(v.regions, 300).map(r => {
       const space = _uuid(r && r.space); if (!space || !ids.has(space)) return null;
       const pts = _list(r.points, 80).map(p => Array.isArray(p) ? [pct(p[0]), pct(p[1])] : null).filter(p => p && p[0] !== null && p[1] !== null);
-      return pts.length >= 3 ? { space, points: pts } : null;
+      return pts.length >= 3 ? { space, points: pts, radius: _num(r.radius, 0, 2) || 0 } : null;
     }).filter(Boolean);
     const spots = _list(v.spots, 100).map(sp => {
       const i = sceneIdx.get(_uuid(sp && sp.scene)); const x = pct(sp && sp.x), y = pct(sp && sp.y);
@@ -220,8 +221,18 @@ function sanitizeShowroom(raw) {
     const w = _num(v.w, 1, 20000), hh = _num(v.h, 1, 20000);
     return { id: _str(v.id, 40).replace(/[^\w-]/g, '') || `v${vi + 1}`, title: _str(v.title, 80) || `Vista ${vi + 1}`,
              kind: v.kind === 'plano' ? 'plano' : 'render', image, ratio: w && hh ? Math.round(w / hh * 1000) / 1000 : 16 / 9, regions, spots };
-  }).filter(v => v && (v.regions.length || v.spots.length));
+  }).filter(Boolean);
   content.views = views;
+  let showroomOpening = visor.opening;
+  if (sr.experience && sr.experience.version === 1) {
+    const relations = typeof AgelShowroomRelations !== 'undefined' ? AgelShowroomRelations
+      : typeof require === 'function' ? require('../showroom/relations.js') : null;
+    if (!relations) throw new ConfigError('Falta el módulo de relaciones del showroom');
+    const normalized = relations.normalizeExperience(sr, spaces, scenes, { publicMode: true });
+    content.experience = normalized.experience;
+    content.views = normalized.views.map(v => ({ ...v, spots: v.spots.map(sp => ({ ...sp, sceneId: sp.scene, scene: sceneIdx.get(sp.scene) })) }));
+    showroomOpening = normalized.opening;
+  }
 
   // Avance de obra comercial (fotos e hitos aprobados), distinto del 4D técnico.
   content.progress = _list(sr.progress, 40).map(e => e && typeof e === 'object' ? {
@@ -236,7 +247,7 @@ function sanitizeShowroom(raw) {
     project: { name: _str(pr.name, 160) || visor.p, subtitle: _str(pr.subtitle, 240), location: _str(pr.location, 240),
                delivery: _str(pr.delivery, 80), kind: ['desarrollo', 'edificio', 'vivienda', 'ambiente', 'producto'].includes(pr.kind) ? pr.kind : 'desarrollo' },
     brand: { name: _str(br.name, 120), logo: _https(br.logo_url), accent, accentText: readableOn(accent) },
-    content, scenes, spaces, opening: visor.opening
+    content, scenes, spaces, opening: showroomOpening
   };
 }
 
