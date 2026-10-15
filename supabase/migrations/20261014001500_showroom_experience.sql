@@ -90,3 +90,26 @@ begin
  return snap||jsonb_build_object('showroom',sr,'opening',sr->'opening');
 end $$;
 revoke all on function app.build_snapshot_legacy(uuid,text),app.build_snapshot(uuid,text),app.pick_json(jsonb,text[]),app.orient(jsonb,jsonb,jsonb),app.segments_cross(jsonb,jsonb,jsonb,jsonb),app.public_showroom(jsonb),app.validate_showroom_experience(uuid,jsonb) from public,anon,authenticated;
+
+-- Image-only showrooms are content too. Serialize version numbering per publication.
+create or replace function public.create_publication_version(p_publication uuid, p_note text default '')
+returns uuid language plpgsql security definer set search_path = '' as $$
+declare v_pub public.publications; v_ver int; v_id uuid; v_snap jsonb; v_rev int;
+begin
+  select * into v_pub from public.publications where id = p_publication for update;
+  if v_pub.id is null or not app.can_edit_project(v_pub.project_id) then
+    raise exception 'No puedes preparar versiones de esta publicación' using errcode = '42501';
+  end if;
+  v_snap := app.build_snapshot(v_pub.project_id, v_pub.kind);
+  if v_pub.kind in ('visor', 'showroom') and jsonb_array_length(v_snap -> 'scenes') = 0
+     and jsonb_array_length(v_snap -> 'spaces') = 0
+     and jsonb_array_length(coalesce(v_snap#>'{showroom,views}','[]'))=0 and coalesce(v_snap -> 'showroom' ->> 'description', '') = '' then
+    raise exception 'No hay contenido publicable: agrega escenas con panorámica o contenido del showroom';
+  end if;
+  select coalesce(max(version), 0) + 1 into v_ver from public.publication_versions where publication_id = p_publication;
+  select revision into v_rev from public.projects where id = v_pub.project_id;
+  insert into public.publication_versions (publication_id, project_id, version, snapshot, note, source_revision, created_by)
+  values (p_publication, v_pub.project_id, v_ver, v_snap, left(coalesce(p_note, ''), 500), v_rev, auth.uid())
+  returning id into v_id;
+  return v_id;
+end $$;

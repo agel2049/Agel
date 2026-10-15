@@ -236,3 +236,7 @@ El panel nuevo permitirá cargar los recursos reales; no es necesario compartir 
 ## 11. Punto de revisión
 
 El propietario aprobó el diseño y añadió el botón 90° con alternancia durante el dibujo, redondeo de vértices cerrados y transparencia de las áreas en reposo. Estos ajustes están incorporados. El siguiente punto de revisión es el plan de implementación y su método de ejecución, conforme al flujo de las habilidades `brainstorming` y `writing-plans`. La rama contiene solo documentación en esta etapa; no modifica el sitio publicado ni Supabase.
+
+## Ajuste aprobado por el propietario — 15 de octubre de 2026
+
+La imagen ocupa todo el viewport del showroom. Los niveles, regreso, ubicación y BIM flotan sobre ella con estilo glassmorphism: transparencia en reposo y opacidad completa al pasar el ratón o recibir foco. Títulos y hotspots no se atenúan. En dispositivos táctiles se conserva mayor visibilidad de los controles. Para recuperar los bordes de una planta que el modo pantalla completa recorta, se ofrece «Ver imagen completa»; el SVG y sus puntos conservan siempre las coordenadas de la imagen.

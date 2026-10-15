@@ -147,6 +147,11 @@ def shot(p, name):
 
 
 # ───────────────────────── pruebas ─────────────────────────
+def sync_panel(p):
+    p.pg.get_by_role('button',name='Subir a la nube',exact=True).click()
+    p.pg.get_by_role('button',name='Confirmar subida',exact=True).click()
+    p.pg.wait_for_selector('text=Contenido sincronizado',timeout=10000)
+
 @test
 def panel_sube_y_convierte_modelo(w):
     d = setup_project(w)
@@ -294,11 +299,12 @@ def panel_showroom_catalogo_y_publicacion(w):
     p.pg.get_by_label('Puntos destacados').fill('Terreno de 300 m²\nPaneles solares')
     p.pg.get_by_label('Correo para avisos de prospectos').fill('ventas@pinos.mx')
     p.pg.get_by_label('Webhook de CRM').fill('http://inseguro.example/hook')
-    p.pg.locator('.pn-form').get_by_role('button', name='Guardar', exact=True).click()
+    p.pg.locator('.pn-form').get_by_role('button', name='Guardar en este dispositivo', exact=True).click()
     p.pg.wait_for_selector('.ag-error:has-text("https://")')
     p.pg.get_by_label('Webhook de CRM').fill('')
-    p.pg.locator('.pn-form').get_by_role('button', name='Guardar', exact=True).click()
-    p.pg.wait_for_selector('text=Guardado.', timeout=6000)
+    p.pg.locator('.pn-form').get_by_role('button', name='Guardar en este dispositivo', exact=True).click()
+    p.pg.wait_for_selector('text=Guardado en este dispositivo.', timeout=6000)
+    sync_panel(p)
     sr = w.sb.sql('select showroom from public.projects where id = %s', (d['project'],))[0][0]
     check(sr['tagline'].startswith('Casas entre pinos') and sr['highlights'] == ['Terreno de 300 m²', 'Paneles solares'], f'showroom: {sr}')
     # catálogo
@@ -310,6 +316,7 @@ def panel_showroom_catalogo_y_publicacion(w):
     p.pg.get_by_label('Cuarto de máquinas').check()
     modal_btn(p, 'Guardar').click()
     p.pg.wait_for_selector('.pn-table th:has-text("Casa 7")', timeout=6000)
+    sync_panel(p)
     # publicación
     p.pg.get_by_role('link', name='Publicaciones').click()
     p.pg.get_by_role('button', name='Nueva publicación').click()
@@ -414,12 +421,14 @@ def panel_vistas_zonas_y_revision(w):
     b = stage.bounding_box()
     for fx, fy in [(.1, .1), (.3, .1), (.3, .4), (.1, .4)]:
         p.pg.mouse.click(b['x'] + b['width'] * fx, b['y'] + b['height'] * fy)
+    p.pg.get_by_label('Zona de',exact=True).select_option(str(u1))
     p.pg.get_by_role('button', name='Cerrar zona').click()
-    check('1 de 2 unidades' in p.pg.inner_text('.ag-modal'), p.pg.inner_text('.ag-modal')[:300])
+    check(p.pg.locator('.pn-vstage path').count()>0,'no se dibujó la zona')
     p.pg.get_by_role('button', name='Colocar escenas 360°').click()
     p.pg.mouse.click(b['x'] + b['width'] * .6, b['y'] + b['height'] * .5)
     modal_btn(p, 'Listo y guardar').click()
-    p.pg.wait_for_selector('text=Guardado.', timeout=8000)
+    p.pg.wait_for_selector('text=Guardado en este dispositivo.', timeout=8000)
+    sync_panel(p)
     sr = w.sb.sql('select showroom from public.projects where id = %s', (d['project'],))[0][0]
     v = sr['views'][0]
     check(sr['area_label'] == 'interior' and v['regions'][0]['space'] == str(u1) and len(v['regions'][0]['points']) == 4, f'zonas: {v}')

@@ -20,6 +20,7 @@
     const expected=next.localRevision||0,copy=clone(next);copy.localRevision=expected+1;copy.dirty=!synced;
     await store.saveDraft(copy,expected);check();current=copy;next.localRevision=copy.localRevision;next.dirty=copy.dirty;return clone(copy);
    },
+   async reloadCloud(){check();const [tree,spaces,privateSettings]=await Promise.all([cloud.rpc('load_project_tree',{p_project:projectId}),cloud.select('spaces',`project_id=eq.${projectId}&select=*&order=position.asc`),cloud.rpc('load_workspace_settings',{p_project:projectId})]);const previous=await api.load();const next={tree,spaces,showroom:clone(tree.project.showroom||{}),privateSettings,media:previous.media,baseRevision:tree.revision,localRevision:previous.localRevision,dirty:false};await api.save(next,{synced:true});return api.load();},
    async addMedia(file,kind='image'){
     check();const draft=await api.load();if(!['owner','editor'].includes(draft.tree.role))throw Error('No tienes permiso para editar');
     const meta=await store.put(file,{kind});draft.media.push(meta);await api.save(draft);return meta;

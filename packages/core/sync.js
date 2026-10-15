@@ -14,7 +14,7 @@
  }
  function rewrite(v,mapping){if(typeof v==='string')return mapping.get(v)||v;if(Array.isArray(v))return v.map(x=>rewrite(x,mapping));if(v&&typeof v==='object')return Object.fromEntries(Object.entries(v).map(([k,x])=>[k,rewrite(x,mapping)]));return v;}
  async function run({workspace,cloud,signal,onProgress=()=>{}}){
-  const initial=await workspace.load(),p=await plan(initial,workspace.store);if(p.blocked.length)throw Error(p.blocked.join('\n'));
+  const initial=await workspace.load();if(!initial.dirty)return {revision:initial.baseRevision};const p=await plan(initial,workspace.store);if(p.blocked.length)throw Error(p.blocked.join('\n'));
   const stopped=()=>{if(signal?.aborted)throw Error('Sincronización pausada. Puedes reintentar; los archivos completados se conservan.');};
   const journal=await root.AgelSyncJournal.open(workspace),mapping=new Map();let i=0;
   for(const asset of p.assets){stopped();onProgress(`Archivo ${++i} de ${p.assets.length}: ${asset.name}`);

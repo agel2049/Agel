@@ -267,7 +267,7 @@
       actions: [
         { label: 'Descargar mi copia', icon: 'download', onClick: () => downloadJson(CM.toTree(p), `copia-${AgelCloud.slugify(p.name)}.json`) },
         { label: 'Cargar la versión del servidor', primary: true, onClick: async m => {
-            CM.conflict.delete(pi); p._cloud.loaded = false; await CM.ensureLoaded(pi); m.close();
+            await (await CM.workspace(pi)).reloadCloud();CM.conflict.delete(pi);CM.dirty.delete(pi);p._cloud.loaded = false; await CM.ensureLoaded(pi); m.close();
             if (pi === cP) refreshUI(); } }
       ]
     });
@@ -278,6 +278,15 @@
   }
 
   // ── subidas ─────────────────────────────────────────────────────────────
+  CM.syncCurrent=async function(){
+    await CM.flush();const p=PROJ[cP],ws=await CM.workspace(cP);if(CM.pending())throw Error('Guarda primero los cambios locales pendientes');
+    try{const r=await AgelSync.run({workspace:ws,cloud,onProgress:setStatus}),d=await ws.load();Object.assign(p,CM.fromTree(d.tree));p._localRevision=d.localRevision;p._cloud.lastSaved=JSON.stringify(CM.toTree(p));setStatus('Sincronizado');return r;}
+    catch(e){if(e.isConflict){CM.conflict.add(cP);setStatus('Conflicto');showConflict(cP);}throw e;}
+  };
+  CM.showSync=async function(){
+    await CM.flush();const ws=await CM.workspace(cP),plan=await AgelSync.plan(await ws.load(),ws.store);
+    modal({title:'Subir a la nube',body:[h('p',{},`${plan.assets.length} archivos · ${AgelDOM.formatBytes(plan.totalBytes)}`),...plan.blocked.map(x=>h('p',{class:'ag-error'},x))],actions:[{label:'Cancelar',onClick:m=>m.close()},{label:'Confirmar subida',primary:true,onClick:async m=>{if(plan.blocked.length)return;m.setBusy(true);try{await CM.syncCurrent();m.close();say('Contenido sincronizado');}catch(e){m.setBusy(false);notify(e.message,'error');}}}]});
+  };
   CM.uploadPano = async function (file, pi, onProgress) {
     const p = PROJ[pi];
     if (!canEdit(p)) throw new Error('Tu rol en este proyecto no permite subir archivos');
@@ -403,7 +412,7 @@
       orgs.length > 1 ? h('div', { class: 'cm-menu-sub' }, 'Organización') : null,
       orgs.length > 1 ? orgs.map(o => item(o.id === CM.orgId ? 'circle-check' : 'circle', o.name, () => switchOrg(o.id))) : null,
       item('plus', 'Proyecto nuevo', () => CM.createProject()),
-      item('cloud-upload', 'Subir a la nube', () => {location.href='apps/panel/#/p/'+p._cloud.id+'/showroom';},{disabled:!p?._cloud}),
+      item('cloud-upload', 'Subir a la nube', () => CM.showSync(),{disabled:!p?._cloud}),
       item('world-upload', 'Publicar recorrido', () => CM.publish(), { disabled: !p || !p._cloud || !canEdit(p) }),
       item('database-import', 'Importar de este navegador', () => CM.importLocal()),
       item('layout-dashboard', 'Panel de administración', () => { location.href = 'apps/panel/'; }),

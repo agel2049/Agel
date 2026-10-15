@@ -1885,6 +1885,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 <script src="packages/core/local-media.js"></script>
 <script src="packages/core/local-backup.js"></script>
 <script src="packages/core/workspace.js"></script>
+<script src="packages/core/sync.js"></script>
 <script src="apps/editor/cloud-mode.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
@@ -2477,6 +2478,7 @@ function _loadTexFromUrl(url) {
 function _applyPanoUrl(file, url, pi, si) {
   PROJ[pi].scenes[si].img     = url;
   PROJ[pi].scenes[si].supaUrl = url;
+  PROJ[pi].scenes[si].thumbRef=null;PROJ[pi].scenes[si].thumbUrl=null;PROJ[pi].scenes[si].previewUrl=null;
 
   // Thumbnail (small, local only)
   _makeThumb(file, tb => {

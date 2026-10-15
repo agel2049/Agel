@@ -232,3 +232,7 @@ Crea `p/<dirección>/index.html` por cada showroom público y un `sitemap.xml`. 
 - **"El archivo supera el tamaño permitido por tu plan"**: límite de Supabase; reduce la imagen o revisa el plan.
 - **Modelos D5 (HTML):** Supabase entrega los archivos HTML como texto por seguridad. Si un enlace D5 muestra código en lugar del modelo, ese HTML necesita otro alojamiento (por ejemplo, la misma página de GitHub Pages).
 - Para volver atrás: en GitHub, el PR fusionado tiene un botón **Revert**. Tus datos en Supabase no se borran al revertir el código.
+
+## Actualizar a showroom inmersivo (instalación existente)
+
+Aplica únicamente las migraciones `20261014001300_catalogo_importacion.sql`, `20261014001400_workspace_sync.sql`, `20261014001500_showroom_experience.sql` y `20261014001600_bim_showroom_access.sql`, en ese orden y dentro de una transacción revisada. No repitas las primeras doce ni el archivo de despliegue inicial. Conserva hashes y versiones en el registro privado existente. Después despliega el commit verificado y sigue SHOWROOM-INMERSIVO.md para configurar una publicación nueva. Las funciones Autodesk no se despliegan ni configuran automáticamente.

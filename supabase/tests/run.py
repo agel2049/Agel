@@ -805,6 +805,14 @@ def showroom_bim_privado_acceso(w):
     check(w.denied('lector','select public.save_workspace_settings(%s,%s)',(p,settings)),'lector cambió BIM')
     check(w.run('lector','select public.load_workspace_settings(%s)',(p,),fetch='val')['bimVersionId']==version,'configuración no recuperada')
 
+@test
+def showroom_experience_solo_imagen_publicable(w):
+    org=w.org('ana');p=w.project('ana',org)
+    sr={'views':[{'id':'facade','image':'https://example.test/f.jpg','role':'facade'}],'experience':{'version':1,'facadeViewId':'facade'}}
+    w.run('ana','update public.projects set showroom=%s where id=%s',(json.dumps(sr),p),fetch='none')
+    pub=w.run('ana','select public.create_publication(%s,%s,%s)',(p,'showroom','solo-imagen'),fetch='val')
+    check(w.run('ana','select public.create_publication_version(%s)',(pub,),fetch='val') is not None,'imagen no publicable')
+
 # ───────────────────────── ejecución ─────────────────────────
 def main():
     only = sys.argv[sys.argv.index('-k') + 1] if '-k' in sys.argv else None
