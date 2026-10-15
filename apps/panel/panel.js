@@ -200,12 +200,13 @@
 
   // ═════════════════════════════ showroom ═════════════════════════════
   async function tabShowroom(body) {
-    const draft=await S.workspace.load(), p={...draft.tree.project,showroom:draft.showroom},spaces=draft.spaces,scenes=draft.tree.scenes;
-    const localImg=ref=>{const el=h('img',{alt:'',loading:'lazy'});S.workspace.resolveMedia(ref).then(url=>el.src=url).catch(fail);return el;};
+    const workspace=S.workspace;
+    const draft=await workspace.load(), p={...draft.tree.project,showroom:draft.showroom},spaces=draft.spaces,scenes=draft.tree.scenes;
+    const localImg=ref=>{const el=h('img',{alt:'',loading:'lazy'});workspace.resolveMedia(ref).then(url=>el.src=url).catch(fail);return el;};
     const sr = Object.assign({}, p.showroom || {});
     const views = JSON.parse(JSON.stringify(Array.isArray(sr.views) ? sr.views : []));
-    const settingsBox=h('div');let settings;
-    settings=await AgelExperienceSettings.mount(settingsBox,{workspace:S.workspace,views,onChange:next=>Object.assign(sr,next.showroom)});
+    const editSession={revision:draft.localRevision},settingsBox=h('div');let settings;
+    settings=await AgelExperienceSettings.mount(settingsBox,{workspace,views,editSession,onChange:next=>Object.assign(sr,next.showroom)});
     const progress = JSON.parse(JSON.stringify(Array.isArray(sr.progress) ? sr.progress : []));
     const loc = sr.location || {}, ct = sr.contact || {}, seo = sr.seo || {};
     const gallery = (sr.gallery || []).map(g => typeof g === 'string' ? { url: g, caption: '' } : Object.assign({}, g));
@@ -263,7 +264,7 @@
             h('small', { class: 'pn-muted' }, `${(v.regions || []).length} zonas, ${(v.spots || []).length} puntos 360°`,
               broken ? h('span', { class: 'ag-error' }, ` · ${broken} apuntan a algo que ya no existe`) : null)),
           h('span', { class: 'pn-media-act' },
-            h('button', { type: 'button', class: 'ag-btn primary', onclick: () => editView(v, spaces, scenes, views, () => { drawViews(); form.requestSubmit(); }) }, 'Dibujar zonas'),
+            h('button', { type: 'button', class: 'ag-btn primary', onclick: () => editView(v, spaces, scenes, views, workspace, () => { drawViews(); form.requestSubmit(); }) }, 'Dibujar zonas'),
             h('button', { type: 'button', class: 'ag-btn', 'aria-label': 'Subir', disabled: i === 0, onclick: () => { [views[i - 1], views[i]] = [views[i], views[i - 1]]; drawViews(); } }, icon('arrow-up')),
             h('button', { type: 'button', class: 'ag-btn danger', 'aria-label': 'Quitar vista', onclick: () => { if (confirm('¿Quitar esta vista y sus zonas?')) { views.splice(i, 1); drawViews(); } } }, icon('trash'))));
       }));
@@ -291,7 +292,7 @@
       fi.addEventListener('change', async () => {
         for (const file of fi.files) {
           busy(btn, true, `Guardando ${file.name}…`);
-          try { const r = await S.workspace.addMedia(file,kind); await onDone(r.ref,file); form.requestSubmit(); }
+          try { const r = await workspace.addMedia(file,kind,{expectedRevision:editSession.revision});editSession.revision=r.localRevision; await onDone(r.ref,file);if(!await saveContent())break; }
           catch (e) { fail(e); }
         }
         busy(btn, false); fi.value = ''; draw();
@@ -301,11 +302,11 @@
     const err = h('p', { class: 'ag-error', role: 'alert' });
     const save = h('button', { type: 'submit', class: 'ag-btn primary' }, 'Guardar en este dispositivo');
     const httpsOrEmpty = v => !v || /^https:\/\//i.test(v) || /^agel-local:[\w-]+$/.test(v);
-    const form = h('form', { class: 'pn-form', onsubmit: async e => {
-      e.preventDefault(); err.textContent = '';
+    async function saveContent(){
+      err.textContent = '';
       for (const [k, label] of [['map_url', 'El enlace del mapa'], ['webhook', 'El webhook'], ['model_url', 'El modelo 3D']])
-        if (!httpsOrEmpty(f[k].value.trim())) { err.textContent = `${label} debe empezar con https://`; f[k].focus(); return; }
-      let experience;try{experience=settings.read();}catch(ex){err.textContent=ex.message;return;}
+        if (!httpsOrEmpty(f[k].value.trim())) { err.textContent = `${label} debe empezar con https://`; f[k].focus(); return false; }
+      let experience;try{experience=settings.read();}catch(ex){err.textContent=ex.message;return false;}
       const next = Object.assign({}, sr, experience.showroom, {
         tagline: f.tagline.value.trim(), description: f.description.value.trim(),
         highlights: lines(f.highlights.value).slice(0, 12), amenities: lines(f.amenities.value).slice(0, 30),
@@ -322,14 +323,15 @@
         progress: progress.filter(e => (e.title || '').trim() || (e.images || []).length)
           .map(e => ({ date: e.date || '', title: (e.title || '').trim(), note: (e.note || '').trim(), images: (e.images || []).map(u => typeof u === 'string' ? u : u.url) }))
       });
-      busy(save, true, 'Guardando…');
+      let saved=false;busy(save, true, 'Guardando…');
       try {
-        const d=await S.workspace.load();d.showroom=next;d.privateSettings=experience.privateSettings;AgelExperienceSettings.applyMarkers(d,experience.markerEdits);Object.assign(d.tree.project,{kind:f.kind.value,subtitle:f.subtitle.value.trim(),location:f.location.value.trim(),delivery:f.delivery.value.trim()});await S.workspace.save(d);
-        Object.assign(sr, next);
+        const d=await workspace.load();if(d.localRevision!==editSession.revision)throw Error('Hay cambios de otra pestaña. Recarga antes de guardar.');d.showroom=next;d.privateSettings=experience.privateSettings;AgelExperienceSettings.applyMarkers(d,experience.markerEdits);Object.assign(d.tree.project,{kind:f.kind.value,subtitle:f.subtitle.value.trim(),location:f.location.value.trim(),delivery:f.delivery.value.trim()});await workspace.save(d);editSession.revision=d.localRevision;
+        saved=true;Object.assign(sr, next);
         notify('Guardado en este dispositivo. Usa Subir a la nube antes de crear una versión pública.');
       } catch (ex) { err.textContent = ex.message; }
-      busy(save, false);
-    } },
+      busy(save, false);return saved;
+    }
+    const form = h('form', { class: 'pn-form', onsubmit: e=>{e.preventDefault();saveContent();} },
       h('div', { class: 'pn-note' }, icon('info-circle'), 'Lo que guardes aquí aparece en el showroom cuando creas y publicas una versión nueva. Las escenas 360° se editan en el editor.'),
       h('fieldset', null, h('legend', null, 'Proyecto'),
         h('div', { class: 'pn-grid' }, field('Tipo', f.kind, 'Cambia cómo se nombran las unidades en el showroom.'), field('Ubicación', f.location),
@@ -376,14 +378,15 @@
 
   // Editor de zonas: dibuja polígonos sobre el render o plano y coloca los
   // puntos de las escenas 360°. Coordenadas en % de la imagen (0–100).
-  function editView(v, spaces, scenes, views, onDone) {
-    return AgelViewEditor.open({ view: v, spaces, scenes, views, resolveMedia:ref=>S.workspace.resolveMedia(ref),
+  function editView(v, spaces, scenes, views, workspace, onDone) {
+    return AgelViewEditor.open({ view: v, spaces, scenes, views, resolveMedia:ref=>workspace.resolveMedia(ref),
       onSave: next => { Object.assign(v, next); onDone(); } });
   }
 
   // ═════════════════════════════ catálogo ═════════════════════════════
   async function tabCatalog(body) {
-    const draft=await S.workspace.load(),spaces=draft.spaces,scenes=draft.tree.scenes;
+    const workspace=S.workspace;
+    const draft=await workspace.load(),spaces=draft.spaces,scenes=draft.tree.scenes;
     const byParent = new Map();
     spaces.forEach(s => { const k = s.parent_id || ''; if (!byParent.has(k)) byParent.set(k, []); byParent.get(k).push(s); });
     const rows = [];
@@ -433,7 +436,7 @@
         actions: [
           !isNew && isOwner() ? { label: 'Eliminar', danger: true, onClick: async () => {
             if (!confirm(`¿Eliminar ${v.name} y todo lo que contiene?`)) return;
-            try { await S.workspace.deleteSpace(v.id); m.close(); notify('Eliminado'); tabCatalog(body); } catch (e) { err.textContent = e.message; }
+            try { await workspace.deleteSpace(v.id,{expectedRevision:draft.localRevision}); m.close(); notify('Eliminado'); tabCatalog(body); } catch (e) { err.textContent = e.message; }
           } } : null,
           { label: 'Cancelar', onClick: () => m.close() },
           { label: 'Guardar', primary: true, onClick: async () => {
@@ -447,7 +450,7 @@
               scene_ids: [...F.scenes.querySelectorAll('input:checked')].map(x => x.value) };
             m.setBusy(true, 'Guardando…');
             try {
-              await S.workspace.updateSpace({...row,id:v.id,position:v.position??spaces.length});
+              await workspace.updateSpace({...row,id:v.id,position:v.position??spaces.length},{expectedRevision:draft.localRevision});
               m.close(); notify('Guardado'); tabCatalog(body);
             } catch (e) { err.textContent = e.message; m.setBusy(false); m.setActions([{ label: 'Cerrar', onClick: () => m.close() }]); }
           } }].filter(Boolean) });
@@ -465,7 +468,7 @@
           if (parsed.problems.length) { err.textContent = parsed.problems.slice(0, 10).join(' · '); return; }
           m.setBusy(true, 'Importando…');
           try {
-            const result = S.workspace ? await S.workspace.importCatalog(parsed)
+            const result = workspace ? await workspace.importCatalog(parsed,{expectedRevision:draft.localRevision})
               : await cloud.rpc('import_catalog', { p_project: S.projectId, p_catalog: parsed });
             m.close();
             modal({ title: 'Importación terminada', body: [h('p', null, `${result.created} creadas, ${result.updated} actualizadas.`)],

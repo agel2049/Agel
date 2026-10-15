@@ -177,6 +177,7 @@
     CM.orgId = (CM.access.orgs.find(o => o.id === remembered) || CM.access.orgs[0]).id;
     localStorage.removeItem(LOCAL_MODE_KEY);
     await switchToCloudProjects();
+    if(typeof d5Load==='function')await d5Load();
     renderAccount();
     setStatus('Guardado');
   };

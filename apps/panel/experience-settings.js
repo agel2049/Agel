@@ -1,7 +1,8 @@
 (function(root){
  'use strict';const {h,field}=AgelDOM;
- async function mount(container,{workspace,onChange=()=>{},views:providedViews}){
+ async function mount(container,{workspace,onChange=()=>{},views:providedViews,editSession:providedSession}){
   const d=await workspace.load(),sr=d.showroom,e=sr.experience||{},o=sr.opening||{};let views=providedViews||structuredClone(sr.views||[]),privateSettings=structuredClone(d.privateSettings||{});
+  const editSession=providedSession||{revision:d.localRevision};
   const text=(value,max=160)=>h('input',{value:value||'',maxlength:max}),enabled=h('input',{type:'checkbox',checked:e.version===1}),active=h('input',{type:'checkbox',checked:o.enabled??!!(o.video||o.videoUrl)});
   const video=text(o.video||o.videoUrl,2048),poster=text(o.poster,2048),title=text(o.title),subtitle=text(o.subtitle||o.sub,240),button=text(o.button||o.btn||'Ver proyecto',60);
   const facade=h('select',{'aria-label':'Fachada inicial'}),entry=h('select',{'aria-label':'Planta de entrada'}),x=h('input',{type:'number',min:0,max:100,step:0.1,value:e.entrance?.x??50}),y=h('input',{type:'number',min:0,max:100,step:0.1,value:e.entrance?.y??70}),entranceLabel=text(e.entrance?.label||'Entrar al lobby',80);
@@ -16,7 +17,7 @@
     return h('div',{class:'pn-note'},h('strong',null,v.title||v.id),field('Espacio asociado',space),field('Uso de la vista',role));}));drawEntry();
   }
   facade.onchange=drawEntry;x.oninput=drawEntry;y.oninput=drawEntry;
-  async function fileControl(label,accept,kind,target){const fi=h('input',{type:'file',accept,'aria-label':label});fi.onchange=async()=>{const file=fi.files[0];if(!file)return;try{const m=await workspace.addMedia(file,kind);target.value=m.ref;status.textContent='Archivo guardado en este dispositivo · pendiente de nube';}catch(ex){error.textContent=ex.message;}fi.value='';};return field(label,fi);}
+  async function fileControl(label,accept,kind,target){const fi=h('input',{type:'file',accept,'aria-label':label});fi.onchange=async()=>{const file=fi.files[0];if(!file)return;try{const m=await workspace.addMedia(file,kind,{expectedRevision:editSession.revision});editSession.revision=m.localRevision;target.value=m.ref;status.textContent='Archivo guardado en este dispositivo · pendiente de nube';}catch(ex){error.textContent=ex.message;}fi.value='';};return field(label,fi);}
   const markerControls=[];const markers=h('div',{class:'pn-grid'});
   for(const sc of d.tree.scenes)for(const hs of sc.hs||[]){const p=hs.payload?.showroomMarker||{},surface=h('select',{'aria-label':`Superficie de ${hs.title}`},...[['flat','Plano'],['floor','Suelo'],['wall','Pared']].map(([id,label])=>h('option',{value:id,selected:(p.surface||'flat')===id},label)));
    const tilt=h('input',{type:'number',min:-75,max:75,value:p.tilt??55}),rotation=h('input',{type:'number',min:-180,max:180,value:p.rotation??0}),scale=h('input',{type:'number',min:.5,max:2,step:.1,value:p.scale??1});
@@ -35,7 +36,7 @@
   }
   const bim=h('select',{'aria-label':'Modelo BIM del equipo',onchange:ev=>privateSettings.bimVersionId=ev.target.value||null},h('option',{value:''},'Sin modelo asignado'));
   try{const versions=await workspace.cloud.select('model_versions',`project_id=eq.${workspace.projectId}&select=id,label,source_name,status&order=created_at.desc`);for(const v of versions)bim.append(h('option',{value:v.id,selected:privateSettings.bimVersionId===v.id},`${v.label||v.source_name||v.id} · ${v.status}`));}catch(ex){bim.disabled=true;}
-  const save=h('button',{type:'button',class:'ag-btn primary',onclick:async()=>{error.textContent='';try{const next=read(),fresh=await workspace.load();Object.assign(fresh.showroom,next.showroom);fresh.privateSettings=next.privateSettings;applyMarkers(fresh,next.markerEdits);await workspace.save(fresh);onChange(next);status.textContent='Guardado en este dispositivo';}catch(ex){error.textContent=ex.message;}}},'Guardar experiencia en este dispositivo');
+  const save=h('button',{type:'button',class:'ag-btn primary',onclick:async()=>{error.textContent='';try{const next=read(),fresh=await workspace.load();if(fresh.localRevision!==editSession.revision)throw Error('Hay cambios de otra pestaña. Recarga antes de guardar.');Object.assign(fresh.showroom,next.showroom);fresh.privateSettings=next.privateSettings;applyMarkers(fresh,next.markerEdits);await workspace.save(fresh);editSession.revision=fresh.localRevision;onChange(next);status.textContent='Guardado en este dispositivo';}catch(ex){error.textContent=ex.message;}}},'Guardar experiencia en este dispositivo');
   container.append(h('fieldset',null,h('legend',null,'Experiencia del showroom'),h('p',{class:'pn-muted'},'Opening → fachada → planta → unidad → recorrido. Los cambios locales se publican después de subir y crear una versión.'),
    h('label',{class:'ag-check'},enabled,'Activar showroom inmersivo'),
    h('h3',null,'Opening'),h('label',{class:'ag-check'},active,'Activar Opening'),h('div',{class:'pn-grid'},field('Título de presentación',title),field('Subtítulo de presentación',subtitle),field('Texto del botón',button),field('Video de presentación (URL HTTPS)',video),field('Póster (URL HTTPS)',poster)),

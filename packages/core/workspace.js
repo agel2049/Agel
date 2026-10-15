@@ -2,6 +2,7 @@
 (function(root){
  'use strict';
  const clone=x=>structuredClone(x);
+ const assertRevision=(draft,expected)=>{if(expected!==undefined&&draft.localRevision!==expected)throw Error('Hay cambios de otra pestaña. Vuelve a cargar el borrador antes de guardar.');};
  async function open({cloud,ownerId,projectId}){
   let closed=false,current,urls=new Map();
   const store=await AgelLocalMedia.open({ownerId,projectId});
@@ -21,17 +22,18 @@
     await store.saveDraft(copy,expected);check();current=copy;next.localRevision=copy.localRevision;next.dirty=copy.dirty;return clone(copy);
    },
    async reloadCloud(){check();const [tree,spaces,privateSettings]=await Promise.all([cloud.rpc('load_project_tree',{p_project:projectId}),cloud.select('spaces',`project_id=eq.${projectId}&select=*&order=position.asc`),cloud.rpc('load_workspace_settings',{p_project:projectId})]);const previous=await api.load();const next={tree,spaces,showroom:clone(tree.project.showroom||{}),privateSettings,media:previous.media,baseRevision:tree.revision,localRevision:previous.localRevision,dirty:false};await api.save(next,{synced:true});return api.load();},
-   async addMedia(file,kind='image'){
-    check();const draft=await api.load();if(!['owner','editor'].includes(draft.tree.role))throw Error('No tienes permiso para editar');
-    const meta=await store.put(file,{kind});draft.media.push(meta);await api.save(draft);return meta;
+   async addMedia(file,kind='image',{expectedRevision}={}){
+    check();const draft=await api.load();assertRevision(draft,expectedRevision);if(!['owner','editor'].includes(draft.tree.role))throw Error('No tienes permiso para editar');
+    const meta=await store.put(file,{kind});draft.media.push(meta);await api.save(draft);return {...meta,localRevision:draft.localRevision};
    },
-   async updateSpace(row){const d=await api.load(),i=d.spaces.findIndex(x=>x.id===row.id);const next={...(i<0?{}:d.spaces[i]),...clone(row),id:row.id||crypto.randomUUID(),project_id:projectId};
+   async updateSpace(row,{expectedRevision}={}){const d=await api.load();assertRevision(d,expectedRevision);const i=d.spaces.findIndex(x=>x.id===row.id);const next={...(i<0?{}:d.spaces[i]),...clone(row),id:row.id||crypto.randomUUID(),project_id:projectId};
     if(next.parent_id&&!d.spaces.some(x=>x.id===next.parent_id&&x.id!==next.id))throw Error('El espacio padre no pertenece al proyecto');
+    const ancestors=new Set([next.id]);let parent=next.parent_id;while(parent){if(ancestors.has(parent))throw Error('No puedes mover un espacio dentro de su descendiente: jerarquía cíclica');ancestors.add(parent);parent=d.spaces.find(x=>x.id===parent)?.parent_id;}
     if(i<0)d.spaces.push(next);else d.spaces[i]=next;await api.save(d);return next;},
-   async deleteSpace(id){const d=await api.load();if(d.spaces.some(x=>x.parent_id===id))throw Error('Mueve primero los espacios de este grupo');d.spaces=d.spaces.filter(x=>x.id!==id);await api.save(d);},
-   async importCatalog(catalog){
+   async deleteSpace(id,{expectedRevision}={}){const d=await api.load();assertRevision(d,expectedRevision);if(d.spaces.some(x=>x.parent_id===id))throw Error('Mueve primero los espacios de este grupo');d.spaces=d.spaces.filter(x=>x.id!==id);await api.save(d);},
+   async importCatalog(catalog,{expectedRevision}={}){
     if(catalog.problems?.length)throw Error(catalog.problems.join('\n'));
-    const d=await api.load(),groups=new Map(),levels=new Map();let created=0,updated=0;
+    const d=await api.load();assertRevision(d,expectedRevision);const groups=new Map(),levels=new Map();let created=0,updated=0;
     function ensure(kind,name,parent){const found=d.spaces.filter(x=>x.kind===kind&&x.name===name&&(x.parent_id||null)===(parent||null));if(found.length>1)throw Error('Hay grupos ambiguos: '+name);if(found.length)return found[0].id;
      const id=crypto.randomUUID();d.spaces.push({id,project_id:projectId,kind,name,parent_id:parent||null,scene_ids:[]});created++;return id;}
     for(const g of catalog.groups)groups.set(g.key,ensure('edificio',g.name,null));

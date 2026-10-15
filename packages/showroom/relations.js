@@ -14,6 +14,7 @@
   function sceneIdsForScope(spaceId,spaces,scenes){
     const valid=new Set(scenes.map(s=>s.id));if(spaceId===null)return [...valid];
     const byId=new Map(spaces.map(s=>[s.id,s]));if(!byId.has(spaceId))return [];
+    const ancestors=new Set();let ancestor=spaceId;while(ancestor){if(ancestors.has(ancestor))fail('Jerarquía cíclica');ancestors.add(ancestor);const item=byId.get(ancestor);if(!item)fail('Espacio padre inexistente');ancestor=item.parent_id;}
     const normalized=normalizeSpaces(spaces,scenes),ids=new Set(),visited=new Set(),queue=[spaceId];
     while(queue.length){const id=queue.shift();if(visited.has(id))fail('Jerarquía cíclica');visited.add(id);
       const s=normalized.find(s=>s.id===id);for(const sid of s?.sceneIds||[])ids.add(sid);

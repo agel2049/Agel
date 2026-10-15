@@ -13,7 +13,7 @@
     if(a.type==='BACK')return api.back();
     if(a.type==='ENTER_PROJECT'||a.type==='FACADE')return transition(base());
     if(a.type==='OPEN_VIEW'){const v=views.find(v=>v.id===a.id);if(!v)return reject();return transition({kind:v.id===facade?.id?'facade':'plan',viewId:v.id,spaceId:v.spaceId||null,sceneId:null});}
-    if(a.type==='OPEN_SPACE'){const s=spaces.find(s=>s.id===a.id);if(!s)return reject();const v=views.find(v=>v.spaceId===s.id);return transition({kind:['nivel','edificio','conjunto'].includes(s.kind)&&v?'plan':'unit',viewId:v?.id||state.viewId,spaceId:s.id,sceneId:null});}
+    if(a.type==='OPEN_SPACE'){const s=spaces.find(s=>s.id===a.id);if(!s)return reject();const v=views.find(v=>v.spaceId===s.id);return transition({kind:['nivel','edificio','conjunto'].includes(s.kind)&&v?'plan':'unit',viewId:v?.id||null,spaceId:s.id,sceneId:null});}
     if(a.type==='OPEN_SCENE'){
      const scene=m.scenes.find(s=>s.id===a.id);if(!scene||!R.sceneIdsForScope(state.spaceId,spaces,m.scenes).includes(a.id))return reject();
      return transition({...state,kind:'tour',sceneId:a.id});

@@ -18,8 +18,14 @@
   const sidebar=h('aside',{class:'ax-sidebar'},h('a',{class:'ax-brand',href:'#'},m.brand.name||'AgelArq'),h('h2',{},m.project.name),levelNav,lower);
   const body=h('div',{class:'ax-workspace'},sidebar,h('div',{class:'ax-main'},h('div',{class:'ax-top'},back,crumb,button('Ver imagen completa',ev=>{fitMode=!fitMode;ev.currentTarget.setAttribute('aria-pressed',String(fitMode));fit();},{class:'ax-quiet','aria-pressed':false}),button('Fachada',()=>dispatch({type:'FACADE'}),{class:'ax-quiet'})),status,stage,content,locationPanel));
   const section=h('section',{class:'ax-experience','aria-label':'Explorar proyecto'});container.append(section);
-  const levels=m.spaces.filter(s=>s.kind==='nivel');
-  levelNav.append(h('p',{class:'ax-nav-label'},'Explorar niveles'),...levels.map(s=>button(s.name,()=>dispatch({type:'OPEN_SPACE',id:s.id}),{'data-level':s.id})),...views.filter(v=>v.role==='lobby').map(v=>button(v.title,()=>dispatch({type:'OPEN_VIEW',id:v.id}),{'data-view':v.id})));
+  function buildingOf(id){const seen=new Set();let space=m.spaces.find(s=>s.id===id);while(space&&!seen.has(space.id)){seen.add(space.id);if(space.kind==='edificio')return space;space=m.spaces.find(s=>s.id===space.parent_id);}return null;}
+  function renderLevels(state){
+   const view=views.find(v=>v.id===state.viewId),active=buildingOf(state.spaceId||view?.spaceId),multiple=m.spaces.filter(s=>s.kind==='edificio').length>1;
+   const label=(name,spaceId)=>{const b=buildingOf(spaceId);return !active&&multiple&&b?b.name+' · '+name:name;};
+   const levels=m.spaces.filter(s=>s.kind==='nivel'&&(!active||buildingOf(s.id)?.id===active.id)).sort((a,b)=>(a.position??0)-(b.position??0)||a.name.localeCompare(b.name,'es',{numeric:true}));
+   const lobbies=views.filter(v=>v.role==='lobby'&&(!active||!v.spaceId||buildingOf(v.spaceId)?.id===active.id));
+   levelNav.replaceChildren(h('p',{class:'ax-nav-label'},active?active.name:'Explorar niveles'),...levels.map(s=>button(label(s.name,s.id),()=>dispatch({type:'OPEN_SPACE',id:s.id}),{'data-level':s.id})),...lobbies.map(v=>button(label(v.title,v.spaceId),()=>dispatch({type:'OPEN_VIEW',id:v.id}),{'data-view':v.id})));
+  }
   function fit(){const frame=stage.querySelector('.ax-frame');if(!frame)return;const ratio=Number(frame.dataset.ratio)||16/9,w=Math[fitMode?'min':'max'](stage.clientWidth,stage.clientHeight*ratio);frame.style.width=w+'px';frame.style.height=w/ratio+'px';}
   const observer=new ResizeObserver(fit);observer.observe(stage);
   async function opening(seq){
@@ -31,7 +37,7 @@
   }
   function activate(r){const target=r.target||(r.space?{type:'space',id:r.space}:null);if(target)dispatch({type:{view:'OPEN_VIEW',space:'OPEN_SPACE',scene:'OPEN_SCENE'}[target.type],id:target.id});}
   async function render(state){
-   const seq=++sequence;status.textContent=state.error||'';
+   const seq=++sequence;status.textContent=state.error||'';renderLevels(state);
    if(tour&&state.kind!=='tour'){const old=tour;tour=null;old.close?.();}
    if(state.kind==='tour'){
     if(!tour){tour=openTour({manifest:m,sceneId:state.sceneId,spaceId:state.spaceId,onClose:()=>{tour=null;if(n.state.kind==='tour')n.back();}})||{close(){}};}return;

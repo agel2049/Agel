@@ -42,3 +42,4 @@ test('opening has a poster and one button, never an ending',()=>{
 test('entry must reference a different existing view',()=>{
  assert.throws(()=>R.normalizeExperience({experience:{version:1,facadeViewId:'view0',entryTargetViewId:'view0'},views:[view(0)]},spaces,scenes),/entrada/);
 });
+test('a unit with cyclic ancestors cannot silently return its scenes',()=>assert.throws(()=>R.sceneIdsForScope('unit',[{id:'tower',parent_id:'floor'},{id:'floor',parent_id:'tower'},{id:'unit',parent_id:'floor',scene_ids:['sa']}],scenes),/cíclica/));

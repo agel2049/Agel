@@ -83,6 +83,10 @@ jobs:
           python tests/e2e_experience_settings.py
           python tests/e2e_showroom_experience.py
           python tests/e2e_showroom_fullscreen.py
+          python tests/e2e_review_fixes.py
+          python tests/e2e_review_buildings.py
+          python tests/e2e_d5_persistence.py
+          python tests/e2e_media_batch.py
 
       - name: Editor en modo local
         run: python tests/e2e.py index.html

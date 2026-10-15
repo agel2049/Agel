@@ -5260,23 +5260,42 @@ const D5_MODEL_PATH      = 'models';
 const D5_SUPA_CONFIG_PATH= 'configs/d5';
 
 // ── PERSIST ──
-let d5VideoRef=null;
-async function d5PersonalStore(){return AgelLocalMedia.open({ownerId:window.CloudMode?.cloud?.user?.id||'guest',projectId:'d5-personal'});}
-async function d5Save() {
- try{const store=await d5PersonalStore();await store.saveDraft({v:2,models:d5Models.map(m=>({...m,url:m.localRef||m.url})),
- projName:document.getElementById('d5ProjName')?.value||'',projSub:document.getElementById('d5ProjSub')?.value||'',videoUrl:d5VideoRef||d5OpeningVideoUrl,btnText:document.getElementById('d5OpeningBtn')?.value||''});}
- catch(e){toast(e.message);}
+let d5VideoRef=null,d5LoadedOwner=null;
+const d5ObjectUrls=new Set();
+const d5Owner=()=>window.CloudMode?.cloud?.user?.id||'guest';
+async function d5PersonalStore(owner=d5Owner()){return AgelLocalMedia.open({ownerId:owner,projectId:'d5-personal'});}
+async function d5LocalUrl(store,ref){const url=await store.url(ref);if(store.ownerId!==d5Owner()){URL.revokeObjectURL(url);throw Error('La cuenta cambió. Vuelve a abrir D5.');}d5ObjectUrls.add(url);return url;}
+async function d5Save(){
+ const owner=d5Owner();if(d5LoadedOwner!==owner)throw Error('La cuenta cambió. Vuelve a abrir D5 antes de guardar.');
+ const snapshot={v:2,models:d5Models.map(m=>({...m,url:m.localRef||m.url})),projName:document.getElementById('d5ProjName')?.value||'',projSub:document.getElementById('d5ProjSub')?.value||'',videoUrl:d5VideoRef||d5OpeningVideoUrl,btnText:document.getElementById('d5OpeningBtn')?.value||''};
+ const store=await d5PersonalStore(owner);if(owner!==d5Owner())throw Error('La cuenta cambió antes de guardar');await store.saveDraft(snapshot);
 }
-async function d5Load() {
- try{const store=await d5PersonalStore(),data=await store.loadDraft();if(!data)return;
- d5Models=data.models||[];for(const m of d5Models)if(m.url?.startsWith('agel-local:')){m.localRef=m.url;m.url=await store.url(m.url);}
- d5VideoRef=data.videoUrl?.startsWith('agel-local:')?data.videoUrl:null;
- d5OpeningVideoUrl=d5VideoRef?await store.url(d5VideoRef):data.videoUrl;
- for(const [id,value]of [['d5ProjName',data.projName],['d5ProjSub',data.projSub],['d5OpeningBtn',data.btnText]]){const el=document.getElementById(id);if(el)el.value=value||'';}
- d5OpeningBtnText=data.btnText||'Explorar modelo';if(d5OpeningVideoUrl)_d5RestoreVideoThumb(d5OpeningVideoUrl);d5RenderModelsList();d5UpdateCenter();
+async function d5SaveOrNotify(){try{await d5Save();return true;}catch(e){toast(e.message);return false;}}
+async function d5Load(){
+ const owner=d5Owner();d5LoadedOwner=owner;
+ for(const url of d5ObjectUrls)URL.revokeObjectURL(url);d5ObjectUrls.clear();d5Models=[];d5VideoRef=null;d5OpeningVideoUrl=null;
+ for(const id of ['d5ProjName','d5ProjSub','d5OpeningBtn']){const el=document.getElementById(id);if(el)el.value='';}
+ d5RenderModelsList();d5UpdateCenter();
+ try{
+  const store=await d5PersonalStore(owner);let data=await store.loadDraft();
+  // Legacy records had no account owner. Import only into guest storage, retaining the source record.
+  if(!data&&owner==='guest'){
+   const raw=localStorage.getItem(D5_SAVE_KEY);if(raw){const legacy=JSON.parse(raw);if([1,2].includes(legacy.v)&&Array.isArray(legacy.models)){
+    data=structuredClone(legacy);data.v=2;
+    for(const m of data.models){if(m.url?.startsWith('blob:')){try{const response=await fetch(m.url);if(!response.ok)throw Error('ausente');const file=new File([await response.blob()],m.name+'.html',{type:'text/html'}),meta=await store.put(file,{kind:'model_html'});m.localRef=meta.ref;m.url=meta.ref;}catch{m.url=null;m.isLocal=true;m.unavailable=true;}}}
+    if(data.videoUrl?.startsWith('blob:')){data.videoUrl=null;data.videoUnavailable=true;}
+    await store.saveDraft(data);
+   }}
+  }
+  if(owner!==d5Owner())return;if(!data)return;
+  const models=structuredClone(data.models||[]);for(const m of models)if(m.url?.startsWith('agel-local:')){m.localRef=m.url;try{m.url=await d5LocalUrl(store,m.url);}catch(e){if(owner!==d5Owner())return;m.url=null;m.unavailable=true;}}
+  if(owner!==d5Owner())return;d5Models=models;d5VideoRef=data.videoUrl?.startsWith('agel-local:')?data.videoUrl:null;
+  d5OpeningVideoUrl=d5VideoRef?await d5LocalUrl(store,d5VideoRef):data.videoUrl;
+  for(const [id,value]of [['d5ProjName',data.projName],['d5ProjSub',data.projSub],['d5OpeningBtn',data.btnText]]){const el=document.getElementById(id);if(el)el.value=value||'';}
+  d5OpeningBtnText=data.btnText||'Explorar modelo';if(d5OpeningVideoUrl)_d5RestoreVideoThumb(d5OpeningVideoUrl);d5RenderModelsList();d5UpdateCenter();
  }catch(e){toast(e.message);}
 }
-function d5SaveMeta() { d5Save(); d5UpdateCenter(); }
+function d5SaveMeta() { d5SaveOrNotify(); d5UpdateCenter(); }
 function d5LoadLinks() {
   try { const r=localStorage.getItem(D5_LINKS_KEY); if(r) d5SavedLinks=JSON.parse(r)||[]; } catch(e){ d5SavedLinks=[]; }
 }
@@ -5345,14 +5364,14 @@ function d5OnDrop(e) {
   document.getElementById('d5DropZone')?.classList.remove('drag-over');
   const file = e.dataTransfer?.files?.[0];
   if (!file) return;
-  _d5ProcessFile(file, true);
+  _d5NextActionLocal=true;_d5ProcessFile(file, true);
 }
 
 // ── FILE SELECT ──
 function d5HandleFileSelect(e) {
   const file = e.target.files[0]; if (!file) return;
   e.target.value = '';
-  _d5ProcessFile(file, true);
+  const localOnly=_d5NextActionLocal;_d5NextActionLocal=true;_d5ProcessFile(file, localOnly);
 }
 
 // ── CORE: process file (local OR cloud) ──
@@ -5408,26 +5427,15 @@ function d5ConfirmCloudUpload() {
   document.getElementById('d5FileInput')?.click();
 }
 
-async function d5ConfirmUpload() {
-  const name = (document.getElementById('d5UplModelName')?.value||'').trim();
-  const meta = (document.getElementById('d5UplModelMeta')?.value||'').trim();
-  if (!name) { toast('Escribe un nombre para el modelo'); return; }
-
-  if (_d5UplLocalFile) {
-    // local Object URL
-    let objUrl,localRef;try{const store=await d5PersonalStore(),m=await store.put(_d5UplLocalFile,{kind:'model_html'});localRef=m.ref;objUrl=await store.url(m.ref);}catch(e){toast(e.message);return;}
-    d5Models.push({ name, meta, localRef, url: objUrl, thumb: null, isLocal: true });
-    _d5UplLocalFile = null;
-  } else if (_d5UplPendingUrl) {
-    d5Models.push({ name, meta, url: _d5UplPendingUrl, thumb: null, isLocal: false });
-    _d5UplPendingUrl = null;
-  } else { toast('No hay archivo seleccionado'); return; }
-
-  _d5ResetUploadPanel();
-  d5RenderModelsList();
-  d5UpdateCenter();
-  d5Save();
-  toast(`"${name}" agregado ✓`);
+async function d5ConfirmUpload(){
+ const name=document.getElementById('d5UplModelName')?.value.trim(),meta=document.getElementById('d5UplModelMeta')?.value.trim()||'';
+ if(!name){toast('Escribe un nombre para el modelo');return;}
+ const file=_d5UplLocalFile,pending=_d5UplPendingUrl;let added;
+ try{
+  if(file){const store=await d5PersonalStore(),m=await store.put(file,{kind:'model_html'});added={name,meta,localRef:m.ref,url:await d5LocalUrl(store,m.ref),thumb:null,isLocal:true};}
+  else if(pending)added={name,meta,url:pending,thumb:null,isLocal:false};else throw Error('No hay archivo seleccionado');
+  d5Models.push(added);await d5Save();_d5UplLocalFile=null;_d5UplPendingUrl=null;_d5ResetUploadPanel();d5RenderModelsList();d5UpdateCenter();toast(`"${name}" agregado ✓`);
+ }catch(e){if(added)d5Models=d5Models.filter(m=>m!==added);toast(e.message);}
 }
 function d5CancelUpload() {
   _d5UplLocalFile  = null;
@@ -5536,7 +5544,7 @@ async function d5LoadSupaFiles() {
     if (stat) { stat.style.display='block'; stat.textContent='Error: '+e.message; }
   }
 }
-function d5ConfirmSupa() {
+async function d5ConfirmSupa() {
   const name = (document.getElementById('d5SupaModelName')?.value||'').trim();
   const meta = (document.getElementById('d5SupaModelMeta')?.value||'').trim();
   if (!name||!_d5SupaPendingUrl){toast('Selecciona un archivo y escribe un nombre');return;}
@@ -5546,7 +5554,7 @@ function d5ConfirmSupa() {
   document.getElementById('d5SupaModelMeta').value='';
   document.getElementById('d5SupaNameRow').classList.remove('show');
   document.querySelectorAll('.d5-supa-item').forEach(el=>el.classList.remove('selected'));
-  d5RenderModelsList(); d5UpdateCenter(); d5Save(); toast(`"${name}" agregado ✓`);
+  d5RenderModelsList(); d5UpdateCenter(); if(await d5SaveOrNotify())toast(`"${name}" agregado ✓`);
 }
 function d5CancelSupa() {
   _d5SupaPendingUrl=null;
@@ -5555,7 +5563,7 @@ function d5CancelSupa() {
 }
 
 // ── URL ──
-function d5AddFromUrl() {
+async function d5AddFromUrl() {
   const name=(document.getElementById('d5UrlName')?.value||'').trim();
   const meta=(document.getElementById('d5UrlMeta')?.value||'').trim();
   const url =(document.getElementById('d5UrlHtml')?.value||'').trim();
@@ -5564,7 +5572,7 @@ function d5AddFromUrl() {
   document.getElementById('d5UrlName').value='';
   document.getElementById('d5UrlMeta').value='';
   document.getElementById('d5UrlHtml').value='';
-  d5RenderModelsList(); d5UpdateCenter(); d5Save(); toast(`"${name}" agregado ✓`);
+  d5RenderModelsList(); d5UpdateCenter(); if(await d5SaveOrNotify())toast(`"${name}" agregado ✓`);
 }
 
 // ── RENDER MODELS LIST (sidebar) ──
@@ -5581,7 +5589,7 @@ function d5RenderModelsList() {
     row.className='d5-model-item'+(isActive?' active-model':'');
     row.innerHTML=`
       <div class="d5-model-thumb">${m.thumb?`<img src="${esc(safeImgUrl(m.thumb)||'')}">`:'<svg viewBox="0 0 54 54" fill="none" width="22" height="22"><path d="M27 10 L40 17 L27 24 L14 17Z" stroke="rgba(184,157,116,.5)" stroke-width="1.2" fill="none"/><path d="M27 26 L40 19 L40 31 L27 38Z" stroke="rgba(184,157,116,.25)" stroke-width="1" fill="none"/><path d="M27 26 L14 19 L14 31 L27 38Z" stroke="rgba(184,157,116,.18)" stroke-width="1" fill="none"/><path d="M27 26 L27 38" stroke="rgba(184,157,116,.3)" stroke-width="1"/></svg>'}</div>
-      <div class="d5-model-info"><div class="d5-model-n">${esc(m.name)}</div><div class="d5-model-m">${esc(m.meta||'')}</div></div>
+      <div class="d5-model-info"><div class="d5-model-n">${esc(m.name)}</div><div class="d5-model-m">${esc(m.unavailable?'Vuelve a seleccionar el archivo local':m.meta||'')}</div></div>
       <span class="d5-badge ${m.isLocal?'local':'cloud'}">${m.isLocal?'Local':'Cloud'}</span>
       <button class="d5-model-del" onclick="d5DeleteModel(${i})" title="Eliminar"><i class="ti ti-trash"></i></button>`;
     el.appendChild(row);
@@ -5594,7 +5602,7 @@ function d5DeleteModel(i) {
     try { URL.revokeObjectURL(d5Models[i].url); } catch(e){}
   }
   d5Models.splice(i,1);
-  d5RenderModelsList(); d5UpdateCenter(); d5Save();
+  d5RenderModelsList(); d5UpdateCenter(); d5SaveOrNotify();
 }
 
 // ── CENTER STATE ──
@@ -5625,8 +5633,9 @@ function d5ResetCenter() {
 async function d5HandleVideo(e) {
   const file = e.target.files[0]; if (!file) return;
   e.target.value = '';
-  try{const store=await d5PersonalStore(),m=await store.put(file,{kind:'video'});d5VideoRef=m.ref;d5OpeningVideoUrl=await store.url(m.ref);_d5RestoreVideoThumb(d5OpeningVideoUrl);await d5Save();toast('Video de apertura guardado en este dispositivo');}
-  catch(err){toast(err.message);}
+  const before={ref:d5VideoRef,url:d5OpeningVideoUrl};
+  try{const store=await d5PersonalStore(),m=await store.put(file,{kind:'video'});d5VideoRef=m.ref;d5OpeningVideoUrl=await d5LocalUrl(store,m.ref);await d5Save();_d5RestoreVideoThumb(d5OpeningVideoUrl);toast('Video de apertura guardado en este dispositivo');}
+  catch(err){d5VideoRef=before.ref;d5OpeningVideoUrl=before.url;toast(err.message);}
 }
 
 function _d5RestoreVideoThumb(url) {
@@ -5637,7 +5646,7 @@ function _d5RestoreVideoThumb(url) {
   if (wrap) wrap.classList.add('show');
   if (drop) drop.style.display = 'none';
 }
-function d5RemoveVideo() {
+async function d5RemoveVideo() {
   d5VideoRef=null;d5OpeningVideoUrl = null;
   const vid  = document.getElementById('d5VidThumb');
   const wrap = document.getElementById('d5VidWrap');
@@ -5647,7 +5656,7 @@ function d5RemoveVideo() {
   if (wrap) wrap.classList.remove('show');
   if (drop) drop.style.display = '';
   if (st)   st.textContent = '';
-  d5Save(); toast('Video eliminado');
+  if(await d5SaveOrNotify())toast('Video eliminado');
 }
 
 // ── OPENING ──
@@ -5677,7 +5686,7 @@ function d5Launch() {
   if (!d5Models.length){ toast('Agrega al menos un modelo'); return; }
   d5ProjNameVal = document.getElementById('d5ProjName')?.value.trim() || 'Proyecto';
   d5ProjSubVal  = document.getElementById('d5ProjSub')?.value.trim()  || '';
-  d5Save();
+  d5SaveOrNotify();
   if (d5OpeningVideoUrl) { _d5ShowOpening(); } else { d5LaunchViewer(); }
 }
 function d5LaunchViewer() {
@@ -5971,14 +5980,14 @@ function d5ImportLinks(){
   inp.onchange=e=>{
     const file=e.target.files[0];if(!file)return;
     const r=new FileReader();
-    r.onload=ev=>{
+    r.onload=async ev=>{
       try{
         const data=JSON.parse(ev.target.result);
         if(!Array.isArray(data.models))throw new Error('Formato inválido');
         if(!confirm(`¿Importar ${data.models.length} modelo(s)?`))return;
         d5Models=data.models;
         if(data.links){d5SavedLinks=data.links;d5PersistLinks();}
-        d5RenderModelsList();d5RenderLinksPanel();d5UpdateCenter();d5Save();toast('Importado ✓');
+        d5RenderModelsList();d5RenderLinksPanel();d5UpdateCenter();await d5Save();toast('Importado ✓');
       }catch(err){toast('Error: '+err.message);}
     };
     r.readAsText(file);
@@ -5988,6 +5997,7 @@ function d5ImportLinks(){
 
 // ── INIT ──
 function _d5Init() {
+  document.getElementById('d5FileInput')?.addEventListener('cancel',()=>{_d5NextActionLocal=true;});
   d5LoadLinks();
   d5Load();
   d5RenderLinksPanel();
