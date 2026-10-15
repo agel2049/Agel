@@ -696,6 +696,30 @@ def avisos_de_prospectos_solo_servidor(w):
     w.run('service', 'select public.mark_lead_notified(%s)', (lead,))
     check(w.run('service', 'select count(*) from public.pending_lead_notifications(10)', fetch='val') == 0, 'sigue pendiente tras avisar')
 
+@test
+def catalogo_niveles_importacion_atomica(w):
+    org=w.org('ana');p=w.project('ana',org)
+    data={'groups':[{'key':'a','name':'Torre A'},{'key':'b','name':'Torre B'}],
+          'levels':[{'key':'a/1','groupKey':'a','name':'Nivel 1'},{'key':'b/1','groupKey':'b','name':'Nivel 1'}],
+          'units':[{'groupKey':'a','levelKey':'a/1','data':{'name':'101','code':'A101','availability':'disponible'}},
+                   {'groupKey':'b','levelKey':'b/1','data':{'name':'101','code':'B101','availability':'vendida'}}], 'problems':[]}
+    r=w.run('ana','select public.import_catalog(%s,%s)',(p,json.dumps(data)),fetch='val')
+    check(r['created']==2,'no importó dos unidades')
+    levels=w.run('ana',"select parent_id from public.spaces where project_id=%s and kind='nivel'",(p,))
+    check(len(levels)==2 and levels[0][0]!=levels[1][0],'mezcló niveles de torres diferentes')
+    before=w.run('ana','select count(*) from public.spaces where project_id=%s',(p,),fetch='val')
+    data['units'][1]['data']['code']='a101'
+    check(w.denied('ana','select public.import_catalog(%s,%s)',(p,json.dumps(data))),'permitió claves repetidas')
+    check(w.run('ana','select count(*) from public.spaces where project_id=%s',(p,),fetch='val')==before,'dejó importación parcial')
+
+@test
+def catalogo_importacion_exige_edicion(w):
+    org=w.org('ana');p=w.project('ana',org);w.add_member('ana',p,'lector','viewer');w.org('otro')
+    data=json.dumps({'groups':[],'levels':[],'units':[],'problems':[]})
+    check(w.denied('lector','select public.import_catalog(%s,%s)',(p,data)),'lector importó catálogo')
+    check(w.denied('otro','select public.import_catalog(%s,%s)',(p,data)),'otra organización importó catálogo')
+    check(w.denied('anon','select public.import_catalog(%s,%s)',(p,data)),'anónimo importó catálogo')
+
 # ───────────────────────── ejecución ─────────────────────────
 def main():
     only = sys.argv[sys.argv.index('-k') + 1] if '-k' in sys.argv else None

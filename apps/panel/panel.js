@@ -456,46 +456,20 @@
       const fi = h('input', { type: 'file', accept: '.csv,text/csv' });
       const err = h('p', { class: 'ag-error', role: 'alert' });
       const m = modal({ title: 'Importar unidades desde CSV', wide: true,
-        body: [h('p', null, 'Columnas reconocidas: grupo (torre o edificio), nombre, clave, m2, recamaras, banos, estacionamientos, precio, mostrar_precio (si/no), estado (disponible, apartada, vendida).'),
-               h('p', null, 'Los grupos que no existan se crean. Las unidades con la misma clave se actualizan.'), fi, err],
+        body: [h('p', null, 'Columnas reconocidas: grupo (torre o edificio), nivel (opcional), nombre, clave, m2, recamaras, banos, estacionamientos, precio, mostrar_precio (si/no), estado (disponible, apartada, vendida).'),
+               h('p', null, 'Se crean edificios y niveles. Las claves repetidas dentro del archivo se rechazan antes de importar; las claves existentes se actualizan.'), fi, err],
         actions: [{ label: 'Cancelar', onClick: () => m.close() }, { label: 'Importar', primary: true, onClick: async () => {
           const file = fi.files[0]; if (!file) { err.textContent = 'Elige un archivo'; return; }
-          const rows = AgelFourD.parseCSV(await file.text());
-          if (rows.length < 2) { err.textContent = 'El archivo no tiene filas'; return; }
-          const n = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-          const head = rows[0].map(n);
-          const col = (...names) => head.findIndex(x => names.includes(x));
-          const c = { grupo: col('grupo', 'torre', 'edificio'), nombre: col('nombre', 'unidad', 'name'), clave: col('clave', 'codigo', 'code'),
-                      m2: col('m2', 'area', 'superficie'), rec: col('recamaras', 'habitaciones'), ban: col('banos'), est: col('estacionamientos', 'cajones'),
-                      precio: col('precio', 'price'), mostrar: col('mostrar_precio', 'mostrar precio'), estado: col('estado', 'disponibilidad') };
-          if (c.nombre < 0 && c.clave < 0) { err.textContent = 'Falta la columna nombre o clave'; return; }
+          const parsed = AgelCatalogImport.parse(await file.text());
+          if (parsed.problems.length) { err.textContent = parsed.problems.slice(0, 10).join(' · '); return; }
           m.setBusy(true, 'Importando…');
-          const groups = new Map(spaces.filter(s => !s.parent_id).map(s => [n(s.name), s.id]));
-          const byCode = new Map(spaces.filter(s => s.code).map(s => [n(s.code), s]));
-          const val = (r, i) => i >= 0 ? String(r[i] || '').trim() : '';
-          const numv = (r, i) => { const x = val(r, i).replace(/[$,\s]/g, ''); return x === '' || isNaN(+x) ? null : +x; };
-          let created = 0, updated = 0; const problems = [];
-          for (const [i, r] of rows.slice(1).entries()) {
-            try {
-              let parent = null; const g = val(r, c.grupo);
-              if (g) {
-                parent = groups.get(n(g));
-                if (!parent) { const [x] = await cloud.insert('spaces', { project_id: S.projectId, kind: 'edificio', name: g.slice(0, 120), position: groups.size }); parent = x.id; groups.set(n(g), parent); }
-              }
-              const st = n(val(r, c.estado));
-              const row = { project_id: S.projectId, parent_id: parent, kind: 'unidad', name: (val(r, c.nombre) || val(r, c.clave)).slice(0, 120), code: val(r, c.clave).slice(0, 40),
-                area_m2: numv(r, c.m2), bedrooms: numv(r, c.rec), bathrooms: numv(r, c.ban), parking: numv(r, c.est), price: numv(r, c.precio),
-                show_price: /^(si|sí|yes|1|true|x)$/i.test(val(r, c.mostrar)),
-                availability: ['disponible', 'apartada', 'vendida'].includes(st) ? st : (st ? 'no_aplica' : 'disponible') };
-              const ex = row.code && byCode.get(n(row.code));
-              if (ex) { await cloud.update('spaces', `id=eq.${ex.id}`, row); updated++; }
-              else { await cloud.insert('spaces', Object.assign(row, { position: spaces.length + i })); created++; }
-            } catch (e) { problems.push(`Fila ${i + 2}: ${e.message}`); }
-          }
-          m.close();
-          modal({ title: 'Importación terminada', body: [h('p', null, `${created} creadas, ${updated} actualizadas.`),
-            problems.length ? h('ul', { class: 'ag-list' }, problems.slice(0, 20).map(p => h('li', null, p))) : null],
-            actions: [{ label: 'Cerrar', primary: true, onClick: x => x.close() }] });
+          try {
+            const result = S.workspace ? await S.workspace.importCatalog(parsed)
+              : await cloud.rpc('import_catalog', { p_project: S.projectId, p_catalog: parsed });
+            m.close();
+            modal({ title: 'Importación terminada', body: [h('p', null, `${result.created} creadas, ${result.updated} actualizadas.`)],
+              actions: [{ label: 'Cerrar', primary: true, onClick: x => x.close() }] });
+          } catch (e) { err.textContent = e.message; m.setBusy(false); return; }
           tabCatalog(body);
         } }] });
     }
