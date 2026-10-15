@@ -20,6 +20,7 @@ with local_page('tests/fixtures/workspace.html') as pg:
  d.showroom.description='Primera pestaña';await w.save(d);
  try{copy.showroom.description='Segunda';await w.save(copy);return false;}catch(e){return /otra pestaña/.test(e.message);}
  }''')
+ assert pg.evaluate("""async()=>{const w=await AgelWorkspace.open({cloud,ownerId:owner,projectId:'project-a'}),d=await w.load();d.showroom.gallery=[{url:d.media[0].ref}];await w.save(d);const m=await w.previewManifest();return m.content.gallery[0].url.startsWith('blob:')&&!JSON.stringify(m).includes('privateSettings');}""")
  assert pg.evaluate('''async()=>{const w=await AgelWorkspace.open({cloud,ownerId:owner,projectId:'project-a'});owner='owner-b';try{await w.load();return false;}catch(e){return /cuenta/.test(e.message);}}''')
  print('PASS: local-first authoring, reload, no cloud writes, stale tab conflict and account change')
 with local_page('tests/fixtures/panel-local.html') as pg:

@@ -38,6 +38,8 @@
         if(r.space&&!bySpace.has(r.space))fail('Zona de espacio inexistente');
         if(!Array.isArray(r.points)||r.points.length<3||r.points.length>80)fail('La zona necesita entre 3 y 80 vértices');
         const radius=Number(r.radius||0);if(!Number.isFinite(radius)||radius<0||radius>2)fail('Radio de esquina fuera del intervalo 0–2');
+        const geometry=typeof AgelShowroomGeometry!=='undefined'?AgelShowroomGeometry:typeof require==='function'?require('./geometry.js'):null;
+        if(geometry){const shape=geometry.validatePolygon(r.points,{w:Number(v.w)||1600,h:Number(v.h)||900});if(!shape.valid)fail(shape.reason);}
         let target=r.target||(r.space?{type:'space',id:r.space}:null);
         if(target){target={type:target.type,id:str(target.id,40)};
           if(!['view','scene','space'].includes(target.type))fail('Tipo de destino inválido');

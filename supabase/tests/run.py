@@ -761,6 +761,34 @@ def workspace_sync_mime_revocado_y_ciclo(w):
     check(w.denied('ana','select public.save_workspace_snapshot(%s,%s,0)',(p,json.dumps(data))),'ciclo guardado')
     check(w.run('ana','select revision from public.projects where id=%s',(p,),fetch='val')==0,'ciclo no hizo rollback')
 
+@test
+def showroom_experience_snapshot_privado(w):
+    org=w.org('ana');p=w.project('ana',org)
+    sr={'description':'Comercial','bimVersionId':'SECRETO','privateSettings':{'token':'NO'},'opening':{'title':'Hola','secret':'NO'},'views':[{'id':'f','image':'https://example.test/f.jpg','role':'facade','secret':'NO'}],'experience':{'version':1,'facadeViewId':'f'}}
+    w.run('ana','update public.projects set showroom=%s where id=%s',(json.dumps(sr),p),fetch='none')
+    snap=w.conn.execute('select app.build_snapshot(%s,%s)',(p,'showroom')).fetchone()[0]
+    check('SECRETO' not in json.dumps(snap) and 'NO' not in json.dumps(snap),'filtró contenido privado')
+    sr['experience']['entryTargetViewId']='f'
+    w.run('ana','update public.projects set showroom=%s where id=%s',(json.dumps(sr),p),fetch='none')
+    try:w.conn.execute('select app.build_snapshot(%s,%s)',(p,'showroom'));raise AssertionError('entrada a sí misma aceptada')
+    except errors.RaiseException:pass
+
+@test
+def showroom_experience_geometria_y_destinos(w):
+    org=w.org('ana');p=w.project('ana',org)
+    valid={'views':[{'id':'f','image':'https://example.test/f.jpg','regions':[{'points':[[0,0],[100,0],[100,100],[0,100]],'radius':0.5}]}],'experience':{'version':1,'facadeViewId':'f'},'model3d':None}
+    w.conn.execute('select app.validate_showroom_experience(%s,%s)',(p,json.dumps(valid)))
+    import copy
+    cases=[]
+    x=copy.deepcopy(valid);x['views'][0]['regions'][0]['radius']=3;cases.append(x)
+    x=copy.deepcopy(valid);x['views'][0]['regions'][0]['points']=[[0,0],[100,100],[0,100],[100,0]];cases.append(x)
+    x=copy.deepcopy(valid);x['views'][0]['spaceId']=str(uuid.uuid4());cases.append(x)
+    x=copy.deepcopy(valid);x['views'][0]['image']='javascript:alert(1)';cases.append(x)
+    x=copy.deepcopy(valid);x['views']*=257;cases.append(x)
+    for x in cases:
+        try:w.conn.execute('select app.validate_showroom_experience(%s,%s)',(p,json.dumps(x)));raise AssertionError('entrada inválida aceptada')
+        except errors.RaiseException:pass
+
 # ───────────────────────── ejecución ─────────────────────────
 def main():
     only = sys.argv[sys.argv.index('-k') + 1] if '-k' in sys.argv else None

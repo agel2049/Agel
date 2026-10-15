@@ -40,6 +40,16 @@
      if(matches.length){Object.assign(matches[0],row);updated++;}else{d.spaces.push({...row,id:crypto.randomUUID(),project_id:projectId,scene_ids:[]});created++;}}
     await api.save(d);return {created,updated};
    },
+   async previewManifest(){
+    const d=await api.load(),scenes=d.tree.scenes.filter(s=>s.pano_url),idx=new Map(scenes.map((s,i)=>[s.id,i]));
+    const raw={v:3,p:d.tree.project.name,sub:d.tree.project.subtitle,project:d.tree.project,branding:{},showroom:d.showroom,opening:d.showroom.opening,
+     scenes:scenes.map(s=>({...s,url:s.pano_url,thumb:s.thumb_url,preview:s.preview_url,hs:(s.hs||[]).map(h=>({...h,img:h.img_url,targetScene:idx.get(h.target_scene_id)}))})),
+     spaces:d.spaces.map(s=>({...s,price:s.show_price?s.price:null,currency:s.show_price?s.currency:null,scenes:(s.scene_ids||[]).map(id=>idx.get(id)).filter(i=>i!==undefined)}))};
+    // Normalize first using safe HTTPS placeholders. Resolve only refs we own, after validation.
+    const refs=new Map();function mask(v){if(typeof v==='string'&&v.startsWith('agel-local:')){const key='https://agel-local.invalid/'+v.slice(11);refs.set(key,v);return key;}if(Array.isArray(v))return v.map(mask);if(v&&typeof v==='object')return Object.fromEntries(Object.entries(v).map(([k,x])=>[k,mask(x)]));return v;}
+    const m=sanitizeShowroom(mask(raw));async function resolve(v){if(typeof v==='string'&&refs.has(v))return api.resolveMedia(refs.get(v));if(Array.isArray(v))return Promise.all(v.map(resolve));if(v&&typeof v==='object')return Object.fromEntries(await Promise.all(Object.entries(v).map(async([k,x])=>[k,await resolve(x)])));return v;}
+    return resolve(m);
+   },
    async resolveMedia(ref){check();if(!ref?.startsWith('agel-local:'))return ref||'';if(!urls.has(ref))urls.set(ref,await store.url(ref));check();return urls.get(ref);},
    close(){closed=true;for(const url of urls.values())URL.revokeObjectURL(url);urls.clear();}
   };return api;

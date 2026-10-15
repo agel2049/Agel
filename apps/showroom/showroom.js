@@ -82,6 +82,10 @@
   }
 
   async function boot() {
+    if(params.get('local')){
+      try{if(!cloud?.user)throw Error('Inicia sesión con la cuenta que creó el borrador');const ws=await AgelWorkspace.open({cloud,ownerId:cloud.user.id,projectId:params.get('local')});state.preview='local';hydrate(null,'Local',await ws.previewManifest());window.addEventListener('pagehide',()=>ws.close(),{once:true});}
+      catch(e){showState('Borrador local no disponible',e.message);}return;
+    }
     const pre = embedded();
     if (pre) hydrate(pre.snapshot, pre.version);
     else app.append(h('div', { class: 'sr-loading', role: 'progressbar', 'aria-label': 'Cargando' }));
@@ -112,9 +116,9 @@
     }
   }
 
-  function hydrate(snapshot, version) {
+  function hydrate(snapshot, version, providedModel) {
     let m;
-    try { m = sanitizeShowroom(snapshot); }
+    try { m = providedModel || sanitizeShowroom(snapshot); }
     catch (e) { showState('Esta página no está disponible', 'La publicación tiene un formato que no se pudo leer.'); return; }
     state.m = m; state.version = version;
     state.x = AgelShowroom.model(m);

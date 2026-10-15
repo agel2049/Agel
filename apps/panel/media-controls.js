@@ -8,6 +8,7 @@
    await AgelLocalBackup.importProject(workspace.store,JSON.parse(await manifestFile.text()),files.filter(f=>f!==manifestFile));location.reload();
   });
   container.append(h('div',{class:'pn-toolbar pn-local-controls'},status,
+   h('a',{class:'ag-btn',href:'../showroom/?local='+encodeURIComponent(workspace.projectId),target:'_blank',rel:'noopener'},'Vista previa local'),
    h('button',{class:'ag-btn',onclick:()=>run(async()=>AgelLocalBackup.exportProject(workspace.store,await workspace.load()))},'Respaldar archivos locales'),
    h('button',{class:'ag-btn',onclick:()=>restore.click()},'Restaurar respaldo'),restore,
    h('button',{class:'ag-btn primary',onclick:()=>run(async()=>{
