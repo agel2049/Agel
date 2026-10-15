@@ -5,7 +5,7 @@
  const svg=(tag,attrs={})=>{const el=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const[k,v]of Object.entries(attrs))el.setAttribute(k,v);return el;};
  const arrow=()=>{const s=svg('svg',{viewBox:'0 0 24 24','aria-hidden':'true',width:20,height:20});s.append(svg('path',{d:'M5 12h14M13 6l6 6-6 6',fill:'none',stroke:'currentColor','stroke-width':1.5}));return s;};
  function mount(container,{manifest:m,navigation:n,resolveMedia=ref=>ref,openTour,onBim}){
-  let disposed=false,sequence=0,tour=null,video=null,restoring=false,selected=null,bimHandler=onBim;
+  let fitMode=false,disposed=false,sequence=0,tour=null,video=null,restoring=false,selected=null,bimHandler=onBim;
   const scopeSpaces=R.normalizeSpaces(m.spaces,m.scenes),views=m.content.views,ex=m.content.experience;
   const button=(label,action,attrs={})=>h('button',{type:'button',...attrs,onclick:action},label);
   const dispatch=a=>n.dispatch(a),stage=h('div',{class:'ax-stage'}),content=h('div',{class:'ax-content'}),status=h('p',{class:'ax-status',role:'status','aria-live':'polite'});
@@ -16,11 +16,11 @@
   const bim=button('Modelo BIM · equipo',()=>bimHandler?.(),{hidden:!bimHandler});
   const lower=h('div',{class:'ax-lower'},locationButton,bim,h('a',{href:'#contacto'},'Solicitar información'));
   const sidebar=h('aside',{class:'ax-sidebar'},h('a',{class:'ax-brand',href:'#'},m.brand.name||'AgelArq'),h('h2',{},m.project.name),levelNav,lower);
-  const body=h('div',{class:'ax-workspace'},sidebar,h('div',{class:'ax-main'},h('div',{class:'ax-top'},back,crumb,button('Fachada',()=>dispatch({type:'FACADE'}),{class:'ax-quiet'})),status,stage,content,locationPanel));
+  const body=h('div',{class:'ax-workspace'},sidebar,h('div',{class:'ax-main'},h('div',{class:'ax-top'},back,crumb,button('Ver imagen completa',ev=>{fitMode=!fitMode;ev.currentTarget.setAttribute('aria-pressed',String(fitMode));fit();},{class:'ax-quiet','aria-pressed':false}),button('Fachada',()=>dispatch({type:'FACADE'}),{class:'ax-quiet'})),status,stage,content,locationPanel));
   const section=h('section',{class:'ax-experience','aria-label':'Explorar proyecto'});container.append(section);
   const levels=m.spaces.filter(s=>s.kind==='nivel');
   levelNav.append(h('p',{class:'ax-nav-label'},'Explorar niveles'),...levels.map(s=>button(s.name,()=>dispatch({type:'OPEN_SPACE',id:s.id}),{'data-level':s.id})),...views.filter(v=>v.role==='lobby').map(v=>button(v.title,()=>dispatch({type:'OPEN_VIEW',id:v.id}),{'data-view':v.id})));
-  function fit(){const frame=stage.querySelector('.ax-frame');if(!frame)return;const ratio=Number(frame.dataset.ratio)||16/9,w=Math.min(stage.clientWidth,stage.clientHeight*ratio);frame.style.width=w+'px';frame.style.height=w/ratio+'px';}
+  function fit(){const frame=stage.querySelector('.ax-frame');if(!frame)return;const ratio=Number(frame.dataset.ratio)||16/9,w=Math[fitMode?'min':'max'](stage.clientWidth,stage.clientHeight*ratio);frame.style.width=w+'px';frame.style.height=w/ratio+'px';}
   const observer=new ResizeObserver(fit);observer.observe(stage);
   async function opening(seq){
    const o=m.opening||{},wrap=h('div',{class:'ax-opening'}),copy=h('div',{class:'ax-opening-copy'},h('span',{class:'ax-brand'},m.brand.name||'AgelArq'),h('h1',{},o.title||m.project.name),o.subtitle?h('p',{},o.subtitle):null);

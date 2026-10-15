@@ -199,6 +199,12 @@ def visor_bim_indexa_filtra_y_4d(w):
     check(sorted(p.ev('__fake.isolated')) == [1, 6, 11, 16], f'aisló {p.ev("__fake.isolated")}')
     p.pg.get_by_role('button', name='Ver todo').click()
     p.wait("__fake.isolated === null", 4000)
+    p.pg.get_by_role('button',name='MEP',exact=True).click()
+    p.wait("__fake.isolated && __fake.isolated.length === 15",6000)
+    p.pg.get_by_role('button',name='Completo',exact=True).click()
+    p.wait("__fake.isolated === null",4000)
+    p.pg.get_by_role('button',name='Con acabados',exact=True).click()
+    p.pg.wait_for_selector('text=Configura los elementos de esta vista')
     # propiedades
     p.pg.locator('.fake-viewer button[data-dbid="2"]').click()
     p.pg.wait_for_selector('#bm-panel h2:has-text("Pipes 2")')

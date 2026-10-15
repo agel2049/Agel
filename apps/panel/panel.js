@@ -324,7 +324,7 @@
       });
       busy(save, true, 'Guardando…');
       try {
-        const d=await S.workspace.load();d.showroom=next;d.privateSettings=experience.privateSettings;Object.assign(d.tree.project,{kind:f.kind.value,subtitle:f.subtitle.value.trim(),location:f.location.value.trim(),delivery:f.delivery.value.trim()});await S.workspace.save(d);
+        const d=await S.workspace.load();d.showroom=next;d.privateSettings=experience.privateSettings;AgelExperienceSettings.applyMarkers(d,experience.markerEdits);Object.assign(d.tree.project,{kind:f.kind.value,subtitle:f.subtitle.value.trim(),location:f.location.value.trim(),delivery:f.delivery.value.trim()});await S.workspace.save(d);
         Object.assign(sr, next);
         notify('Guardado en este dispositivo. Usa Subir a la nube antes de crear una versión pública.');
       } catch (ex) { err.textContent = ex.message; }

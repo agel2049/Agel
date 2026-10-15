@@ -82,16 +82,17 @@ function sanitizeVisorConfig(raw) {
       if (!h || typeof h !== 'object') return null;
       const x = _num(h.x, 0, 100), y = _num(h.y, 0, 100);
       if (x === null || y === null) return null;
+      const rawMarker=h.payload?.showroomMarker;const presentation=rawMarker&&['flat','floor','wall'].includes(rawMarker.surface)?{surface:rawMarker.surface,tilt:_num(rawMarker.tilt,-75,75)??(rawMarker.surface==='floor'?55:0),rotation:_num(rawMarker.rotation,-180,180)??0,scale:_num(rawMarker.scale,.5,2)??1}:null;
       if (h.type === 'scene') {
         const t = _num(h.targetScene, 0, scenes.length - 1);
         if (t === null || !Number.isInteger(t)) return null;
-        return { type: 'scene', x, y, targetScene: t,
+        return { type: 'scene', x, y, targetScene: t, presentation,
                  title: _str(h.title, CFG_LIMITS.title) || scenes[t].name,
                  targetSceneName: scenes[t].name };
       }
       const details = Array.isArray(h.details)
         ? h.details.slice(0, CFG_LIMITS.details).map(d => _str(d, CFG_LIMITS.detail)).filter(Boolean) : [];
-      return { type: 'info', x, y, title: _str(h.title, CFG_LIMITS.title) || 'Info',
+      return { type: 'info', x, y, presentation, title: _str(h.title, CFG_LIMITS.title) || 'Info',
                details, img: safeImgUrl(h.img) && !/^blob:/i.test(h.img) ? safeImgUrl(h.img) : null };
     }).filter(Boolean);
     const th = safeMediaUrl(sc._src.thumb);

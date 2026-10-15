@@ -4,7 +4,7 @@ with local_page('tests/fixtures/workspace-sync.html') as pg:
  result=pg.evaluate('''async()=>{
  let transfers=0,saves=0,reserved=0;const user={id:'sync-owner'},cloud={user,
  select:async()=>[],publicUrl:(b,p)=>'https://cloud.example/'+b+'/'+p,
- rpc:async(name,args)=>{if(name==='load_project_tree')return {revision:2,role:'owner',project:{id:'sync-project',showroom:{}},scenes:[]};
+ rpc:async(name,args)=>{if(name==='load_workspace_settings')return {};if(name==='load_project_tree')return {revision:2,role:'owner',project:{id:'sync-project',showroom:{}},scenes:[]};
  if(name==='begin_sync_asset'){reserved++;return {asset_id:'asset',bucket:'media',path:'p/image',status:'uploading'};}
  if(name==='complete_sync_asset')return {asset_id:'asset',bucket:'media',path:'p/image',status:transfers?'ready':'uploading'};
  if(name==='save_workspace_snapshot'){saves++;if(saves===1)throw Error('Conflicto de revisión');return {revision:3};}},

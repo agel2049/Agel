@@ -8,8 +8,8 @@
   const check=()=>{if(closed||cloud.user?.id!==ownerId)throw Error('La cuenta cambió. Vuelve a abrir el proyecto.');};
   check();current=await store.loadDraft();
   if(!current){
-   const [tree,spaces]=await Promise.all([cloud.rpc('load_project_tree',{p_project:projectId}),cloud.select('spaces',`project_id=eq.${projectId}&select=*&order=position.asc`)]);
-   check();current={tree,spaces,showroom:clone(tree.project.showroom||{}),privateSettings:{},media:[],baseRevision:tree.revision,localRevision:0,dirty:false};
+   const [tree,spaces,privateSettings]=await Promise.all([cloud.rpc('load_project_tree',{p_project:projectId}),cloud.select('spaces',`project_id=eq.${projectId}&select=*&order=position.asc`),cloud.rpc('load_workspace_settings',{p_project:projectId})]);
+   check();current={tree,spaces,showroom:clone(tree.project.showroom||{}),privateSettings:privateSettings||{},media:[],baseRevision:tree.revision,localRevision:0,dirty:false};
   }
   const api={ownerId,projectId,cloud,store,
    get dirty(){return current.dirty;},get baseRevision(){return current.baseRevision;},

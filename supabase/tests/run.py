@@ -789,6 +789,22 @@ def showroom_experience_geometria_y_destinos(w):
         try:w.conn.execute('select app.validate_showroom_experience(%s,%s)',(p,json.dumps(x)));raise AssertionError('entrada inválida aceptada')
         except errors.RaiseException:pass
 
+@test
+def showroom_bim_privado_acceso(w):
+    org=w.org('ana');p=w.project('ana',org);w.add_member('ana',p,'lector','viewer');w.org('ajeno')
+    model=w.run('ana',"insert into public.models(project_id,name) values(%s,'Modelo') returning id",(p,),fetch='val')
+    version=w.run('ana','select public.create_model_version(%s,%s,%s,%s)',(model,'v1','a.nwd',100),fetch='val')['id']
+    pub=w.run('ana','select public.create_publication(%s,%s,%s)',(p,'showroom','bim-prueba'),fetch='val')
+    settings=json.dumps({'bimVersionId':version,'presets':{'mep':{'disciplines':['Eléctrica','Hidrosanitaria']}}})
+    w.run('ana','select public.save_workspace_settings(%s,%s)',(p,settings))
+    check(w.run('lector','select public.showroom_bim_access(%s)',(pub,),fetch='val') is None,'versión no lista abierta')
+    w.conn.execute("update public.model_versions set status='ready',aps_urn='prueba' where id=%s",(version,))
+    check(w.run('lector','select public.showroom_bim_access(%s)',(pub,),fetch='val')['version_id']==version,'lector autorizado sin acceso')
+    check(w.denied('anon','select public.showroom_bim_access(%s)',(pub,)),'anónimo accedió')
+    check(w.denied('ajeno','select public.showroom_bim_access(%s)',(pub,)),'ajeno accedió')
+    check(w.denied('lector','select public.save_workspace_settings(%s,%s)',(p,settings)),'lector cambió BIM')
+    check(w.run('lector','select public.load_workspace_settings(%s)',(p,),fetch='val')['bimVersionId']==version,'configuración no recuperada')
+
 # ───────────────────────── ejecución ─────────────────────────
 def main():
     only = sys.argv[sys.argv.index('-k') + 1] if '-k' in sys.argv else None

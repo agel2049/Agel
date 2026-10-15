@@ -5,6 +5,7 @@ with local_page('tests/fixtures/experience-settings.html') as pg:
  pg.get_by_label('Texto del botón',exact=True).fill('Ir al proyecto')
  pg.get_by_label('Fachada inicial',exact=True).select_option('f')
  pg.get_by_label('Planta de entrada',exact=True).select_option('l')
+ pg.get_by_label('Superficie de Material',exact=True).select_option('floor')
  pg.get_by_role('button',name='Guardar experiencia en este dispositivo',exact=True).click()
  pg.get_by_role('status').filter(has_text='Guardado en este dispositivo').wait_for()
  assert pg.evaluate('writes')==[]

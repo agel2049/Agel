@@ -41,6 +41,7 @@
       cloud.select('model_versions', `model_id=eq.${S.v.model_id}&select=id,version,label,status&order=version.desc`),
       cloud.select('scenes', `project_id=eq.${S.v.project_id}&select=id,name,pano_url&order=position.asc`).catch(() => [])]);
     if (S.v.status !== 'ready') return notReady();
+    S.privateSettings=await cloud.rpc('load_workspace_settings',{p_project:S.v.project_id});
     layout();
     try {
       S.view = await AgelAPS.open(document.getElementById('bm-viewer'), { urn: S.v.aps_urn, getToken });
@@ -82,6 +83,7 @@
       S.versions.filter(x => x.status === 'ready').map(x => h('option', { value: x.id, selected: x.id === S.v.id }, `v${x.version}${x.label ? ' ' + x.label : ''}`)));
     put(app,
       h('header', { class: 'bm-top' },
+        AgelBimPresets.safeReturn(params.get('return'),location.href)?h('a',{class:'ag-btn',href:AgelBimPresets.safeReturn(params.get('return'),location.href)},'Volver al showroom'):null,
         h('a', { class: 'ag-btn', href: `${ROOT}apps/panel/#/p/${S.v.project_id}/modelos`, 'aria-label': 'Volver al panel' }, icon('arrow-left')),
         h('h1', null, S.model ? S.model.name : 'Modelo'), verSel, h('span', { class: 'bm-grow' }),
         h('span', { class: 'ag-pill' }, { owner: 'Propietario', editor: 'Editor', reviewer: 'Revisor', viewer: 'Lector' }[S.v.role] || S.v.role)),
@@ -159,9 +161,10 @@
   // ── filtros ──────────────────────────────────────────────────────────
   async function tabFilters(p) {
     const f = S.facets || {};
-    if (!f.total) { put(p, h('p', { class: 'bm-muted' }, 'Indexa los elementos para filtrar por disciplina, sistema, nivel y etapa.')); return; }
+    const presets=h('div',{class:'pn-actions'},...[['complete','Completo'],['mep','MEP'],['finishes','Con acabados'],['grey','Obra gris']].map(([id,label])=>h('button',{class:'ag-btn',type:'button',onclick:()=>applyPreset(id)},label)));
+    if (!f.total) { put(p,presets, h('p', { class: 'bm-muted' }, 'Indexa los elementos para filtrar por disciplina, sistema, nivel y etapa.')); return; }
     const active = Object.entries(S.filters);
-    put(p,
+    put(p,presets,
       h('p', { class: 'bm-muted' }, `${f.total} elementos indexados${f.sin_clasificar ? `, ${f.sin_clasificar} sin clasificar` : ''}.`),
       active.length ? h('div', { class: 'bm-chips' }, active.map(([k, v]) => h('button', { type: 'button', class: 'ag-pill warn', onclick: () => { delete S.filters[k]; applyFilters(); } },
         `${FACETS.find(x => x[0] === k)[1]}: ${v}`, icon('x'))), h('button', { type: 'button', class: 'ag-btn link', onclick: () => { S.filters = {}; applyFilters(); } }, 'Ver todo')) : null,
@@ -174,6 +177,16 @@
             if (S.filters[k] === val) delete S.filters[k]; else S.filters[k] = val; applyFilters();
           } }, h('span', null, val), h('small', null, String(n)))))));
       }));
+  }
+  async function applyPreset(id){
+    if(id==='complete'){S.view.showAll();S.view.fit();return;}
+    const preset=S.privateSettings?.presets?.[id]||AgelBimPresets.defaults[id];
+    try{
+     const rows=[];let offset=0;
+     while(true){const batch=await cloud.select('element_mappings',`model_version_id=eq.${S.v.id}&select=dbid,discipline,category,level&order=dbid.asc&limit=1000&offset=${offset}`);rows.push(...batch);if(batch.length<1000)break;offset+=batch.length;if(offset>=200000)throw Error('El modelo supera el límite de elementos de esta vista');}
+     const ids=AgelBimPresets.selectIds(rows,preset);if(ids===null){notify('Configura los elementos de esta vista','error');return;}if(!ids.length){notify('No se encontraron elementos para esta vista','error');return;}
+     S.view.isolate(ids);S.view.fit(ids);notify(`${ids.length} elementos`);
+    }catch(e){fail(e);}
   }
   async function applyFilters() {
     const q = Object.entries(S.filters).map(([k, v]) => /^sin (clasificar|nivel|etapa)$/.test(v) ? `${k}=eq.` : `${k}=eq.${encodeURIComponent(v)}`);
