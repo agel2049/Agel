@@ -1,0 +1,13 @@
+<!doctype html><meta charset="utf-8">
+<input id="vmProjName"><input id="vmProjSub"><input id="vmOpeningTitle"><input id="vmOpeningSub"><input id="vmOpeningBtn"><input id="vmEndingBtn">
+<video id="vmVidThumb"></video><video id="vmEndVidThumb"></video><div id="vmVidDrop"></div><div id="vmEndVidDrop"></div><button id="vmVidRemoveBtn"></button><button id="vmEndVidRemoveBtn"></button><div id="vmVidProgress"></div><div id="vmEndVidProgress"></div><div id="vmVidProgressBar"></div><div id="vmEndVidProgressBar"></div><div id="vmVidStatus"></div><div id="vmEndVidStatus"></div>
+<script src="../../packages/core/local-media.js"></script><script>
+var owner='owner-a',vmScenes=[],_vmOpeningCfg=null;window.messages=[];window.posts=[];
+window.CloudMode={cloud:{get user(){return owner?{id:owner}:null;}}};
+window.toast=x=>messages.push(x);window.vmRenderScenesList=()=>{};
+window.XMLHttpRequest=class {constructor(){this.upload={addEventListener(){}};}open(method,url){this.method=method;this.url=url;}setRequestHeader(){}send(){posts.push(this.url);this.status=413;this.responseText='maximum size';queueMicrotask(()=>this.onload());}};
+window.SUPA_URL='https://forbidden.example';window.SUPA_BUCKET='media';window.SUPA_ANON='fixture';
+(async()=>{const src=await(await fetch('../../index.html')).text(),part=(a,b)=>src.slice(src.indexOf(a),src.indexOf(b,src.indexOf(a)));
+window.eval(part('function _vmGetOpeningConfig()','// ════════════════════════════════════════════════════\n// SISTEMA DE LINKS')+'\n'+part('let _vmOpeningVideoUrl =','// ── SHOW OPENING when client opens the link')+'\nwindow.loadVideoFixture=async()=>loadVmData();');
+await loadVideoFixture();window.vmFixtureReady=true;})();
+</script>

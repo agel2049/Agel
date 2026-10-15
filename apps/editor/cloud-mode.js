@@ -146,6 +146,7 @@
   // ── arranque ────────────────────────────────────────────────────────────
   CM.init = async function () {
     if (!cloud || CM.isPublicLink()) return;
+    cloud.onAuth(()=>{if(typeof vmLoadLocalVideos==='function')vmLoadLocalVideos().catch(e=>say(e.message,'error'));});
     injectChrome();
     try {
       const type = cloud.consumeRedirect();
