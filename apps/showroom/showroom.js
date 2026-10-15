@@ -120,6 +120,7 @@
     let m;
     try { m = providedModel || sanitizeShowroom(snapshot); }
     catch (e) { showState('Esta página no está disponible', 'La publicación tiene un formato que no se pudo leer.'); return; }
+    state.experience?.dispose();state.experience=null;
     state.m = m; state.version = version;
     state.x = AgelShowroom.model(m);
     const root = document.documentElement;
@@ -134,9 +135,15 @@
     // renderBody escapa todo texto con esc() y solo recibe URLs https validadas
     // por sanitizeShowroom (ver tests/e2e_showroom.py: inyeccion_no_ejecuta).
     app.innerHTML = AgelShowroom.renderBody(m, { preview: state.preview ? version : null });
+    if(m.content.experience?.version===1){
+      document.body.classList.add('sr-immersive');
+      const host=h('div');app.querySelector('.sr-top')?.after(host);if(!host.isConnected)app.prepend(host);
+      state.experience=AgelShowroomExperience.mount(host,{manifest:m,navigation:AgelShowroomNavigation.create(m),openTour:args=>AgelTourBridge.open({...args,openExisting:openTour})});
+    }else document.body.classList.remove('sr-immersive');
     loadSelection();
     bindHorizon(); bindExplore(); bindUnits(); bindTourButtons(); bindGallery(); bindForm(); bindModel();
     renderSelection();
+    if(m.content.experience?.version===1)return;
     const u = params.get('unidad');
     if (u) {
       if (leaf(u)) openUnit(u, true);

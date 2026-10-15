@@ -394,10 +394,11 @@ ${opts.canonical ? `<link rel="canonical" href="${esc(opts.canonical)}">` : ''}
 ${md.desc ? `<meta property="og:description" content="${esc(md.desc)}">` : ''}
 ${md.image ? `<meta property="og:image" content="${esc(md.image)}">` : ''}
 ${opts.noindex ? '<meta name="robots" content="noindex">' : ''}
-<meta name="theme-color" content="#EEEDEA">
+<meta name="theme-color" content="#101112">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap">
 <link rel="stylesheet" href="${r}apps/showroom/showroom.css">
+<link rel="stylesheet" href="${r}apps/showroom/experience.css">
 <style>:root{--sr-accent:${m.brand.accent};--sr-accent-ink:${m.brand.accentText}}</style>
 <script type="application/ld+json">${md.jsonLd}</script>
 </head>
@@ -405,9 +406,15 @@ ${opts.noindex ? '<meta name="robots" content="noindex">' : ''}
 <div id="sr-app" data-slug="${esc(opts.slug || '')}">${renderBody(m, opts)}</div>
 <script type="application/json" id="sr-data">${JSON.stringify(opts.raw || null).replace(/</g, '\\u003c')}</script>
 <script src="${r}config.js"></script>
+<script src="${r}packages/showroom/geometry.js"></script>
+<script src="${r}packages/showroom/relations.js"></script>
 <script src="${r}packages/core/schema.js"></script>
 <script src="${r}packages/showroom/render.js"></script>
 <script src="${r}packages/core/cloud.js"></script>
+<script src="${r}packages/showroom/navigation.js"></script>
+<script src="${r}apps/showroom/experience.js"></script>
+<script src="${r}apps/showroom/tour-bridge.js"></script>
+<script src="${r}apps/showroom/hotspot-presentation.js"></script>
 <script src="${r}apps/showroom/showroom.js"></script>
 </body>
 </html>`;

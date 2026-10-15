@@ -1,0 +1,10 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="../../apps/showroom/experience.css"><body class="sr"><div id="app"></div>
+<script src="../../packages/showroom/geometry.js"></script><script src="../../packages/showroom/relations.js"></script><script src="../../packages/showroom/navigation.js"></script><script src="../../apps/showroom/experience.js"></script>
+<script>
+window.tours=[];const img='pano_a.jpg';window.manifest={project:{name:'Residencial · demostración',location:'Morelia'},brand:{name:'AgelArq'},opening:{enabled:true,title:'Un espacio para vivir',subtitle:'Showroom de prueba',button:'Ver proyecto'},content:{description:'Proyecto de prueba',location:{address:'Morelia, Michoacán',notes:'Ubicación de demostración'},experience:{version:1,facadeViewId:'f',entryTargetViewId:'l',entrance:{x:50,y:70,label:'Entrar al lobby'}},views:[
+{id:'f',title:'Fachada',role:'facade',image:img,w:1600,h:900,regions:[],spots:[]},
+{id:'l',title:'Lobby',role:'lobby',image:img,w:1600,h:900,regions:[],spots:[]},
+{id:'n',title:'Planta Nivel 1',spaceId:'level',role:'floor',image:img,w:1600,h:900,regions:[{id:'a-zone',space:'a',target:{type:'space',id:'a'},points:[[10,10],[45,10],[45,80],[10,80]],radius:.5}],spots:[]},
+{id:'u',title:'Planta departamento 101',spaceId:'a',role:'unit',image:img,w:1600,h:900,regions:[],spots:[{scene:0,sceneId:'sa',x:30,y:40}]}]},spaces:[{id:'level',name:'Nivel 1',kind:'nivel',sceneIds:[]},{id:'a',name:'Departamento 101',kind:'unidad',parent_id:'level',sceneIds:['sa'],area_m2:80},{id:'b',name:'Departamento 102',kind:'unidad',parent_id:'level',sceneIds:['sb']}],scenes:[{id:'sa',name:'Sala 101'},{id:'sb',name:'Sala 102'}]};
+window.navigation=AgelShowroomNavigation.create(manifest);window.experience=AgelShowroomExperience.mount(document.getElementById('app'),{manifest,navigation,resolveMedia:r=>new URL(r,location.href).href,openTour:args=>{tours.push(args);return {close(){}};}});
+</script></body></html>
