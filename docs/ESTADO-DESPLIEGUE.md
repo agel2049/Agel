@@ -18,12 +18,15 @@ La comprobación posterior confirmó:
 
 Se configuraron Site URL y dos retornos exactos del sitio (`/Agel/` e `/Agel/index.html`). Se cerró el registro público de nuevas cuentas; las cuentas se crean desde la administración de Supabase.
 
-## Pendientes antes de fusionar a main
+## Acceso y almacenamiento verificados
 
-1. Cuenta de la app creada por el propietario directamente en Supabase y confirmada en la lista de usuarios. La contraseña la eligió el propietario; no se registró en este repositorio.
-2. Verificar inicio de sesión, guardado y una subida autenticada de un archivo pequeño.
-3. Cerrar el INSERT público del bucket heredado con el procedimiento manual, conservando las descargas y enlaces existentes. Mientras siga abierto, sus subidas eluden el margen de la app.
-4. Confirmar las pruebas automáticas del commit final y revisar el Pull Request.
+El propietario creó su cuenta directamente en Supabase. Se confirmó el acceso real con esa cuenta y el guardado central. La contraseña no se registró en este repositorio.
+
+Se creó un borrador separado, `Verificación técnica — 14 oct 2026`, dentro de la organización de prueba del propietario. Una imagen sintética de 1,515 bytes y sus dos derivados suman 6,889 bytes. Los tres registros quedaron `ready` y coinciden con los tamaños reales de Storage. El proyecto y la escena persistieron al recargar. El proyecto `torre de departamentos` no fue modificado ni se publicó el borrador de verificación. El inventario posterior fue de 27 objetos, 436,517,836 bytes.
+
+Se ejecutó el cierre del INSERT público heredado, conservando `public_select 1fcgrry_0`. Esto conserva la lectura de los enlaces históricos; las nuevas subidas requieren la cuenta y las reservas de la plataforma. El SQL para restaurar el permiso anterior está documentado en `supabase/manual/01-cerrar-subida-publica.sql`.
+
+El commit funcional y la corrección de sincronización de la prueba de showroom pasaron los nueve grupos locales (129 pruebas funcionales y revisión de sintaxis) y las dos ejecuciones de GitHub Actions del commit `fe7e2ba`. Falta integrar el PR y comprobar el estado de publicación de GitHub Pages. Por indicación del propietario, no se continuarán pruebas del visor; la revisión funcional de la plataforma queda a cargo del propietario tras publicar.
 
 Las funciones de Autodesk y avisos externos siguen pendientes de credenciales y verificación de costes. El margen de archivos no limita egress ni garantiza las cuotas de otros proyectos. No se cambió de plan ni se eliminaron archivos.
 
