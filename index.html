@@ -1244,7 +1244,7 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
       <div class="upl-i"><i class="ti ti-photo-up"></i></div>
       <div class="upl-t">Carga una panorámica</div>
       <div class="upl-s">Equirectangular · JPG PNG WEBP<br>Proporción 2:1 recomendada</div>
-      <div class="upl-sb-badge"><i class="ti ti-cloud-upload"></i> Supabase — hasta 50 MB, calidad original</div>
+      <div class="upl-sb-badge"><i class="ti ti-cloud-upload"></i> Guardado local · subir a la nube desde el panel</div>
       <button class="upl-cta">Seleccionar imagen</button>
     </div>
     <div class="upl-progress" id="uplProgress">
@@ -1881,6 +1881,9 @@ html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:var(-
 <script src="packages/core/schema.js"></script>
 <script src="packages/core/cloud.js"></script>
 <script src="packages/core/dom.js"></script>
+<script src="packages/core/local-media.js"></script>
+<script src="packages/core/local-backup.js"></script>
+<script src="packages/core/workspace.js"></script>
 <script src="apps/editor/cloud-mode.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
@@ -2386,14 +2389,15 @@ function loadPano(e) {
   const progressBar  = document.getElementById('uplProgressBar');
   const statusEl     = document.getElementById('uplStatus');
   if (progressWrap) progressWrap.classList.add('show');
-  if (statusEl) statusEl.textContent = `Subiendo ${sizeMB} MB a Supabase…`;
+  if (statusEl) statusEl.textContent = `Guardando ${sizeMB} MB en este dispositivo…`;
 
   if (window.CloudMode && CloudMode.active) {
     // Modo nube: bucket "media/<proyecto>" con tu sesión, reserva y cuota.
     CloudMode.uploadPano(file, _pi, pct => {
       if (progressBar) progressBar.style.width = pct + '%';
       if (statusEl) statusEl.textContent = `Subiendo ${sizeMB} MB… ${pct}%`;
-    }).then(url => {
+    }).then(result => {
+      const url=result.url;PROJ[_pi].scenes[_si].localRef=result.ref;
       if (progressWrap) progressWrap.classList.remove('show');
       if (statusEl) statusEl.textContent = '';
       _applyPanoUrl(file, url, _pi, _si);
@@ -2408,22 +2412,9 @@ function loadPano(e) {
     return;
   }
 
-  supaUpload(file, pct => {
-    if (progressBar) progressBar.style.width = pct + '%';
-    if (statusEl) statusEl.textContent = `Subiendo ${sizeMB} MB… ${pct}%`;
-  })
-  .then(publicUrl => {
-    if (progressWrap) progressWrap.classList.remove('show');
-    if (statusEl) statusEl.textContent = '';
-    _applyPanoUrl(file, publicUrl, _pi, _si);
-  })
-  .catch(err => {
-    console.warn('Supabase upload failed, using local IndexedDB:', err);
-    if (progressWrap) progressWrap.classList.remove('show');
-    if (statusEl) { statusEl.textContent = '⚠ Sin conexión — guardado local'; setTimeout(() => statusEl.textContent='', 3500); }
-    toast('Sin conexión a Supabase — guardando local');
-    _applyPanoLocal(file, _pi, _si);
-  });
+  if(progressWrap)progressWrap.classList.remove('show');
+  if(statusEl)statusEl.textContent='Guardado en este navegador';
+  _applyPanoLocal(file,_pi,_si);
 }
 
 // Load texture from any public URL using HTML Image element
@@ -2506,7 +2497,7 @@ function _applyPanoUrl(file, url, pi, si) {
         pano.setView(0, 0); renderHS(pi,si); updateClientCount();
       }
       showSceneLoading(false);
-      toast(`☁ Supabase ✓ — ${(file.size/1024/1024).toFixed(1)} MB, calidad original`);
+      toast(`Guardado local ✓ — ${(file.size/1024/1024).toFixed(1)} MB, calidad original`);
     })
     .catch(err => {
       console.error('_applyPanoUrl load error:', err);
@@ -5266,36 +5257,21 @@ const D5_MODEL_PATH      = 'models';
 const D5_SUPA_CONFIG_PATH= 'configs/d5';
 
 // ── PERSIST ──
-function d5Save() {
-  try {
-    localStorage.setItem(D5_SAVE_KEY, JSON.stringify({
-      v:2, models:d5Models,
-      projName: document.getElementById('d5ProjName')?.value||'',
-      projSub:  document.getElementById('d5ProjSub')?.value||'',
-      videoUrl: d5OpeningVideoUrl,
-      btnText:  document.getElementById('d5OpeningBtn')?.value||''
-    }));
-  } catch(e){}
+let d5VideoRef=null;
+async function d5PersonalStore(){return AgelLocalMedia.open({ownerId:window.CloudMode?.cloud?.user?.id||'guest',projectId:'d5-personal'});}
+async function d5Save() {
+ try{const store=await d5PersonalStore();await store.saveDraft({v:2,models:d5Models.map(m=>({...m,url:m.localRef||m.url})),
+ projName:document.getElementById('d5ProjName')?.value||'',projSub:document.getElementById('d5ProjSub')?.value||'',videoUrl:d5VideoRef||d5OpeningVideoUrl,btnText:document.getElementById('d5OpeningBtn')?.value||''});}
+ catch(e){toast(e.message);}
 }
-function d5Load() {
-  try {
-    const raw  = localStorage.getItem(D5_SAVE_KEY);
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    if (!data || (data.v !== 2 && data.v !== 1)) return;
-    d5Models          = data.models   || [];
-    d5OpeningVideoUrl = data.videoUrl || null;
-    d5OpeningBtnText  = data.btnText  || 'Explorar modelo';
-    const pn = document.getElementById('d5ProjName');
-    const ps = document.getElementById('d5ProjSub');
-    const ob = document.getElementById('d5OpeningBtn');
-    if (pn && data.projName) pn.value = data.projName;
-    if (ps && data.projSub)  ps.value = data.projSub;
-    if (ob && data.btnText)  ob.value = data.btnText;
-    if (d5OpeningVideoUrl) _d5RestoreVideoThumb(d5OpeningVideoUrl);
-    d5RenderModelsList();
-    d5UpdateCenter();
-  } catch(e){ console.warn('d5Load:', e); }
+async function d5Load() {
+ try{const store=await d5PersonalStore(),data=await store.loadDraft();if(!data)return;
+ d5Models=data.models||[];for(const m of d5Models)if(m.url?.startsWith('agel-local:')){m.localRef=m.url;m.url=await store.url(m.url);}
+ d5VideoRef=data.videoUrl?.startsWith('agel-local:')?data.videoUrl:null;
+ d5OpeningVideoUrl=d5VideoRef?await store.url(d5VideoRef):data.videoUrl;
+ for(const [id,value]of [['d5ProjName',data.projName],['d5ProjSub',data.projSub],['d5OpeningBtn',data.btnText]]){const el=document.getElementById(id);if(el)el.value=value||'';}
+ d5OpeningBtnText=data.btnText||'Explorar modelo';if(d5OpeningVideoUrl)_d5RestoreVideoThumb(d5OpeningVideoUrl);d5RenderModelsList();d5UpdateCenter();
+ }catch(e){toast(e.message);}
 }
 function d5SaveMeta() { d5Save(); d5UpdateCenter(); }
 function d5LoadLinks() {
@@ -5366,14 +5342,14 @@ function d5OnDrop(e) {
   document.getElementById('d5DropZone')?.classList.remove('drag-over');
   const file = e.dataTransfer?.files?.[0];
   if (!file) return;
-  _d5ProcessFile(file, _d5NextActionLocal);
+  _d5ProcessFile(file, true);
 }
 
 // ── FILE SELECT ──
 function d5HandleFileSelect(e) {
   const file = e.target.files[0]; if (!file) return;
   e.target.value = '';
-  _d5ProcessFile(file, _d5NextActionLocal);
+  _d5ProcessFile(file, true);
 }
 
 // ── CORE: process file (local OR cloud) ──
@@ -5429,15 +5405,15 @@ function d5ConfirmCloudUpload() {
   document.getElementById('d5FileInput')?.click();
 }
 
-function d5ConfirmUpload() {
+async function d5ConfirmUpload() {
   const name = (document.getElementById('d5UplModelName')?.value||'').trim();
   const meta = (document.getElementById('d5UplModelMeta')?.value||'').trim();
   if (!name) { toast('Escribe un nombre para el modelo'); return; }
 
   if (_d5UplLocalFile) {
     // local Object URL
-    const objUrl = URL.createObjectURL(_d5UplLocalFile);
-    d5Models.push({ name, meta, url: objUrl, thumb: null, isLocal: true });
+    let objUrl,localRef;try{const store=await d5PersonalStore(),m=await store.put(_d5UplLocalFile,{kind:'model_html'});localRef=m.ref;objUrl=await store.url(m.ref);}catch(e){toast(e.message);return;}
+    d5Models.push({ name, meta, localRef, url: objUrl, thumb: null, isLocal: true });
     _d5UplLocalFile = null;
   } else if (_d5UplPendingUrl) {
     d5Models.push({ name, meta, url: _d5UplPendingUrl, thumb: null, isLocal: false });
@@ -5646,45 +5622,10 @@ function d5ResetCenter() {
 async function d5HandleVideo(e) {
   const file = e.target.files[0]; if (!file) return;
   e.target.value = '';
-  const sizeMB = (file.size/1024/1024).toFixed(1);
-  const ext    = file.name.split('.').pop().toLowerCase();
-  const safe   = file.name.replace(/\.[^.]+$/,'').normalize('NFD')
-    .replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,50);
-  const path   = `videos/${Date.now()}_${safe}_d5.${ext}`;
-  const bar    = document.getElementById('d5VidBar');
-  const wrap   = document.getElementById('d5VidBarWrap');
-  const st     = document.getElementById('d5VidSt');
-  const drop   = document.getElementById('d5VidDrop');
-  if (wrap) wrap.classList.add('show');
-  if (st)   st.textContent = `Subiendo ${sizeMB} MB…`;
-  if (drop) drop.style.display = 'none';
-  try {
-    await new Promise((res,rej)=>{
-      const xhr=new XMLHttpRequest();
-      xhr.open('POST',`${SUPA_URL}/storage/v1/object/${SUPA_BUCKET}/${path}`);
-      xhr.setRequestHeader('Authorization',`Bearer ${SUPA_ANON}`);
-      xhr.setRequestHeader('apikey',SUPA_ANON);
-      xhr.setRequestHeader('x-upsert','true');
-      xhr.setRequestHeader('Content-Type',file.type||'video/mp4');
-      xhr.upload.addEventListener('progress',ev=>{
-        if(ev.lengthComputable){const pct=Math.round(ev.loaded/ev.total*100);if(bar)bar.style.width=pct+'%';if(st)st.textContent=`Subiendo ${sizeMB} MB… ${pct}%`;}
-      });
-      xhr.onload=()=>xhr.status<300?res():rej(new Error(xhr.status));
-      xhr.onerror=()=>rej(new Error('Red'));
-      xhr.send(file);
-    });
-    d5OpeningVideoUrl = `${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${path}`;
-    if (wrap) wrap.classList.remove('show');
-    if (st)   st.textContent = '✓ Video listo';
-    _d5RestoreVideoThumb(d5OpeningVideoUrl);
-    d5Save(); toast('Video de apertura subido ✓');
-  } catch(err){
-    if (wrap) wrap.classList.remove('show');
-    if (st)   st.textContent = '⚠ Error';
-    if (drop) drop.style.display = '';
-    toast('Error al subir video');
-  }
+  try{const store=await d5PersonalStore(),m=await store.put(file,{kind:'video'});d5VideoRef=m.ref;d5OpeningVideoUrl=await store.url(m.ref);_d5RestoreVideoThumb(d5OpeningVideoUrl);await d5Save();toast('Video de apertura guardado en este dispositivo');}
+  catch(err){toast(err.message);}
 }
+
 function _d5RestoreVideoThumb(url) {
   const vid  = document.getElementById('d5VidThumb');
   const wrap = document.getElementById('d5VidWrap');
@@ -5694,7 +5635,7 @@ function _d5RestoreVideoThumb(url) {
   if (drop) drop.style.display = 'none';
 }
 function d5RemoveVideo() {
-  d5OpeningVideoUrl = null;
+  d5VideoRef=null;d5OpeningVideoUrl = null;
   const vid  = document.getElementById('d5VidThumb');
   const wrap = document.getElementById('d5VidWrap');
   const drop = document.getElementById('d5VidDrop');

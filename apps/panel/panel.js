@@ -20,7 +20,7 @@
   try { cloud = AgelCloud.client(); }
   catch (e) { app.append(h('p', { class: 'pn-empty' }, 'Falta config.js con los datos de Supabase.')); return; }
 
-  const S = { access: null, orgId: null, projectId: null, tab: 'showroom', project: null };
+  const S = { access: null, orgId: null, projectId: null, tab: 'showroom', project: null, workspace: null };
   const ROLE = { owner: 'Propietario', editor: 'Editor', reviewer: 'Revisor', viewer: 'Lector' };
   const KIND = { desarrollo: 'Desarrollo (varias unidades)', edificio: 'Edificio', vivienda: 'Vivienda', ambiente: 'Ambiente o interiorismo', producto: 'Producto' };
   const SPACE_KIND = { conjunto: 'Conjunto', edificio: 'Edificio o torre', nivel: 'Nivel', unidad: 'Unidad', area: 'Área común',
@@ -159,7 +159,7 @@
       h('span', { class: 'pn-grow' }),
       h('a', { class: 'ag-btn', href: ROOT + 'index.html' }, icon('edit'), 'Editor'),
       h('span', { class: 'pn-user' }, (cloud.user && cloud.user.email) || ''),
-      h('button', { class: 'ag-btn', type: 'button', onclick: async () => { await cloud.signOut(); location.hash = ''; loginView(); } }, 'Salir'));
+      h('button', { class: 'ag-btn', type: 'button', onclick: async () => { S.workspace?.close(); S.workspace=null; await cloud.signOut(); location.hash = ''; loginView(); } }, 'Salir'));
     const main = h('main', { class: 'pn-main', id: 'pn-main' });
     put(app, top, h('div', { class: 'pn-body' }, side, main));
     if (S.projectId) projectView(main); else orgView(main);
@@ -170,7 +170,7 @@
       h('a', { href: href(id), class: 'pn-tab' + (id === current ? ' is-on' : ''), 'aria-current': id === current ? 'page' : null }, icon(ic), label)));
   }
 
-  function projectView(main) {
+  async function projectView(main) {
     const tabs = PTABS.filter(t => t[3]());
     if (!tabs.some(t => t[0] === S.tab)) { location.hash = `#/p/${S.projectId}/${tabs[0][0]}`; return; }
     const body = h('section', { class: 'pn-content' });
@@ -178,6 +178,10 @@
       h('h1', null, S.project.name),
       h('span', { class: 'ag-pill' }, ROLE[role()] || role())),
       tabsBar(tabs, S.tab, id => `#/p/${S.projectId}/${id}`), body);
+    try {
+      if(S.workspace?.projectId!==S.projectId){S.workspace?.close();S.workspace=await AgelWorkspace.open({cloud,ownerId:cloud.user.id,projectId:S.projectId});}
+      if(canEdit())AgelMediaControls.mount(main.querySelector('.pn-head'),{workspace:S.workspace});
+    } catch(e){put(body,h('p',{class:'ag-error'},e.message));return;}
     const fn = { showroom: tabShowroom, catalogo: tabCatalog, publicaciones: tabPublications, prospectos: tabLeads,
                  equipo: tabTeam, modelos: tabModels, actividad: tabActivity, exportar: tabExport }[S.tab];
     body.append(h('p', { class: 'pn-muted' }, 'Cargando…'));
@@ -196,10 +200,8 @@
 
   // ═════════════════════════════ showroom ═════════════════════════════
   async function tabShowroom(body) {
-    const [[p], spaces, scenes] = await Promise.all([
-      cloud.select('projects', `id=eq.${S.projectId}&select=id,name,subtitle,location,delivery,kind,showroom`),
-      cloud.select('spaces', `project_id=eq.${S.projectId}&select=id,parent_id,kind,name,code,scene_ids&order=position.asc,name.asc`),
-      cloud.select('scenes', `project_id=eq.${S.projectId}&select=id,name,pano_url&order=position.asc`)]);
+    const draft=await S.workspace.load(), p={...draft.tree.project,showroom:draft.showroom},spaces=draft.spaces,scenes=draft.tree.scenes;
+    const localImg=ref=>{const el=h('img',{alt:'',loading:'lazy'});S.workspace.resolveMedia(ref).then(url=>el.src=url).catch(fail);return el;};
     const sr = Object.assign({}, p.showroom || {});
     const views = JSON.parse(JSON.stringify(Array.isArray(sr.views) ? sr.views : []));
     const progress = JSON.parse(JSON.stringify(Array.isArray(sr.progress) ? sr.progress : []));
@@ -235,7 +237,7 @@
     function mediaRow(list, arr, i, render) {
       const it = arr[i];
       return h('li', null,
-        /\.pdf(\?|$)/i.test(it.url) ? h('span', { class: 'pn-pdf' }, 'PDF') : h('img', { src: it.url, alt: '', loading: 'lazy' }),
+        /\.pdf(\?|$)/i.test(it.url) ? h('span', { class: 'pn-pdf' }, 'PDF') : localImg(it.url),
         render(it),
         h('span', { class: 'pn-media-act' },
           h('button', { type: 'button', class: 'ag-btn', 'aria-label': 'Subir', disabled: i === 0, onclick: () => { [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]]; draw(); } }, icon('arrow-up')),
@@ -253,7 +255,7 @@
     function drawViews() {
       put(viewList, views.map((v, i) => {
         const broken = (v.regions || []).filter(r => !spaceIds.has(r.space)).length + (v.spots || []).filter(sp => !sceneIds.has(sp.scene)).length;
-        return h('li', null, h('img', { src: v.image, alt: '', loading: 'lazy' }),
+        return h('li', null, localImg(v.image),
           h('div', { class: 'pn-view-meta' },
             input({ value: v.title || '', 'aria-label': 'Título de la vista', maxlength: 80, oninput: e => { v.title = e.target.value; } }),
             h('small', { class: 'pn-muted' }, `${(v.regions || []).length} zonas, ${(v.spots || []).length} puntos 360°`,
@@ -273,7 +275,7 @@
           field('Mes', input({ type: 'month', value: (e.date || '').slice(0, 7), oninput: ev => { e.date = ev.target.value; } })),
           field('Hito', input({ value: e.title || '', maxlength: 120, placeholder: 'Ej. Losa del nivel 4', oninput: ev => { e.title = ev.target.value; } }))),
         field('Nota', h('textarea', { rows: 2, maxlength: 600, oninput: ev => { e.note = ev.target.value; } }, e.note || '')),
-        h('div', { class: 'pn-thumbs' }, (e.images || []).map((u, k) => h('span', null, h('img', { src: typeof u === 'string' ? u : u.url, alt: '' }),
+        h('div', { class: 'pn-thumbs' }, (e.images || []).map((u, k) => h('span', null, localImg(typeof u === 'string' ? u : u.url),
           h('button', { type: 'button', class: 'ag-btn danger', 'aria-label': 'Quitar foto', onclick: () => { e.images.splice(k, 1); drawProgress(); } }, icon('x'))))),
         h('div', { class: 'pn-actions' },
           uploader('Agregar fotos', 'image/jpeg,image/png,image/webp', 'image', url => { (e.images = e.images || []).push(url); drawProgress(); }),
@@ -286,8 +288,8 @@
       const btn = h('button', { type: 'button', class: 'ag-btn', onclick: () => fi.click() }, icon('upload'), label);
       fi.addEventListener('change', async () => {
         for (const file of fi.files) {
-          busy(btn, true, `Subiendo ${file.name}…`);
-          try { const r = await cloud.upload(S.projectId, file, { kind, contentType: /\.glb$/i.test(file.name) ? 'model/gltf-binary' : undefined }); onDone(r.url, file); }
+          busy(btn, true, `Guardando ${file.name}…`);
+          try { const r = await S.workspace.addMedia(file,kind); await onDone(r.ref,file); form.requestSubmit(); }
           catch (e) { fail(e); }
         }
         busy(btn, false); fi.value = ''; draw();
@@ -295,8 +297,8 @@
       return h('span', null, btn, fi);
     }
     const err = h('p', { class: 'ag-error', role: 'alert' });
-    const save = h('button', { type: 'submit', class: 'ag-btn primary' }, 'Guardar');
-    const httpsOrEmpty = v => !v || /^https:\/\//i.test(v);
+    const save = h('button', { type: 'submit', class: 'ag-btn primary' }, 'Guardar en este dispositivo');
+    const httpsOrEmpty = v => !v || /^https:\/\//i.test(v) || /^agel-local:[\w-]+$/.test(v);
     const form = h('form', { class: 'pn-form', onsubmit: async e => {
       e.preventDefault(); err.textContent = '';
       for (const [k, label] of [['map_url', 'El enlace del mapa'], ['webhook', 'El webhook'], ['model_url', 'El modelo 3D']])
@@ -319,10 +321,9 @@
       });
       busy(save, true, 'Guardando…');
       try {
-        await cloud.update('projects', `id=eq.${S.projectId}`, { kind: f.kind.value, subtitle: f.subtitle.value.trim(),
-          location: f.location.value.trim(), delivery: f.delivery.value.trim(), showroom: next });
+        const d=await S.workspace.load();d.showroom=next;Object.assign(d.tree.project,{kind:f.kind.value,subtitle:f.subtitle.value.trim(),location:f.location.value.trim(),delivery:f.delivery.value.trim()});await S.workspace.save(d);
         Object.assign(sr, next);
-        notify('Guardado. Crea una versión en Publicaciones para que el público lo vea.');
+        notify('Guardado en este dispositivo. Usa Subir a la nube antes de crear una versión pública.');
       } catch (ex) { err.textContent = ex.message; }
       busy(save, false);
     } },
@@ -342,7 +343,7 @@
         h('p', { class: 'pn-muted' }, 'Sube un render del conjunto o una planta. Luego dibuja sobre ella las zonas de cada edificio o unidad (el color muestra si está disponible) y coloca los puntos de las escenas 360°. El mismo plano sirve de «Estás aquí» dentro del recorrido.'),
         viewList,
         uploader('Agregar vista (render o planta)', 'image/jpeg,image/png,image/webp', 'image', async (url, file) => {
-          const dims = await new Promise(res => { const im = new Image(); im.onload = () => res({ w: im.naturalWidth, h: im.naturalHeight }); im.onerror = () => res({}); im.src = URL.createObjectURL(file); });
+          const dims = await new Promise(res => { const im = new Image(); const objectUrl=URL.createObjectURL(file); im.onload = () => {URL.revokeObjectURL(objectUrl);res({ w: im.naturalWidth, h: im.naturalHeight });}; im.onerror = () => {URL.revokeObjectURL(objectUrl);res({});}; im.src = objectUrl; });
           views.push({ id: 'v' + Math.random().toString(36).slice(2, 8), title: file.name.replace(/\.[^.]+$/, ''), kind: 'render', image: url, w: dims.w, h: dims.h, regions: [], spots: [] });
           drawViews();
         })),
@@ -373,15 +374,13 @@
   // Editor de zonas: dibuja polígonos sobre el render o plano y coloca los
   // puntos de las escenas 360°. Coordenadas en % de la imagen (0–100).
   function editView(v, spaces, scenes, onDone) {
-    return AgelViewEditor.open({ view: v, spaces, scenes,
+    return AgelViewEditor.open({ view: v, spaces, scenes, resolveMedia:ref=>S.workspace.resolveMedia(ref),
       onSave: next => { Object.assign(v, next); onDone(); } });
   }
 
   // ═════════════════════════════ catálogo ═════════════════════════════
   async function tabCatalog(body) {
-    const [spaces, scenes] = await Promise.all([
-      cloud.select('spaces', `project_id=eq.${S.projectId}&select=*&order=position.asc,name.asc`),
-      cloud.select('scenes', `project_id=eq.${S.projectId}&select=id,name,position&order=position.asc`)]);
+    const draft=await S.workspace.load(),spaces=draft.spaces,scenes=draft.tree.scenes;
     const byParent = new Map();
     spaces.forEach(s => { const k = s.parent_id || ''; if (!byParent.has(k)) byParent.set(k, []); byParent.get(k).push(s); });
     const rows = [];
@@ -431,7 +430,7 @@
         actions: [
           !isNew && isOwner() ? { label: 'Eliminar', danger: true, onClick: async () => {
             if (!confirm(`¿Eliminar ${v.name} y todo lo que contiene?`)) return;
-            try { await cloud.remove('spaces', `id=eq.${v.id}`); m.close(); notify('Eliminado'); tabCatalog(body); } catch (e) { err.textContent = e.message; }
+            try { await S.workspace.deleteSpace(v.id); m.close(); notify('Eliminado'); tabCatalog(body); } catch (e) { err.textContent = e.message; }
           } } : null,
           { label: 'Cancelar', onClick: () => m.close() },
           { label: 'Guardar', primary: true, onClick: async () => {
@@ -445,8 +444,7 @@
               scene_ids: [...F.scenes.querySelectorAll('input:checked')].map(x => x.value) };
             m.setBusy(true, 'Guardando…');
             try {
-              if (isNew) await cloud.insert('spaces', Object.assign(row, { position: spaces.length }));
-              else await cloud.update('spaces', `id=eq.${v.id}`, row);
+              await S.workspace.updateSpace({...row,id:v.id,position:v.position??spaces.length});
               m.close(); notify('Guardado'); tabCatalog(body);
             } catch (e) { err.textContent = e.message; m.setBusy(false); m.setActions([{ label: 'Cerrar', onClick: () => m.close() }]); }
           } }].filter(Boolean) });
@@ -607,6 +605,7 @@
       }
     } catch (e) { busy(btn, false); return fail(e); }
     busy(btn, false);
+    if(S.workspace?.dirty){busy(btn,false);return notify('Primero sube el borrador a la nube con Subir a la nube.','error');}
     const create = async () => {
       busy(btn, true, 'Creando…');
       try { await cloud.rpc('create_publication_version', { p_publication: pub.id, p_note: '' }); notify('Versión creada. Revísala en Vista previa antes de publicarla.'); reload(); }

@@ -32,7 +32,15 @@
    async list(){return (await all('media')).map(({blob,...meta})=>meta);},
    async markSynced(ref,cloud){const record=await this.get(ref);if(!/^https:\/\//.test(cloud?.url||''))throw new Error('La copia nube no es una dirección HTTPS');await write('media',record.id,{...record,cloud});},
    async removeLocal(ref){await transaction('media','readwrite',s=>s.delete([...prefix,idOf(ref)]));},
-   async saveDraft(snapshot){await write('drafts','draft',{snapshot});},
+   async saveDraft(snapshot,expectedVersion){
+    if(expectedVersion===undefined){await write('drafts','draft',{snapshot});return;}
+    await new Promise((resolve,reject)=>{
+     const tx=db.transaction('drafts','readwrite'),s=tx.objectStore('drafts'),req=s.get([...prefix,'draft']);let failure;
+     req.onsuccess=()=>{if((req.result?.snapshot?.localRevision||0)!==expectedVersion){failure=Error('Hay cambios de otra pestaña. Vuelve a cargar el borrador antes de guardar.');tx.abort();return;}
+      try{s.put({ownerId,projectId,id:'draft',snapshot,updatedAt:Date.now()});}catch(e){failure=friendly(e);tx.abort();}};
+     tx.oncomplete=()=>resolve();tx.onerror=tx.onabort=()=>reject(failure||friendly(tx.error));
+    });
+   },
    async loadDraft(){return (await read('drafts','draft'))?.snapshot||null;},
    async saveJob(id,job){await write('syncJobs',id,{job});},
    async getJob(id){return (await read('syncJobs',id))?.job||null;},

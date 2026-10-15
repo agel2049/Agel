@@ -1,0 +1,8 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><div id="app"></div>
+<script src="../../packages/core/dom.js"></script><script src="../../packages/core/local-media.js"></script><script src="../../packages/core/local-backup.js"></script><script src="../../packages/core/workspace.js"></script><script src="../../packages/showroom/relations.js"></script><script src="../../packages/showroom/geometry.js"></script><script src="../../apps/panel/view-editor.js"></script><script src="../../apps/panel/media-controls.js"></script>
+<script>
+window.writes=[];const user={id:'owner',email:'fixture@example.test'};
+window.AGEL_CONFIG={};window.AgelCloud={client:()=>({user,session:{user},rpc:async name=>{
+ if(name==='my_access')return {orgs:[{id:'o',name:'Org',role:'owner'}],projects:[{id:'p',org_id:'o',name:'Prueba',role:'owner'}]};
+ if(name==='load_project_tree')return {revision:1,role:'owner',project:{id:'p',name:'Prueba',showroom:{}},scenes:[]};writes.push(name);throw Error('Unexpected write');},select:async()=>[],upload:async()=>{writes.push('upload');throw Error('Unexpected upload');},update:async()=>{writes.push('update');throw Error('Unexpected update');}})};
+</script><script src="../../apps/panel/panel.js"></script></html>

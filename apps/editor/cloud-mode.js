@@ -37,6 +37,9 @@
 
   // ── utilidades ──────────────────────────────────────────────────────────
   const uuid = () => AgelCloud.uuid();
+  const authorRef = u => (typeof u==='string' && /^(https:\/\/|agel-local:[\w-]+$)/.test(u))?u:null;
+  const workspaces=new Map();
+  CM.workspace=async pi=>{const id=PROJ[pi]?._cloud?.id;if(!id)throw Error('Abre un proyecto con cuenta');if(!workspaces.has(id))workspaces.set(id,await AgelWorkspace.open({cloud,ownerId:cloud.user.id,projectId:id}));return workspaces.get(id);};
   const https = u => (typeof u === 'string' && /^https:\/\//i.test(u)) ? u : null;
   function blankScene(n = 1) { return { id: uuid(), name: 'Escena ' + n, meta: '', img: null, thumb: null, hs: [] }; }
   function canEdit(p) { return p && p._cloud && ['owner', 'editor'].includes(p._cloud.role); }
@@ -99,12 +102,12 @@
                  status: p.status || 'activo', progress: Number(p.pct) || 0 },
       scenes: p.scenes.map(s => ({
         id: s.id, name: (s.name || 'Escena').slice(0, 120), meta: (s.meta || '').slice(0, 200), level: s.level || '',
-        pano_url: https(s.supaUrl) || https(s.img), thumb_url: https(s.thumbUrl) || https(s.thumb),
+        pano_url: authorRef(s.localRef)||authorRef(s.supaUrl)||authorRef(s.img), thumb_url: authorRef(s.thumbRef)||authorRef(s.thumbUrl)||authorRef(s.thumb),
         preview_url: https(s.previewUrl),
         heading: Number(s.heading) || 0, limits: s.limits || {},
         hs: (s.hs || []).map(h => ({
           id: h.id, type: h.type || 'info', x: Number(h.x) || 50, y: Number(h.y) || 50, title: h.title || '',
-          details: Array.isArray(h.details) ? h.details : [], img_url: https(h.img),
+          details: Array.isArray(h.details) ? h.details : [], img_url: authorRef(h.localRef)||authorRef(h.img),
           target_scene_id: h.type === 'scene' && p.scenes[h.targetScene] ? p.scenes[h.targetScene].id : null,
           payload: h.payload || {}
         }))
@@ -114,6 +117,7 @@
   CM.fromTree = function (t) {
     const scenes = t.scenes.map(s => ({
       id: s.id, name: s.name, meta: s.meta || '', level: s.level || '',
+      localRef:s.pano_url?.startsWith('agel-local:')?s.pano_url:null,thumbRef:s.thumb_url?.startsWith('agel-local:')?s.thumb_url:null,
       img: s.pano_url || null, supaUrl: s.pano_url || null, thumb: s.thumb_url || null, thumbUrl: s.thumb_url || null,
       previewUrl: s.preview_url || null,
       heading: s.heading || 0, limits: s.limits || {}, hs: []
@@ -122,7 +126,7 @@
     t.scenes.forEach((s, i) => {
       scenes[i].hs = (s.hs || []).map(h => {
         const o = { id: h.id, type: h.type, x: h.x, y: h.y, title: h.title || '', details: h.details || [],
-                    img: h.img_url || null, payload: h.payload || {} };
+                    localRef:h.img_url?.startsWith('agel-local:')?h.img_url:null,img: h.img_url || null, payload: h.payload || {} };
         if (h.type === 'scene') {
           o.targetScene = idx.has(h.target_scene_id) ? idx.get(h.target_scene_id) : -1;
           o.targetSceneName = o.targetScene >= 0 ? scenes[o.targetScene].name : '';
@@ -157,14 +161,16 @@
     try {
       CM.access = await cloud.rpc('my_access');
     } catch (e) {
-      if (e.isAuth) { await cloud.signOut(); CM.showGate(e.message); return; }
+      if (e.isAuth) { for(const ws of workspaces.values())ws.close();workspaces.clear();
+    await cloud.signOut(); CM.showGate(e.message); return; }
       setStatus('');
       notify('No se pudo conectar con la base: ' + e.message + ' — sigues en modo local', 'error');
       renderAccount(); return;
     }
     if (!CM.access.orgs.length) {
       const ok = await askCreateOrg();
-      if (!ok) { await cloud.signOut(); renderAccount(); setStatus(''); return; }
+      if (!ok) { for(const ws of workspaces.values())ws.close();workspaces.clear();
+    await cloud.signOut(); renderAccount(); setStatus(''); return; }
       CM.access = await cloud.rpc('my_access');
     }
     const remembered = localStorage.getItem('agel.org');
@@ -205,8 +211,9 @@
     const p = PROJ[pi];
     if (!p || !p._cloud || p._cloud.loaded) return;
     setStatus('Cargando proyecto…');
-    const t = await cloud.rpc('load_project_tree', { p_project: p._cloud.id });
-    Object.assign(p, CM.fromTree(t));
+    const ws=await CM.workspace(pi),d=await ws.load(),t=d.tree;
+    Object.assign(p, CM.fromTree(t));p._localRevision=d.localRevision;
+    for(const s of p.scenes){s.img=await ws.resolveMedia(s.img);s.thumb=await ws.resolveMedia(s.thumb);for(const hs of s.hs)hs.img=await ws.resolveMedia(hs.img);}
     p._cloud.lastSaved = JSON.stringify(CM.toTree(p));
     setStatus(canEdit(p) ? 'Guardado' : 'Solo lectura');
   };
@@ -236,42 +243,18 @@
   };
   CM.pending = () => CM.dirty.size > 0 || CM._saving;
 
-  async function uploadPendingMedia(p) {
-    for (const s of p.scenes) {
-      await ensurePreview(p._cloud.id, s);
-      if (!s.thumbUrl && typeof s.thumb === 'string' && s.thumb.startsWith('data:')) {
-        const b = dataUrlToBlob(s.thumb);
-        if (b) { const r = await cloud.upload(p._cloud.id, b, { kind: 'thumb', filename: `${s.name}.jpg` }); s.thumbUrl = r.url; }
-      }
-      for (const hs of s.hs || []) {
-        if (typeof hs.img === 'string' && hs.img.startsWith('data:')) {
-          const b = dataUrlToBlob(hs.img);
-          if (b) { const r = await cloud.upload(p._cloud.id, b, { kind: 'image', filename: `${hs.title || 'hotspot'}.jpg` }); hs.img = r.url; }
-        }
-      }
-    }
-  }
-
   async function saveProject(pi) {
-    const p = PROJ[pi];
-    if (!p || !p._cloud || CM.conflict.has(pi) || !p._cloud.loaded) return;
-    try {
-      await uploadPendingMedia(p);
-      const tree = CM.toTree(p);
-      const json = JSON.stringify(tree);
-      if (json === p._cloud.lastSaved) { setStatus('Guardado'); return; }   // navegar no es guardar
-      setStatus('Guardando…');
-      const r = await cloud.rpc('save_project_tree', { p_project: p._cloud.id, p_tree: tree, p_base_revision: p._cloud.revision });
-      p._cloud.revision = r.revision;
-      p._cloud.lastSaved = json;
-      setStatus('Guardado');
-    } catch (e) {
-      if (e.isConflict) { CM.conflict.add(pi); setStatus('Conflicto'); showConflict(pi); return; }
-      CM.dirty.add(pi);
-      setStatus('Sin guardar');
-      notify('No se guardó: ' + e.message + ' — se reintentará', 'error');
-      clearTimeout(CM._timer); CM._timer = setTimeout(CM.flush, 10000);
-    }
+    const p=PROJ[pi];if(!p?._cloud?.loaded||CM.conflict.has(pi))return;
+    try{
+      const ws=await CM.workspace(pi);
+      for(const s of p.scenes){
+        if(typeof s.thumb==='string'&&s.thumb.startsWith('data:')&&!s.thumbRef){s.thumbRef=(await ws.addMedia(new File([dataUrlToBlob(s.thumb)],`${s.name}.jpg`,{type:'image/jpeg'}),'thumb')).ref;p._localRevision=(await ws.load()).localRevision;}
+        for(const hs of s.hs||[])if(typeof hs.img==='string'&&hs.img.startsWith('data:')){hs.localRef=(await ws.addMedia(new File([dataUrlToBlob(hs.img)],'hotspot.jpg',{type:'image/jpeg'}),'image')).ref;hs.img=await ws.resolveMedia(hs.localRef);p._localRevision=(await ws.load()).localRevision;}
+      }
+      const tree=CM.toTree(p),json=JSON.stringify(tree);if(json===p._cloud.lastSaved)return;
+      const d=await ws.load();if(d.localRevision!==p._localRevision)throw Error('Hay cambios de otra pestaña. Reabre el proyecto antes de guardar.');
+      d.tree.scenes=tree.scenes;Object.assign(d.tree.project,tree.project);await ws.save(d);p._localRevision=d.localRevision;p._cloud.lastSaved=json;setStatus('Guardado en este dispositivo');
+    }catch(e){CM.dirty.add(pi);setStatus('Sin guardar');notify(e.message,'error');}
   }
 
   function showConflict(pi) {
@@ -298,10 +281,9 @@
   CM.uploadPano = async function (file, pi, onProgress) {
     const p = PROJ[pi];
     if (!canEdit(p)) throw new Error('Tu rol en este proyecto no permite subir archivos');
-    const dims = await imageSize(file);
-    const r = await cloud.upload(p._cloud.id, file, { bucket: 'media', kind: 'pano', onProgress, ...dims });
-    _srcBlobs.set(r.url, file);           // la vista ligera se crea al guardar, sin volver a descargar
-    return r.url;
+    const ws=await CM.workspace(pi),r=await ws.addMedia(file,'pano');
+    p._localRevision=(await ws.load()).localRevision;
+    onProgress?.(100);return {ref:r.ref,url:await ws.resolveMedia(r.ref)};
   };
 
   // ── acceso (pantalla de entrada) ────────────────────────────────────────
@@ -421,6 +403,7 @@
       orgs.length > 1 ? h('div', { class: 'cm-menu-sub' }, 'Organización') : null,
       orgs.length > 1 ? orgs.map(o => item(o.id === CM.orgId ? 'circle-check' : 'circle', o.name, () => switchOrg(o.id))) : null,
       item('plus', 'Proyecto nuevo', () => CM.createProject()),
+      item('cloud-upload', 'Subir a la nube', () => {location.href='apps/panel/#/p/'+p._cloud.id+'/showroom';},{disabled:!p?._cloud}),
       item('world-upload', 'Publicar recorrido', () => CM.publish(), { disabled: !p || !p._cloud || !canEdit(p) }),
       item('database-import', 'Importar de este navegador', () => CM.importLocal()),
       item('layout-dashboard', 'Panel de administración', () => { location.href = 'apps/panel/'; }),
@@ -436,6 +419,7 @@
   }
   async function signOut() {
     if (CM.pending()) await CM.flush();
+    for(const ws of workspaces.values())ws.close();workspaces.clear();
     await cloud.signOut();
     location.reload();
   }
@@ -484,6 +468,7 @@
     const p = PROJ[cP];
     if (!p || !p._cloud) return;
     if (CM.pending()) await CM.flush();
+    if((await (await CM.workspace(cP)).load()).dirty)return say('Sube primero el borrador desde el panel de administración');
     if (CM.conflict.has(cP)) return say('Resuelve el conflicto de guardado antes de publicar');
     const owner = CM.isOwner(p);
     let pubs = [];
