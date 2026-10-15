@@ -1,0 +1,9 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><link rel="stylesheet" href="../../packages/ui/base.css"><link rel="stylesheet" href="../../apps/panel/panel.css">
+<body><button id="open">Dibujar zonas</button><output id="saved"></output>
+<script src="../../packages/core/dom.js"></script><script src="../../packages/showroom/relations.js"></script><script src="../../packages/showroom/geometry.js"></script><script src="../../apps/panel/view-editor.js"></script>
+<script>
+const spaces=[{id:'level',name:'Nivel 1',kind:'nivel',scene_ids:[]},{id:'a',parent_id:'level',name:'Departamento 101',scene_ids:['sa']},{id:'b',parent_id:'level',name:'Departamento 102',scene_ids:['sb']}];
+const scenes=[{id:'sa',name:'Sala 101',pano_url:'https://example.test/a.jpg'},{id:'sb',name:'Sala 102',pano_url:'https://example.test/b.jpg'}];
+let current={id:'plan',title:'Planta 101',w:1600,h:900,image:'pano_a.jpg',kind:'plano',spaceId:'a',regions:[],spots:[]};
+document.getElementById('open').onclick=()=>AgelViewEditor.open({view:current,spaces,scenes,onSave:v=>{current=v;document.getElementById('saved').textContent=JSON.stringify(v);}});
+</script></body></html>

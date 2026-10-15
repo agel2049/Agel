@@ -157,3 +157,9 @@ button, input, select, textarea { font: inherit; }
 .ag-modal-box.pn-phone-box { width: min(480px, 100%); }
 .pn-phone { display: grid; place-items: center; padding: 12px; background: #000; border-radius: 28px; }
 .pn-phone iframe { border: 0; border-radius: 18px; background: #fff; max-width: 100%; }
+
+/* The authoring stage keeps the same aspect as the image and SVG. */
+.pn-vstage { max-height:none; width:min(100%,calc(58dvh * var(--image-ratio,1.7778))); margin-inline:auto; }
+.pn-vstage img { object-fit:contain; }
+.pn-ortho[aria-pressed="true"] { background:var(--ag-accent); color:#16130E; border-color:var(--ag-accent); }
+.pn-vmodal h3 { font-size:13px; margin:12px 0 8px; }

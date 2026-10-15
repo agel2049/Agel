@@ -198,7 +198,7 @@
   async function tabShowroom(body) {
     const [[p], spaces, scenes] = await Promise.all([
       cloud.select('projects', `id=eq.${S.projectId}&select=id,name,subtitle,location,delivery,kind,showroom`),
-      cloud.select('spaces', `project_id=eq.${S.projectId}&select=id,parent_id,kind,name,code&order=position.asc,name.asc`),
+      cloud.select('spaces', `project_id=eq.${S.projectId}&select=id,parent_id,kind,name,code,scene_ids&order=position.asc,name.asc`),
       cloud.select('scenes', `project_id=eq.${S.projectId}&select=id,name,pano_url&order=position.asc`)]);
     const sr = Object.assign({}, p.showroom || {});
     const views = JSON.parse(JSON.stringify(Array.isArray(sr.views) ? sr.views : []));
@@ -313,7 +313,7 @@
         model3d: f.model_url.value.trim() ? { url: f.model_url.value.trim(), title: f.model_title.value.trim() } : null,
         area_label: f.area_label.value,
         views: views.map(v => ({ id: v.id, title: (v.title || '').trim(), kind: v.kind || 'render', image: v.image, w: v.w, h: v.h,
-                                 regions: (v.regions || []).filter(r => spaceIds.has(r.space)), spots: (v.spots || []).filter(sp => sceneIds.has(sp.scene)) })),
+                                 spaceId: v.spaceId || null, role: v.role || (v.kind === 'plano' ? 'floor' : 'facade'), regions: (v.regions || []).filter(r => !r.space || spaceIds.has(r.space)), spots: (v.spots || []).filter(sp => sceneIds.has(sp.scene)) })),
         progress: progress.filter(e => (e.title || '').trim() || (e.images || []).length)
           .map(e => ({ date: e.date || '', title: (e.title || '').trim(), note: (e.note || '').trim(), images: (e.images || []).map(u => typeof u === 'string' ? u : u.url) }))
       });
@@ -373,95 +373,8 @@
   // Editor de zonas: dibuja polígonos sobre el render o plano y coloca los
   // puntos de las escenas 360°. Coordenadas en % de la imagen (0–100).
   function editView(v, spaces, scenes, onDone) {
-    const work = { regions: JSON.parse(JSON.stringify(v.regions || [])), spots: JSON.parse(JSON.stringify(v.spots || [])) };
-    const byId = new Map(spaces.map(x => [x.id, x]));
-    const hasKids = new Set(spaces.filter(x => x.parent_id).map(x => x.parent_id));
-    const path = x => { const out = []; let c = x, g = 0; while (c && g++ < 10) { out.unshift(c.name + (c.code ? ' ' + c.code : '')); c = c.parent_id && byId.get(c.parent_id); } return out.join(' › '); };
-    const leaves = spaces.filter(x => !hasKids.has(x.id)), groups = spaces.filter(x => hasKids.has(x.id));
-    let mode = 'zone', draft = [];
-    const target = h('select', { 'aria-label': 'Zona de' },
-      groups.length ? h('optgroup', { label: 'Edificios, niveles y grupos' }, groups.map(x => h('option', { value: x.id }, path(x)))) : null,
-      h('optgroup', { label: 'Unidades y espacios' }, leaves.map(x => h('option', { value: x.id }, path(x)))));
-    const firstFree = () => { const z = new Set(work.regions.map(r => r.space)); const f = leaves.find(x => !z.has(x.id)) || groups.find(x => !z.has(x.id)); if (f) target.value = f.id; };
-    firstFree();
-    const sceneSel = h('select', { 'aria-label': 'Escena' }, scenes.filter(x => x.pano_url).map(x => h('option', { value: x.id }, x.name)));
-    const kindSel = h('select', { 'aria-label': 'Tipo de vista' }, [['render', 'Render o vista del conjunto'], ['plano', 'Plano o planta']].map(([k, t]) => h('option', { value: k, selected: (v.kind || 'render') === k }, t)));
-    const svgNS = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(svgNS, 'svg');
-    svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('preserveAspectRatio', 'none'); svg.setAttribute('class', 'pn-vsvg');
-    const dots = h('div', { class: 'pn-vdots' });
-    const stage = h('div', { class: 'pn-vstage', style: { aspectRatio: v.w && v.h ? `${v.w} / ${v.h}` : '16 / 9' } }, h('img', { src: v.image, alt: '' }), svg, dots);
-    const zoneList = h('ul', { class: 'ag-list pn-zlist' }), spotList = h('ul', { class: 'ag-list pn-zlist' });
-    const coverage = h('p', { class: 'pn-muted' });
-    const closeBtn = h('button', { type: 'button', class: 'ag-btn primary', onclick: () => closeDraft() }, 'Cerrar zona');
-    const undoBtn = h('button', { type: 'button', class: 'ag-btn', onclick: () => { draft.pop(); paint(); } }, 'Deshacer punto');
-    const cancelBtn = h('button', { type: 'button', class: 'ag-btn', onclick: () => { draft = []; paint(); } }, 'Empezar de nuevo');
-    const zoneTools = h('div', { class: 'pn-inline' }, field('Zona de', target), closeBtn, undoBtn, cancelBtn);
-    const spotTools = h('div', { class: 'pn-inline', hidden: true }, field('Escena 360°', sceneSel), h('span', { class: 'pn-muted' }, 'Toca el plano donde está esa escena.'));
-    const modeBtns = [['zone', 'Dibujar zonas'], ['spot', 'Colocar escenas 360°']].map(([k, t]) => h('button', { type: 'button', class: 'ag-btn', 'aria-pressed': String(k === mode), onclick: () => {
-      mode = k; draft = []; modeBtns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.m === mode))); zoneTools.hidden = mode !== 'zone'; spotTools.hidden = mode !== 'spot'; paint();
-    }, 'data-m': k }, t));
-    const pct = e => { const r = stage.getBoundingClientRect(); return [Math.round(Math.max(0, Math.min(100, (e.clientX - r.left) / r.width * 100)) * 100) / 100,
-                                                                     Math.round(Math.max(0, Math.min(100, (e.clientY - r.top) / r.height * 100)) * 100) / 100]; };
-    stage.addEventListener('click', e => {
-      if (e.target.closest('.pn-vspot')) return;
-      const p = pct(e);
-      if (mode === 'zone') {
-        if (draft.length >= 3 && Math.abs(p[0] - draft[0][0]) < 1.5 && Math.abs(p[1] - draft[0][1]) < 2.5) return closeDraft();
-        draft.push(p);
-      } else {
-        if (!sceneSel.value) return;
-        work.spots = work.spots.filter(sp => sp.scene !== sceneSel.value);
-        work.spots.push({ scene: sceneSel.value, x: p[0], y: p[1] });
-        const opts = [...sceneSel.options]; const next = opts.find(o => !work.spots.some(sp => sp.scene === o.value)); if (next) sceneSel.value = next.value;
-      }
-      paint();
-    });
-    stage.addEventListener('dblclick', e => { e.preventDefault(); if (mode === 'zone' && draft.length >= 3) closeDraft(); });
-    function closeDraft() {
-      if (draft.length < 3) return;
-      work.regions = work.regions.filter(r => r.space !== target.value);
-      work.regions.push({ space: target.value, points: draft });
-      draft = []; firstFree(); paint();
-    }
-    function paint() {
-      const els = [];
-      for (const r of work.regions) {
-        const pg = document.createElementNS(svgNS, 'polygon');
-        pg.setAttribute('points', r.points.map(p => p.join(',')).join(' '));
-        pg.setAttribute('class', 'pn-zone' + (r.space === target.value ? ' is-current' : ''));
-        const t = document.createElementNS(svgNS, 'title'); t.textContent = byId.has(r.space) ? path(byId.get(r.space)) : 'Espacio eliminado'; pg.append(t);
-        els.push(pg);
-      }
-      if (draft.length) {
-        const pl = document.createElementNS(svgNS, 'polyline');
-        pl.setAttribute('points', draft.map(p => p.join(',')).join(' ')); pl.setAttribute('class', 'pn-draft'); els.push(pl);
-      }
-      svg.replaceChildren(...els);
-      put(dots, draft.map((p, i) => h('span', { class: 'pn-vpt' + (i === 0 ? ' is-first' : ''), style: { left: p[0] + '%', top: p[1] + '%' } })),
-        work.spots.map(sp => { const sc = scenes.find(x => x.id === sp.scene); return h('span', { class: 'pn-vspot', title: sc ? sc.name : 'Escena eliminada', style: { left: sp.x + '%', top: sp.y + '%' } }); }));
-      closeBtn.disabled = draft.length < 3; undoBtn.disabled = !draft.length; cancelBtn.disabled = !draft.length;
-      put(zoneList, work.regions.map((r, i) => h('li', null, h('span', { class: 'pn-grow' }, byId.has(r.space) ? path(byId.get(r.space)) : h('span', { class: 'ag-error' }, 'Espacio eliminado')),
-        h('button', { type: 'button', class: 'ag-btn', onclick: () => { target.value = r.space; draft = r.points.slice(); work.regions.splice(i, 1); mode === 'zone' || modeBtns[0].click(); paint(); } }, 'Redibujar'),
-        h('button', { type: 'button', class: 'ag-btn danger', 'aria-label': 'Quitar zona', onclick: () => { work.regions.splice(i, 1); paint(); } }, icon('trash')))));
-      put(spotList, work.spots.map((sp, i) => { const sc = scenes.find(x => x.id === sp.scene); return h('li', null, h('span', { class: 'pn-grow' }, sc ? sc.name : h('span', { class: 'ag-error' }, 'Escena eliminada')),
-        h('button', { type: 'button', class: 'ag-btn danger', 'aria-label': 'Quitar punto', onclick: () => { work.spots.splice(i, 1); paint(); } }, icon('trash'))); }));
-      const zoned = new Set(work.regions.map(r => r.space));
-      coverage.textContent = `${leaves.filter(x => zoned.has(x.id)).length} de ${leaves.length} unidades o espacios tienen zona en esta vista. ${work.spots.length} escenas ubicadas.`;
-    }
-    target.addEventListener('change', paint);
-    paint();
-    const m = modal({ title: `Zonas: ${v.title || 'vista'}`, wide: true, dismissable: false,
-      body: [h('div', { class: 'pn-inline' }, modeBtns, field('Tipo', kindSel)),
-             h('p', { class: 'pn-muted' }, 'Toca el contorno punto por punto; cierra tocando el primer punto, con doble clic o con «Cerrar zona». Cada unidad tiene una zona por vista.'),
-             zoneTools, spotTools, stage, coverage,
-             h('div', { class: 'pn-grid' }, h('div', null, h('h3', { class: 'pn-h3' }, 'Zonas'), zoneList), h('div', null, h('h3', { class: 'pn-h3' }, 'Escenas 360°'), spotList))],
-      actions: [{ label: 'Cancelar', onClick: () => m.close() }, { label: 'Listo y guardar', primary: true, onClick: () => {
-        if (draft.length >= 3 && confirm('Hay una zona sin cerrar. ¿Cerrarla?')) closeDraft();
-        v.regions = work.regions; v.spots = work.spots; v.kind = kindSel.value;
-        m.close(); onDone();
-      } }] });
-    m.el.classList.add('pn-vmodal');
+    return AgelViewEditor.open({ view: v, spaces, scenes,
+      onSave: next => { Object.assign(v, next); onDone(); } });
   }
 
   // ═════════════════════════════ catálogo ═════════════════════════════
