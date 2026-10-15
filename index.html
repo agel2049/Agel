@@ -4786,10 +4786,21 @@ let _vmOpeningVideoUrl = null;
 let _vmEndingVideoUrl  = null;
 let _vmVideoOwner = null, _vmVideoEpoch = 0, _vmVideoQueue = Promise.resolve();
 const _vmVideoUrls = new Set();
+let _vmOpeningTimers = [];
+function _vmResetOpening() {
+  _vmOpeningTimers.forEach(clearTimeout);_vmOpeningTimers=[];
+  const opening=document.getElementById('vmOpening'),vid=document.getElementById('vmOpeningVideo');
+  if(vid){vid.pause();vid.removeAttribute('src');vid.load();vid.ontimeupdate=null;}
+  if(opening){opening.classList.remove('show');opening.style.display='';opening.style.opacity='';opening.style.transition='';}
+  document.getElementById('vmTapToPlay')?.remove();
+  const bar=document.getElementById('vmOpeningProgressBar');if(bar)bar.style.width='0%';
+}
 const vmVideoOwner = () => window.CloudMode?.cloud?.user?.id || 'guest';
 const vmVideoStore = owner => AgelLocalMedia.open({ownerId:owner,projectId:'visor-personal-videos'});
 function _vmApplyLocalVideo(type,url) {
   const old=type==='ending'?_vmEndingVideoUrl:_vmOpeningVideoUrl;
+  const playing=document.getElementById('vmOpeningVideo')?.getAttribute('src');
+  if((old&&playing===old)||(type==='opening'&&!url))_vmResetOpening();
   if(_vmVideoUrls.has(old)){URL.revokeObjectURL(old);_vmVideoUrls.delete(old);}
   if(type==='ending')_vmEndingVideoUrl=url;else _vmOpeningVideoUrl=url;
   if(url?.startsWith('blob:'))_vmVideoUrls.add(url);
@@ -4872,6 +4883,8 @@ function vmShowOpening(cfg) {
   const opening = document.getElementById('vmOpening');
   const vid     = document.getElementById('vmOpeningVideo');
   if (!opening) return;
+  _vmResetOpening();
+  opening.classList.add('show');
 
   // Set texts
   const titleEl = document.getElementById('vmOpeningTitleDisplay');
@@ -4880,6 +4893,8 @@ function vmShowOpening(cfg) {
   if (titleEl) titleEl.textContent = cfg.title   || document.getElementById('vmProjName')?.value || '';
   if (subEl)   subEl.textContent   = cfg.sub     || document.getElementById('vmProjSub')?.value  || '';
   if (btnEl)   btnEl.textContent   = cfg.btnText || 'Comenzar recorrido';
+  const button=opening.querySelector('.vm-opening-btn');
+  if(button){button.onclick=()=>vmStartFromOpening();const icon=button.querySelector('i');if(icon)icon.className='ti ti-arrow-right';}
 
   // Load video
   if (cfg.videoUrl && vid) {
@@ -4892,16 +4907,16 @@ function vmShowOpening(cfg) {
     if (playPromise !== undefined) {
       playPromise.catch(() => {
         // iOS Safari blocked autoplay — show a tap-to-play overlay
-        _vmShowTapToPlay(vid);
+        if(opening.classList.contains('show')&&vid.getAttribute('src')===cfg.videoUrl)_vmShowTapToPlay(vid);
       });
     }
 
     // Animate progress bar in sync with video
-    vid.addEventListener('timeupdate', () => {
+    vid.ontimeupdate = () => {
       if (!vid.duration) return;
       const bar = document.getElementById('vmOpeningProgressBar');
       if (bar) bar.style.width = (vid.currentTime / vid.duration * 100) + '%';
-    });
+    };
   }
 
   opening.classList.add('show');
@@ -4952,23 +4967,24 @@ function _vmShowTapToPlay(vid) {
 function vmStartFromOpening() {
   const opening = document.getElementById('vmOpening');
   const vid     = document.getElementById('vmOpeningVideo');
+  _vmOpeningTimers.forEach(clearTimeout);_vmOpeningTimers=[];
 
   // Fade out opening screen
   if (opening) {
     opening.style.opacity = '0';
     opening.style.transition = 'opacity .8s';
-    setTimeout(() => {
+    _vmOpeningTimers.push(setTimeout(() => {
       opening.style.display = 'none';
       opening.classList.remove('show');
-    }, 800);
+    }, 800));
   }
   // Pause but KEEP src — needed when returning at end of tour
   if (vid) vid.pause();
 
   // Show the viewer (was pre-initialized in background)
-  setTimeout(() => {
+  _vmOpeningTimers.push(setTimeout(() => {
     document.getElementById('vmViewer').classList.add('show');
-  }, 300);
+  }, 300));
 }
 
 // Override _launchVisorWithScenes to check for opening config

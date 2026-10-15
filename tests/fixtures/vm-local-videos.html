@@ -10,6 +10,6 @@ window.toast=x=>messages.push(x);window.vmRenderScenesList=()=>{};
 window.XMLHttpRequest=class {constructor(){this.upload={addEventListener(){}};}open(method,url){this.method=method;this.url=url;}setRequestHeader(){}send(){posts.push(this.url);this.status=413;this.responseText='maximum size';queueMicrotask(()=>this.onload());}};
 window.SUPA_URL='https://forbidden.example';window.SUPA_BUCKET='media';window.SUPA_ANON='fixture';
 (async()=>{const src=await(await fetch('../../index.html')).text(),part=(a,b)=>src.slice(src.indexOf(a),src.indexOf(b,src.indexOf(a)));
-window.eval(part('function _vmGetOpeningConfig()','// ════════════════════════════════════════════════════\n// SISTEMA DE LINKS')+'\n'+part('let _vmOpeningVideoUrl =','// ── SHOW OPENING when client opens the link')+'\n'+part('function vmLaunch()','function vmExitViewer()')+'\n'+part('function vmShowOpening(cfg)','// iOS autoplay fallback')+'\nwindow.loadVideoFixture=async()=>loadVmData();');
+window.eval(part('function _vmGetOpeningConfig()','// ════════════════════════════════════════════════════\n// SISTEMA DE LINKS')+'\n'+part('let _vmOpeningVideoUrl =','// ── SHOW OPENING when client opens the link')+'\n'+part('function vmLaunch()','function vmExitViewer()')+'\n'+part('function vmShowOpening(cfg)','// iOS autoplay fallback')+'\n'+part('function vmStartFromOpening()','// Override _launchVisorWithScenes')+'\nwindow.loadVideoFixture=async()=>loadVmData();');
 await loadVideoFixture();window.vmFixtureReady=true;})();
 </script>

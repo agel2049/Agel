@@ -89,6 +89,7 @@ jobs:
           python tests/e2e_d5_persistence.py
           python tests/e2e_media_batch.py
           python tests/e2e_opening_video_local.py
+          python tests/e2e_opening_lifecycle.py
           python tests/e2e_glb_preview.py
           python tests/e2e_glb_local.py
           python tests/e2e_local_experience_full.py
