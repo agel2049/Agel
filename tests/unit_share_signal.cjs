@@ -64,3 +64,24 @@ test('closing after negotiation delivers encrypted close before releasing signal
 test('initial ICE candidates wait until SDP is sent so the guest can select its host',async()=>{
  const e=env();let options;const sent=[];e.ctx.RTCPeerConnection.prototype.setLocalDescription=async function(d){this.localDescription=d;this.onicecandidate({candidate:{candidate:'candidate:one'}});};const h=e.ctx.AgelSharePeer.host({...e.opts,expiresAt:Date.now()+100000,signalOpen:async o=>{options=o;return{send:async m=>sent.push(m),close(){}};}});await turn();options.onMessage({type:'hello',from:'33333333-3333-4333-8333-333333333333'});await until(()=>sent.length>=2);assert.deepEqual(sent.map(m=>m.type),['offer','ice']);h.close();
 });
+function videoTrack(kind='video'){return{kind,stops:0,stop(){this.stops++;}};}
+function installStreams(e){e.ctx.MediaStream=class{constructor(tracks=[]){this.tracks=[...tracks];}getTracks(){return[...this.tracks];}removeTrack(track){this.tracks=this.tracks.filter(t=>t!==track);}};return e.ctx.MediaStream;}
+async function guestVideo(e,onTrack){let options;const sent=[];const peer=e.ctx.AgelSharePeer.guest({...e.opts,expiresAt:Date.now()+100000,onTrack,signalOpen:async o=>{options=o;return{send:async m=>sent.push(m),close(){}};}});await until(()=>sent.length);options.onMessage({type:'offer',from:'33333333-3333-4333-8333-333333333333',to:sent[0].from,sdp:'offer'});await until(()=>sent.some(m=>m.type==='answer'));return{peer,pc:e.pcs[0]};}
+test('host adds supplied canvas video before offering, never adds audio, and releases video on close',async()=>{
+ const e=env(),Stream=installStreams(e),video=videoTrack(),audio=videoTrack('audio'),stream=new Stream([video,audio]);let options;const order=[];
+ e.ctx.RTCPeerConnection.prototype.addTrack=function(track,source){order.push('track');assert.equal(track,video);assert.equal(source,stream);};
+ e.ctx.RTCPeerConnection.prototype.createOffer=async function(){order.push('offer');return{type:'offer',sdp:'offer'};};
+ const peer=e.ctx.AgelSharePeer.host({...e.opts,stream,expiresAt:Date.now()+100000,signalOpen:async o=>{options=o;return{send:async()=>{},close(){}};}});await turn();options.onMessage({type:'hello',from:'33333333-3333-4333-8333-333333333333'});await until(()=>order.includes('offer'));assert.deepEqual(order,['track','offer']);peer.close();await assert.rejects(peer.ready);assert.equal(video.stops,1);assert.equal(audio.stops,0);peer.close();assert.equal(video.stops,1);
+});
+test('host close during signaling also releases the supplied video track',async()=>{
+ const e=env(),Stream=installStreams(e),track=videoTrack();let resolve;const peer=e.ctx.AgelSharePeer.host({...e.opts,stream:new Stream([track]),expiresAt:Date.now()+100000,signalOpen:()=>new Promise(r=>resolve=r)});peer.close();await assert.rejects(peer.ready);assert.equal(track.stops,1);resolve({send:async()=>{},close(){}});await turn();assert.equal(e.pcs.length,0);
+});
+test('guest forwards one actual video stream, drops audio/extra tracks, and closes remote tracks',async()=>{
+ const e=env(),Stream=installStreams(e),streams=[],video=videoTrack(),audio=videoTrack('audio'),extra=videoTrack();const remote=new Stream([video,audio]);const{peer,pc}=await guestVideo(e,s=>streams.push(s));assert.equal(typeof pc.ontrack,'function');const trackHandler=pc.ontrack;
+ pc.ontrack({track:video,streams:[remote]});assert.equal(streams.length,1);assert.equal(streams[0],remote);assert.deepEqual(remote.getTracks(),[video]);assert.equal(audio.stops,1);
+ pc.ontrack({track:video,streams:[remote]});assert.equal(video.stops,0);pc.ontrack({track:extra,streams:[new Stream([extra])]});assert.equal(extra.stops,1);assert.equal(streams.length,1);
+ peer.close();await assert.rejects(peer.ready);assert.equal(pc.ontrack,null);assert.equal(video.stops,1);const late=videoTrack();trackHandler({track:late,streams:[new Stream([late])]});assert.equal(late.stops,1);assert.equal(streams.length,1);
+});
+test('guest wraps streamless video and drops streamless audio without calling onTrack',async()=>{
+ const e=env(),Stream=installStreams(e),streams=[];const{peer,pc}=await guestVideo(e,s=>streams.push(s));const audio=videoTrack('audio');pc.ontrack({track:audio,streams:[]});assert.equal(audio.stops,1);assert.equal(streams.length,0);const video=videoTrack();pc.ontrack({track:video,streams:[]});assert.ok(streams[0] instanceof Stream);assert.deepEqual(streams[0].getTracks(),[video]);peer.close();await assert.rejects(peer.ready);assert.equal(video.stops,1);
+});

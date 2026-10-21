@@ -1,15 +1,40 @@
-/* One ephemeral receiver. No media tracks or camera permission requests. */
+/* One ephemeral receiver. Optional canvas video; never requests camera/mic permission. */
 (function (root) {
   'use strict';
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const NETWORK = 'No se pudo establecer la conexión directa. Prueba con ambos equipos en la misma red y vuelve a compartir.';
   function connect(role, options) {
-    const { cloud, projectId, sessionId, key, expiresAt, onChannel, onState, iceServers, signalOpen } = options;
+    const { cloud, projectId, sessionId, key, expiresAt, onChannel, onTrack, onState, iceServers, signalOpen, stream } = options;
     const id = root.crypto.randomUUID();
     let closed = false, opening, signal, pc, channel, remote, selected = false, delivered = false, helloTimer, deadline, connecting;
     let queue = Promise.resolve(), outgoing = Promise.resolve(), pending = 0, candidates = [], localCandidates = [], localSent = false, resolveReady, rejectReady;
+    const localTracks = new Set(), stoppedTracks = new Set();
+    let remoteTrack, remoteStream;
     const ready = new Promise((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
     ready.catch(() => {});
+    function stopTrack(track) {
+      if (!track || stoppedTracks.has(track)) return;
+      stoppedTracks.add(track);
+      try { track.stop(); } catch (_) { /* Keep closing the remaining resources. */ }
+    }
+    function incomingTrack(event) {
+      const track = event.track;
+      if (closed || role !== 'guest') {
+        stopTrack(track);
+        for (const media of event.streams || []) for (const item of media.getTracks()) stopTrack(item);
+        return;
+      }
+      if (!track || track.kind !== 'video') { stopTrack(track); return; }
+      if (remoteTrack) { if (track !== remoteTrack) stopTrack(track); return; }
+      remoteTrack = track;
+      remoteStream = event.streams?.[0] || new root.MediaStream([track]);
+      // This session carries one rendered video, never remote audio or another
+      // media feed. Preserve the actual stream identity for the video element.
+      for (const item of remoteStream.getTracks()) {
+        if (item !== track) { stopTrack(item); remoteStream.removeTrack(item); }
+      }
+      try { onTrack?.(remoteStream); } catch (error) { fail(error); }
+    }
     function state(value, message) { onState?.({ state: value, message }); }
     function close(reason = 'Sesión finalizada.', notify = true) {
       if (closed) return;
@@ -27,7 +52,11 @@
         catch (_) { release(); }
       } else if (signal) signal.close(); else opening?.close?.(reason);
       if (channel) { channel.onopen = channel.onclose = channel.onerror = null; channel.close(); }
-      if (pc) { pc.onicecandidate = pc.ondatachannel = pc.onconnectionstatechange = null; pc.close(); }
+      if (pc) { pc.onicecandidate = pc.ondatachannel = pc.onconnectionstatechange = pc.ontrack = null; pc.close(); }
+      for (const track of localTracks) stopTrack(track);
+      stopTrack(remoteTrack);
+      if (remoteStream) for (const track of remoteStream.getTracks()) stopTrack(track);
+      localTracks.clear();
       rejectReady(new Error(reason));
       state('closed', reason);
     }
@@ -65,6 +94,8 @@
       };
       pc.onconnectionstatechange = () => { if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) close(NETWORK); };
       pc.ondatachannel = event => { if (role === 'guest') attach(event.channel); else event.channel.close(); };
+      pc.ontrack = incomingTrack;
+      if (role === 'host') for (const track of localTracks) pc.addTrack(track, stream);
       state('connecting', 'Conectando directamente con el otro equipo…');
       if (!connecting) connecting = setTimeout(() => close(NETWORK), 30000);
       return pc;
@@ -116,6 +147,7 @@
       queue = queue.then(() => message(m)).catch(fail).finally(() => { pending--; });
     }
     (async () => {
+      if (role === 'host' && stream) for (const track of stream.getTracks()) if (track.kind === 'video') localTracks.add(track);
       if (!UUID.test(projectId) || !UUID.test(sessionId) || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) throw new Error('El enlace temporal venció. Vuelve a compartir.');
       deadline = setTimeout(() => close('La sesión temporal venció.'), Math.min(expiresAt - Date.now(), 1800000));
       state('waiting', role === 'host' ? 'Esperando al celular…' : 'Buscando al equipo fuente…');
