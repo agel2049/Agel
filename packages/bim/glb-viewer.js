@@ -22,7 +22,7 @@
   object?.traverse(n=>{if(n.geometry)geometries.add(n.geometry);for(const m of Array.isArray(n.material)?n.material:[n.material])if(m){materials.add(m);for(const v of Object.values(m))if(v?.isTexture)textures.add(v);}});
   for(const t of textures){t.dispose();t.image?.close?.();}for(const m of materials)m.dispose();for(const g of geometries)g.dispose();
  }
- async function open(container,{blob}){
+ async function open(container,{blob,onARState=()=>{}}){
   if(!(blob instanceof Blob)||!blob.size)throw Error('Elige un archivo GLB del dispositivo.');
   const bytes=await blob.arrayBuffer();inspect(bytes);await loadSDK();
   const draco=new THREE.DRACOLoader();draco.setDecoderPath(BASE+'examples/js/libs/draco/gltf/');
@@ -54,15 +54,16 @@
   function setSpin(value){spin=!!value&&!disposed&&!renderer?.xr.isPresenting;if(controls){controls.autoRotate=spin;controls.autoRotateSpeed=.6;}draw();}
   function pan(x,y){if(disposed||renderer.xr.isPresenting||!Number.isFinite(x)||!Number.isFinite(y))return;camera.updateMatrixWorld();const distance=camera.position.distanceTo(controls.target)*Math.tan(camera.fov*Math.PI/360),delta=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0).multiplyScalar(x*distance).add(new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,1).multiplyScalar(y*distance));camera.position.add(delta);controls.target.add(delta);controls.update();draw();}
   function keydown(ev){if(ev.altKey||ev.ctrlKey||ev.metaKey)return;const move={w:[0,.12],s:[0,-.12],a:[-.12,0],d:[.12,0],ArrowUp:[0,.12],ArrowDown:[0,-.12],ArrowLeft:[-.12,0],ArrowRight:[.12,0]}[ev.key.length===1?ev.key.toLowerCase():ev.key];if(move){ev.preventDefault();setSpin(false);pan(...move);}}
-  function resize(){if(disposed)return;const w=Math.max(container.clientWidth,1),h=Math.max(container.clientHeight,1);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();draw();}
+  function resize(){if(disposed||renderer?.xr.isPresenting)return;const w=Math.max(container.clientWidth,1),h=Math.max(container.clientHeight,1);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();draw();}
   function dispose(){if(disposed)return;disposed=true;spin=false;ar?.dispose();cancelAnimationFrame(frame);observer?.disconnect();controls?.dispose();renderer?.domElement.removeEventListener('keydown',keydown);release(model);draco.dispose();renderer?.dispose();renderer?.forceContextLoss();renderer?.domElement.remove();}
   try{
    renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;
    renderer.domElement.setAttribute('aria-label','Maqueta 3D. Arrastra para girar; usa WASD o flechas para desplazar la vista.');renderer.domElement.tabIndex=0;renderer.domElement.addEventListener('keydown',keydown);container.append(renderer.domElement);
    controls=new THREE.OrbitControls(camera,renderer.domElement);controls.addEventListener('change',draw);controls.enableDamping=false;
+   if(root.AgelGLBAR)ar=AgelGLBAR.create({renderer,scene,camera,model:content,bounds:centeredBounds,controls,onState:s=>{if(s.state==='starting')setSpin(false);onARState(s);},draw:resize});
    observer=new ResizeObserver(resize);observer.observe(container);resize();fit();
   }catch(e){dispose();throw Error('No se pudo iniciar el visor 3D: '+(e.message||'WebGL no disponible'));}
-  return {elements,fit,setView,zoom,setSpin,pan,snapshot:()=>({view:currentView,spin,position:camera.position.toArray(),target:controls.target.toArray()}),filter(options={}){if(disposed)throw Error('El visor ya se cerró.');const visible=AgelGLBFilters.select(elements,options);activeIds=new Set(visible.map(e=>e.id));for(const m of meshes)activeIds.has(m.uuid)?m.layers.enable(0):m.layers.disable(0);draw();return visible;},dispose};
+  return {elements,fit,setView,zoom,setSpin,pan,ar,extent:Math.max(...extent.toArray()),snapshot:()=>({view:currentView,spin,position:camera.position.toArray(),target:controls.target.toArray()}),filter(options={}){if(disposed)throw Error('El visor ya se cerró.');const visible=AgelGLBFilters.select(elements,options);activeIds=new Set(visible.map(e=>e.id));for(const m of meshes)activeIds.has(m.uuid)?m.layers.enable(0):m.layers.disable(0);draw();return visible;},dispose};
  }
  root.AgelGLB={open};
 })(window);
