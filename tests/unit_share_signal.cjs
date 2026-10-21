@@ -1,0 +1,66 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const {webcrypto}=require('node:crypto');
+const projectId='11111111-1111-4111-8111-111111111111',sessionId='22222222-2222-4222-8222-222222222222';
+const key=Buffer.alloc(32,7).toString('base64url');
+const turn=()=>new Promise(r=>setImmediate(r));
+async function until(fn){for(let i=0;i<100;i++){if(fn())return;await turn();}assert.ok(fn(),'async operation did not settle');}
+function env(){
+ const sockets=[],pcs=[],timers=new Map(),events=new Map();let seq=0;
+ class WS{constructor(url){this.url=url;this.readyState=0;this.sent=[];sockets.push(this);}send(s){this.sent.push(JSON.parse(s));}close(){this.readyState=3;this.onclose?.();}open(){this.readyState=1;this.onopen?.();}receive(m){this.onmessage?.({data:JSON.stringify(m)});}}
+ class PC{constructor(cfg){this.cfg=cfg;this.remoteDescription=null;this.connectionState='new';this.closed=false;this.sctp={maxMessageSize:65536};pcs.push(this);}createDataChannel(label,opts){this.channel={label,...opts,readyState:'connecting',close(){this.readyState='closed';},send(){}};return this.channel;}async createOffer(){return{type:'offer',sdp:'offer-sdp'};}async createAnswer(){return{type:'answer',sdp:'answer-sdp'};}async setLocalDescription(d){this.localDescription=d;}async setRemoteDescription(d){if(this.closed)throw Error('closed');this.remoteDescription=d;}async addIceCandidate(c){(this.ice??=[]).push(c);}close(){this.closed=true;}}
+ const cloud={url:'https://example.supabase.co',anonKey:'public-anon',storageKey:'agel.session',user:{id:'user1'},session:{access_token:'jwt1',user:{id:'user1'}},listeners:new Set(),async accessToken(){return this.session?.access_token;},onAuth(fn){this.listeners.add(fn);return()=>this.listeners.delete(fn);},change(s){this.session=s;this.user=s?.user;for(const f of this.listeners)f(s);}};
+ const ctx={console,crypto:webcrypto,TextEncoder,TextDecoder,URL,Uint8Array,ArrayBuffer,WebSocket:WS,RTCPeerConnection:PC,Date,JSON,Promise,Error,Set,Map,btoa:s=>Buffer.from(s,'binary').toString('base64'),atob:s=>Buffer.from(s,'base64').toString('binary'),setTimeout:(f,ms)=>{const id=++seq;timers.set(id,{f,ms});return id;},clearTimeout:id=>timers.delete(id),setInterval:(f,ms)=>{const id=++seq;timers.set(id,{f,ms,interval:true});return id;},clearInterval:id=>timers.delete(id),addEventListener:(n,f)=>{if(!events.has(n))events.set(n,new Set());events.get(n).add(f);},removeEventListener:(n,f)=>events.get(n)?.delete(f)};
+ ctx.window=ctx;ctx.globalThis=ctx;vm.createContext(ctx);
+ for(const name of ['signal','peer']){const p=`packages/sharing/${name}.js`;if(fs.existsSync(p))vm.runInContext(fs.readFileSync(p,'utf8'),ctx);}
+ return{ctx,cloud,sockets,pcs,timers,events,opts:{cloud,projectId,sessionId,key},tick(ms){for(const[id,t]of [...timers])if(t.ms===ms){if(!t.interval)timers.delete(id);t.f();}}};
+}
+async function signal(e,extra={}){const p=e.ctx.AgelShareSignal.open({...e.opts,...extra});await until(()=>e.sockets.length);const ws=e.sockets.at(-1);ws.open();const join=ws.sent[0];ws.receive({topic:join.topic,event:'phx_reply',ref:join.ref,join_ref:join.join_ref,payload:{status:'ok',response:{}}});return{api:await p,ws,join};}
+test('signal authenticates only a private project topic and keeps key/JWT outside URL and broadcast',async()=>{
+ const e=env();assert.ok(e.ctx.AgelShareSignal,'signal API missing');const{api,ws,join}=await signal(e);
+ assert.equal(new URL(ws.url).searchParams.get('vsn'),'1.0.0');assert.ok(!ws.url.includes('jwt1'));assert.ok(!ws.url.includes(key));assert.equal(join.payload.config.private,true);assert.equal(join.payload.config.presence.enabled,false);assert.equal(join.payload.access_token,'jwt1');assert.equal(join.topic,`realtime:agel-share:${projectId}:${sessionId}`);
+ await api.send({type:'offer',sdp:'sensitive SDP'});const m=ws.sent.at(-1);assert.equal(m.event,'broadcast');assert.ok(!JSON.stringify(m).includes('sensitive SDP'));assert.ok(!JSON.stringify(m).includes('jwt1'));assert.ok(!JSON.stringify(m).includes(key));api.close();assert.equal(e.timers.size,0);assert.equal(e.cloud.listeners.size,0);
+});
+test('AES-GCM authenticates topic/ciphertext and rejects tampering, wrong keys, oversized frames and replay',async()=>{
+ const a=env(),b=env(),received=[];const sa=await signal(a),sb=await signal(b,{onMessage:m=>received.push(m)});
+ await sa.api.send({type:'hello',from:'one'});const wire=sa.ws.sent.at(-1);sb.ws.receive(wire);await until(()=>received.length===1);assert.equal(received[0].from,'one');sb.ws.receive(wire);await turn();await turn();assert.equal(received.length,1);
+ const corrupt=structuredClone(wire);corrupt.payload.payload.data='AAAA';sb.ws.receive(corrupt);sb.ws.receive({...wire,topic:'realtime:other'});sb.ws.receive({...wire,payload:{...wire.payload,payload:{data:'x'.repeat(100000)}}});await turn();assert.equal(received.length,1);
+ const c=env(),wrong=[];const sc=await signal(c,{key:Buffer.alloc(32,8).toString('base64url'),onMessage:m=>wrong.push(m)});sc.ws.receive(wire);await turn();await turn();assert.equal(wrong.length,0);await assert.rejects(sa.api.send({sdp:'x'.repeat(40000)}),/grande|large|limit/i);sa.api.close();sb.api.close();sc.api.close();
+});
+test('invalid session/key and missing authentication never open socket',async()=>{
+ const e=env();for(const extra of [{key:'bad'},{projectId:'not-uuid'},{sessionId:'bad'}])await assert.rejects(e.ctx.AgelShareSignal.open({...e.opts,...extra}));e.cloud.change(null);await assert.rejects(e.ctx.AgelShareSignal.open(e.opts));assert.equal(e.sockets.length,0);
+});
+test('refresh sends token only to Realtime, account change tears down watchers and socket',async()=>{
+ const e=env(),closes=[];const{api,ws}=await signal(e,{onClose:r=>closes.push(r)});e.cloud.change({access_token:'jwt2',user:{id:'user1'}});await until(()=>ws.sent.some(m=>m.event==='access_token'));assert.equal(ws.sent.at(-1).payload.access_token,'jwt2');e.cloud.change({access_token:'jwt3',user:{id:'user2'}});assert.equal(ws.readyState,3);assert.equal(e.timers.size,0);assert.equal(e.cloud.listeners.size,0);assert.equal(closes.length,1);api.close();assert.equal(closes.length,1);
+});
+test('failed private join and unanswered heartbeat close instead of falling back public',async()=>{
+ const e=env();const p=e.ctx.AgelShareSignal.open(e.opts);await until(()=>e.sockets.length);const ws=e.sockets[0];ws.open();const j=ws.sent[0];ws.receive({topic:j.topic,event:'phx_reply',ref:j.ref,payload:{status:'error',response:{reason:'denied'}}});await assert.rejects(p);assert.equal(e.sockets.length,1);assert.equal(ws.readyState,3);assert.equal(e.timers.size,0);
+ const b=env();const s=await signal(b);b.tick(20000);assert.equal(s.ws.sent.at(-1).event,'heartbeat');b.tick(20000);assert.equal(s.ws.readyState,3);assert.equal(b.timers.size,0);
+});
+function signalBus(){const clients=[];return async options=>{const c={options,closed:false,send:async m=>{for(const other of clients)if(other!==c&&!other.closed)other.options.onMessage(structuredClone(m));},close(){c.closed=true;}};clients.push(c);return c;};}
+test('peer constructors return immediate handles and close a late signal result without creating PC',async()=>{
+ const e=env();assert.ok(e.ctx.AgelSharePeer,'peer API missing');let resolve,closed=0;const p=e.ctx.AgelSharePeer.host({...e.opts,expiresAt:Date.now()+100000,signalOpen:()=>new Promise(r=>resolve=r)});assert.equal(typeof p.close,'function');assert.equal(typeof p.ready.then,'function');p.close();await assert.rejects(p.ready);resolve({send:async()=>{},close:()=>closed++});await turn();assert.equal(closed,1);assert.equal(e.pcs.length,0);assert.equal(e.timers.size,0);
+});
+test('host chooses one guest, ignores outsiders and exposes only an open reliable DataChannel',async()=>{
+ const e=env();let opts;const sent=[],channels=[];const handle=e.ctx.AgelSharePeer.host({...e.opts,expiresAt:Date.now()+100000,onChannel:c=>channels.push(c),signalOpen:async o=>{opts=o;return{send:async m=>sent.push(m),close(){}};}});await turn();opts.onMessage({type:'hello',from:'33333333-3333-4333-8333-333333333333'});await until(()=>sent.some(m=>m.type==='offer'));assert.equal(e.pcs.length,1);assert.equal(e.pcs[0].cfg.iceServers[0].urls,'stun:stun.l.google.com:19302');assert.equal(e.pcs[0].channel.ordered,true);assert.equal(channels.length,0);
+ opts.onMessage({type:'hello',from:'44444444-4444-4444-8444-444444444444'});await turn();assert.equal(e.pcs.length,1);const offer=sent.find(m=>m.type==='offer');opts.onMessage({type:'answer',from:'44444444-4444-4444-8444-444444444444',to:offer.from,sdp:'bad'});await turn();assert.equal(e.pcs[0].remoteDescription,null);const c=e.pcs[0].channel;c.readyState='open';c.onopen();assert.equal(await handle.ready,c);assert.equal(channels.length,1);assert.equal(c.maxMessageSize,65536);handle.close();assert.equal(e.pcs[0].closed,true);await turn();assert.equal(e.timers.size,0);
+});
+test('guest retries hello, accepts targeted offer only, and does not revive after pending SDP on close',async()=>{
+ const e=env();let opts;const sent=[];const g=e.ctx.AgelSharePeer.guest({...e.opts,expiresAt:Date.now()+100000,signalOpen:async o=>{opts=o;return{send:async m=>sent.push(m),close(){}};}});await until(()=>sent.length);const hello=sent[0];assert.equal(hello.type,'hello');e.tick(1000);await turn();assert.equal(sent.length,2);opts.onMessage({type:'offer',from:'33333333-3333-4333-8333-333333333333',to:'wrong',sdp:'offer'});await turn();assert.equal(e.pcs.length,0);
+ let finishSDP;e.ctx.RTCPeerConnection.prototype.setRemoteDescription=function(d){return new Promise(r=>{finishSDP=()=>{this.remoteDescription=d;r();};});};opts.onMessage({type:'offer',from:'33333333-3333-4333-8333-333333333333',to:hello.from,sdp:'offer'});await until(()=>finishSDP);g.close();finishSDP();await assert.rejects(g.ready);await turn();assert.equal(e.pcs[0].closed,true);assert.equal(sent.filter(m=>m.type==='answer').length,0);await turn();assert.equal(e.timers.size,0);
+});
+test('peer expiry and connection timeout reject ready and release resources',async()=>{
+ const e=env();let closed=0;const h=e.ctx.AgelSharePeer.host({...e.opts,expiresAt:Date.now()+999999999,signalOpen:async()=>({send:async()=>{},close:()=>closed++})});await turn();assert.ok([...e.timers.values()].some(t=>t.ms<=1800000));e.tick(1800000);await assert.rejects(h.ready);assert.equal(closed,1);assert.equal(e.timers.size,0);
+ const b=env();const g=b.ctx.AgelSharePeer.guest({...b.opts,expiresAt:Date.now()+100000,signalOpen:signalBus()});await turn();b.tick(30000);await assert.rejects(g.ready,/red|conex|network/i);assert.equal(b.timers.size,0);
+});
+test('closing cancels an in-progress private join immediately',async()=>{
+ const e=env();const opening=e.ctx.AgelShareSignal.open(e.opts);await until(()=>e.sockets.length);opening.close();await assert.rejects(opening);assert.equal(e.sockets[0].readyState,3);assert.equal(e.timers.size,0);assert.equal(e.cloud.listeners.size,0);
+});
+test('closing after negotiation delivers encrypted close before releasing signaling',async()=>{
+ const e=env();let options,finishClose,signalClosed=false;const sent=[];const h=e.ctx.AgelSharePeer.host({...e.opts,expiresAt:Date.now()+100000,signalOpen:async o=>{options=o;return{send:async m=>{sent.push(m);if(m.type==='close')await new Promise(r=>finishClose=r);},close(){signalClosed=true;}};}});await turn();options.onMessage({type:'hello',from:'33333333-3333-4333-8333-333333333333'});await until(()=>sent.some(m=>m.type==='offer'));h.close();await assert.rejects(h.ready);assert.ok(finishClose);assert.equal(signalClosed,false);finishClose();await turn();assert.equal(signalClosed,true);assert.equal(e.timers.size,0);
+});
+test('initial ICE candidates wait until SDP is sent so the guest can select its host',async()=>{
+ const e=env();let options;const sent=[];e.ctx.RTCPeerConnection.prototype.setLocalDescription=async function(d){this.localDescription=d;this.onicecandidate({candidate:{candidate:'candidate:one'}});};const h=e.ctx.AgelSharePeer.host({...e.opts,expiresAt:Date.now()+100000,signalOpen:async o=>{options=o;return{send:async m=>sent.push(m),close(){}};}});await turn();options.onMessage({type:'hello',from:'33333333-3333-4333-8333-333333333333'});await until(()=>sent.length>=2);assert.deepEqual(sent.map(m=>m.type),['offer','ice']);h.close();
+});
