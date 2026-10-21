@@ -285,7 +285,7 @@ def modelo_3d_y_recorrido_guiado(w):
     p.pg.get_by_role('button', name='Instalaciones (1)', exact=True).click()
     p.pg.get_by_role('status').filter(has_text='1 de 3 piezas').wait_for()
     p.pg.get_by_role('button', name='Cerrar maqueta', exact=True).click()
-    check(p.pg.locator('dialog.mq-dialog').count() == 0, 'la maqueta no se cerró')
+    p.pg.locator('dialog.mq-dialog').wait_for(state='detached')
     p.ev("window.AGEL_GUIDE_MS = 400")
     p.pg.locator('[data-tour="0"]').first.click()
     p.wait("document.querySelector('.sr-tour-title') && document.querySelector('.sr-tour-title').textContent.startsWith('Sala')", 10000)
