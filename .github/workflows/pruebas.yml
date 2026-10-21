@@ -75,6 +75,9 @@ jobs:
           git diff --exit-code -- supabase/manual/03-showroom-inmersivo-revisado.sql
           python supabase/tests/incremental.py
 
+      - name: Maqueta y ciclo AR (dispositivo simulado)
+        run: node --test tests/unit_maquette_math.cjs tests/unit_glb_ar.cjs
+
       - name: Guardado local y showroom inmersivo (motor simulado)
         run: |
           python tests/e2e_panel_areas.py
@@ -92,6 +95,7 @@ jobs:
           python tests/e2e_opening_lifecycle.py
           python tests/e2e_glb_preview.py
           python tests/e2e_glb_local.py
+          python tests/e2e_maquette.py
           python tests/e2e_local_experience_full.py
 
       - name: Editor en modo local

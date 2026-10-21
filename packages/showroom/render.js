@@ -399,6 +399,7 @@ ${opts.noindex ? '<meta name="robots" content="noindex">' : ''}
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap">
 <link rel="stylesheet" href="${r}apps/showroom/showroom.css">
 <link rel="stylesheet" href="${r}apps/showroom/experience.css">
+<link rel="stylesheet" href="${r}packages/bim/maquette.css">
 <style>:root{--sr-accent:${m.brand.accent};--sr-accent-ink:${m.brand.accentText}}</style>
 <script type="application/ld+json">${md.jsonLd}</script>
 </head>
