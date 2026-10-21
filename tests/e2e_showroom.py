@@ -10,11 +10,13 @@ Uso:
 """
 import json, os, re, subprocess, sys, time, uuid
 from pathlib import Path
+from urllib.parse import urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from playwright.sync_api import sync_playwright
 from e2e import serve, FIXTURES, Page, check
 from e2e_cloud import wire_cloud, HOST
 from minisupa import MiniSupa
+from glb_fixture import glb_bytes
 
 REPO = Path(__file__).resolve().parent.parent
 IMG = 'https://img.agel-pruebas.mx'
@@ -270,13 +272,20 @@ def modelo_3d_y_recorrido_guiado(w):
     p = w.page()
     reqs = []
     p.pg.on('request', lambda r: reqs.append(r.url))
-    p.pg.context.route(re.compile(r'https://cdn\.jsdelivr\.net/npm/@google/model-viewer@.*'), lambda r, q: r.fulfill(
-        body="customElements.define('model-viewer', class extends HTMLElement {});", headers={'content-type': 'text/javascript', 'access-control-allow-origin': '*'}))
+    vendor = REPO / 'tests/vendor/node_modules/three'
+    p.pg.context.route('https://cdn.jsdelivr.net/npm/three@0.128.0/**', lambda r: r.fulfill(
+        path=str(vendor / urlparse(r.request.url).path.split('three@0.128.0/')[1])))
+    p.pg.context.route(f'{IMG}/silla.glb', lambda r: r.fulfill(
+        content_type='model/gltf-binary', body=glb_bytes(), headers={'access-control-allow-origin': '*'}))
     p.pg.goto(w.base + f'apps/showroom/?p={d["slug"]}')
     p.pg.wait_for_selector('#modelo')
-    check(not any('model-viewer' in u for u in reqs), 'model-viewer se descargó sin pedirlo')
+    check(not any('three.min.js' in u or u.endswith('silla.glb') for u in reqs), 'la maqueta se descargó sin pedirla')
     p.pg.get_by_role('button', name='Ver en 3D').click()
-    p.pg.wait_for_selector('model-viewer[src$="silla.glb"][ar][camera-controls]', state='attached', timeout=6000)
+    p.pg.get_by_role('dialog', name='Maqueta virtual').get_by_role('status').filter(has_text='3 de 3 piezas').wait_for()
+    p.pg.get_by_role('button', name='Instalaciones (1)', exact=True).click()
+    p.pg.get_by_role('status').filter(has_text='1 de 3 piezas').wait_for()
+    p.pg.get_by_role('button', name='Cerrar maqueta', exact=True).click()
+    check(p.pg.locator('dialog.mq-dialog').count() == 0, 'la maqueta no se cerró')
     p.ev("window.AGEL_GUIDE_MS = 400")
     p.pg.locator('[data-tour="0"]').first.click()
     p.wait("document.querySelector('.sr-tour-title') && document.querySelector('.sr-tour-title').textContent.startsWith('Sala')", 10000)
