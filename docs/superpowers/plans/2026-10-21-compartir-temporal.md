@@ -11,7 +11,7 @@
 - No modificar packages/panorama/pano-engine.js ni probar manualmente el visor 360.
 - No medios en Supabase/IndexedDB/CacheStorage del receptor. No TURN pago ni planes nuevos.
 - Canal privado y membresía del proyecto; no tokens al otro dispositivo. Sesión 30 min y un receptor.
-- URLs de medios propias HTTPS (localhost permitido para pruebas); nombre .glb preservado.
+- URLs de medios propias HTTPS (localhost permitido para pruebas). GLB nunca en mapa de recursos: imagen 3D por MediaStream; no AR remoto.
 
 ## Review Focus
 - SDP tardío tras cerrar: no cámara/datos ni PC residual.
@@ -36,10 +36,17 @@
 
 ### Task 3: UI, exportación segura e integración
 **Files:** packages/core/workspace.js; packages/sharing/share-ui.js; apps/share/index.html, receiver.js, share.css; apps/panel/media-controls.js,index.html; apps/showroom/showroom.js.
-**Interfaces:** workspace.sharePackage() => {snapshot,assets:Map}; snapshot es raw formato sanitizeShowroom con URLs https://agel-share.invalid/<asset>.<ext>. Sólo campos comerciales/escenas referenciadas, sin privateSettings. Host mapea refs propios mediante getBlob. Receptor valida snapshot, sustituye placeholders por URLs del Service Worker y expone window.AgelTemporarySession={ready:Promise<modelo normalizado>,onClose(fn)} antes de cargar showroom.js. AgelTemporaryShare.open({workspace,rootUrl?}) muestra diálogo/controla su cierre.
-- [ ] RED: QR/botón ausentes y exportar manifiesto conserva escena/planta/Opening/GLB, excluye privados. Prueba dos contextos WebRTC real con señalización local de prueba.
-- [ ] Implementar UI con identidad actual y QR local (dependencia vendorizada con licencia, sin enviar enlace a generador externo); estado, copiar, expirar, cierre/cuenta/proyecto. Reutilizar showroom en preview temporal (sin métricas/prospectos). Maqueta integrada para URLs .glb. Mostrar error de red directa sin crear TURN.
-- [ ] GREEN: vídeos por rangos, binarios, restricciones de recursos, cero escrituras y cierre remoto; suites existentes afectadas.
+**Interfaces:** workspace.sharePackage() => {snapshot,assets:Map}; snapshot excluye modelo original; remoteModel describe disponibilidad para stream. snapshot es raw formato sanitizeShowroom con URLs https://agel-share.invalid/<asset>.<ext>. Sólo campos comerciales/escenas referenciadas, sin privateSettings. Host mapea refs propios mediante getBlob. Receptor valida snapshot, sustituye placeholders por URLs del Service Worker y expone window.AgelTemporarySession={ready:Promise<modelo normalizado>,onClose(fn)} antes de cargar showroom.js. AgelTemporaryShare.open({workspace,rootUrl?}) muestra diálogo/controla su cierre.
+- [ ] RED: QR/botón ausentes y exportar manifiesto conserva escena/planta/Opening, excluye privados y cualquier referencia al GLB. Prueba dos contextos WebRTC real con señalización local de prueba.
+- [ ] Implementar UI con identidad actual y QR local (dependencia vendorizada con licencia, sin enviar enlace a generador externo); estado, copiar, expirar, cierre/cuenta/proyecto. Reutilizar showroom en preview temporal (sin métricas/prospectos). Maqueta remota mediante MediaStream: canvas fuente con marca de agua, comandos limitados y ninguna geometría transferida. Mostrar error de red directa sin crear TURN.
+- [ ] GREEN: vídeos por rangos, binarios, modelo por imagen sin GLB y restricciones de recursos, cero escrituras y cierre remoto; suites existentes afectadas.
+
+### Task 3b: Modelo por imagen, solicitado para proteger el original
+**Files:** packages/sharing/remote-model.js; packages/bim/glb-viewer.js; tests/unit_remote_model.cjs; tests/e2e_remote_model.py; peer.js y UI integrados por sus propietarios.
+**Interfaces:** AgelSharedModel.host({workspace,container,sessionId,send,onState}) => {stream,handle,close}; AgelSharedModel.mount(container,{stream,send,title,onClose}) => {handle,dispose}. peer.host recibe stream, guest recibe onTrack(stream). Renderer agrega orbit(dx,dy) y callback opcional onFrame(canvas) inmediatamente después de renderizar; mantiene contratos actuales.
+- [ ] RED: GLB no sale en sharePackage/otros slots; los comandos remotos válidos operan y los no válidos se rechazan. Canvas transmite marca de agua; cerrar durante carga limpia el visor tardío.
+- [ ] Implementar MediaStream de canvas fuente720x480,15fps sin permiso de cámara. GLB se abre bajo demanda solo desde fuente. Receptor video/controles/filtros, sin AR. Test navegador real con modelo de prueba y variación de vista verificable.
+- [ ] GREEN: stream vivo/control remoto/cierre, cero transferenciaGLB; preservar suites actuales de cámara/filtros.
 
 ### Task 4: Revisión y publicación
 **Files:** .github/workflows/pruebas.yml; docs/COMPARTIR-TEMPORALMENTE.md; reporte de entrega.
