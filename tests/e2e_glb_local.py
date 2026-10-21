@@ -13,6 +13,16 @@ with local_page('tests/fixtures/glb-viewer.html',setup=setup) as pg:
  assert len(rows)==3,rows
  assert {r['material'] for r in rows}=={'Ladrillo','Cobre','Pintura'},rows
  canvas=pg.locator('canvas');canvas.wait_for();pg.wait_for_timeout(100)
+ assert pg.evaluate('typeof viewer.setView')=='function','Maquette camera presets unavailable'
+ original=canvas.screenshot()
+ pg.evaluate("viewer.setView('top')");pg.wait_for_timeout(100)
+ assert original!=canvas.screenshot(),'Top view did not change perspective'
+ assert pg.evaluate("viewer.snapshot().view")=='top'
+ pg.evaluate("viewer.setView('front');viewer.zoom(.8);viewer.pan(.1,0)")
+ assert pg.evaluate("viewer.snapshot().view")=='front'
+ pg.evaluate("viewer.setSpin(true)");pg.wait_for_timeout(100)
+ assert pg.evaluate('viewer.snapshot().spin') is True
+ pg.evaluate("viewer.setSpin(false);viewer.setView('iso')")
  before=canvas.screenshot()
  assert pg.evaluate("viewer.filter({preset:'mep'}).map(e=>e.name)")==['Tubería_01']
  pg.wait_for_timeout(100);assert before!=canvas.screenshot(),'Filter did not change rendered geometry'
