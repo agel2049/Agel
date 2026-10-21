@@ -41,3 +41,15 @@ test('missing hit test and session ending during initialization leave no residua
  assert.equal(typeof AR?.create,'function');const f=fixture(),ar=AR.create(f.config);f.session.requestHitTestSource=async()=>{throw Error('unsupported');};
  await assert.rejects(ar.start());assert.equal(f.session.ended,1);assert.equal(f.model.visible,true);assert.equal(f.controls.enabled,true);assert.equal(f.scene.children.length,1);ar.dispose();
 });
+test('end during reference-space initialization cancels late setup',async()=>{
+ const f=fixture();let resolve;f.session.requestReferenceSpace=()=>new Promise(r=>resolve=r);const ar=AR.create(f.config),p=ar.start();
+ await Promise.resolve();await f.session.end();resolve({});await assert.rejects(p,/cancel/i);
+ assert.equal(f.scene.children.length,1);assert.equal(f.model.visible,true);assert.equal(f.controls.enabled,true);ar.dispose();
+});
+test('a hit is required, vertical surfaces are ignored and piece visibility is preserved',async()=>{
+ const f=fixture(),child=new THREE.Mesh(new THREE.BoxGeometry(),new THREE.MeshBasicMaterial());child.layers.disable(0);f.model.add(child);const ar=AR.create(f.config);
+ await ar.start();f.renderer.loop(0,{getHitTestResults:()=>[]});f.session.dispatchEvent(new Event('select'));assert.equal(f.model.visible,false);
+ const vertical=new THREE.Matrix4().makeRotationX(Math.PI/2).toArray();f.renderer.loop(0,{getHitTestResults:()=>[{getPose:()=>({transform:{matrix:vertical}})}]});f.session.dispatchEvent(new Event('select'));assert.equal(f.model.visible,false);
+ const horizontal=new THREE.Matrix4().makeTranslation(0,0,-1).toArray();f.renderer.loop(0,{getHitTestResults:()=>[{getPose:()=>({transform:{matrix:horizontal}})}]});f.session.dispatchEvent(new Event('select'));assert.equal(f.model.visible,true);assert.equal(child.layers.mask,0);
+ await ar.end();assert.equal(child.layers.mask,0);ar.dispose();child.geometry.dispose();child.material.dispose();
+});

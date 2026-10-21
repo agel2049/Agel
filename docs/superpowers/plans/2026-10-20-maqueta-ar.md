@@ -32,10 +32,10 @@
 
 **Interfaces:** `AgelMaquetteMath.view(name)` devuelve dirección/up; `scaleFor(width, size)` devuelve escala positiva. Renderer agrega `setView(name)`, `zoom(factor)`, `setSpin(enabled)`, `pan(x,y)` y `snapshot()`; conserva `elements`, `filter`, `fit`, `dispose`.
 
-- [ ] Escribir y ejecutar pruebas RED: `assert.deepEqual(math.view('top').direction,[0,1,0]); assert.equal(math.scaleFor(20,1),.05)`; comprobar rechazo de tamaños inválidos.
-- [ ] Implementar matemáticas y aplicar poses/zoom/pan/giro al renderer. Usar render bajo demanda salvo giro o XR.
-- [ ] Ejecutar `node --test tests/unit_maquette_math.cjs`; ampliar navegador GLB para comprobar vistas, imagen distinta, filtro vacío y limpieza.
-- [ ] Registrar resultado y commit del componente.
+- [x] Escribir y ejecutar pruebas RED: `assert.deepEqual(math.view('top').direction,[0,1,0]); assert.equal(math.scaleFor(20,1),.05)`; comprobar rechazo de tamaños inválidos.
+- [x] Implementar matemáticas y aplicar poses/zoom/pan/giro al renderer. Usar render bajo demanda salvo giro o XR.
+- [x] Ejecutar `node --test tests/unit_maquette_math.cjs`; ampliar navegador GLB para comprobar vistas, imagen distinta, filtro vacío y limpieza.
+- [x] Registrar resultado y commit del componente.
 
 ### Task 2: Ciclo AR y Quick Look
 
@@ -43,11 +43,11 @@
 
 **Interfaces:** `AgelGLBAR.create({renderer,scene,camera,model,bounds,controls,onState,draw})` devuelve `supported()`, `start(overlay)`, `reposition()`, `setSize(meters)`, `rotate()`, `end()`, `dispose()`; renderer expone `ar` y conserva su escena. `AgelGLBAR.quickLook({blob,width,host})` prepara visor aislado y devuelve `open()`/`dispose()`.
 
-- [ ] Escribir RED con sesión XR simulada: requestSession denegada, sesión tardía tras dispose, hit-test sin resultados, colocación y restauración. Usar Three real para matrices.
-- [ ] Implementar requestSession en acción de usuario con hit-test requerido y dom-overlay opcional, retícula y transformación en metros; detener fuentes/eventos/loops al salir.
-- [ ] Implementar preparación diferida de Quick Look con Blob URL local, carga/reintento acotados, revocación y limpieza. Nunca invocar Scene Viewer para un Blob local.
-- [ ] Ejecutar `node --test tests/unit_glb_ar.cjs tests/unit_maquette_math.cjs` y verificar poses con fuente XR falsa.
-- [ ] Registrar resultado y commit del componente.
+- [x] Escribir RED con sesión XR simulada: requestSession denegada, sesión tardía tras dispose, hit-test sin resultados, colocación y restauración. Usar Three real para matrices.
+- [x] Implementar requestSession en acción de usuario con hit-test requerido y dom-overlay opcional, retícula y transformación en metros; detener fuentes/eventos/loops al salir.
+- [x] Implementar preparación diferida de Quick Look con Blob URL local, carga/reintento acotados, revocación y limpieza. Nunca invocar Scene Viewer para un Blob local.
+- [x] Ejecutar `node --test tests/unit_glb_ar.cjs tests/unit_maquette_math.cjs` y verificar poses con fuente XR falsa.
+- [x] Registrar resultado y commit del componente.
 
 ### Task 3: Interfaz compartida y entradas
 
@@ -55,11 +55,11 @@
 
 **Interfaces:** `AgelMaquette.mount(host,{blob,title,onClose,onLoaded})` devuelve `dispose()`; el propietario de la entrada controla permisos y cierre. `onModel` abre el modelo GLB público en diálogo; la entrada local conserva `onLocalModel`.
 
-- [ ] Escribir RED de navegador: `get_by_role('combobox',name='Vista de maqueta')`, vistas, zoom, giro, filtros, ausencia AR, error GLB y cierre. Repetir ruta local con cambio de cuenta y cero escrituras.
-- [ ] Construir interfaz, panel plegable, barra de cámara y controles AR con estados. En móvil iniciar filtros plegados; no ocultar todos los controles detrás del panel.
-- [ ] Conectar carga local y diálogo público; mantener glTF público anterior y no descargar SDK antes del clic.
-- [ ] Ejecutar pruebas nuevas y suites GLB/local existentes. Inspeccionar capturas de escritorio y móvil en un lote; corregir defectos juntos y confirmar una vez.
-- [ ] Registrar resultado y commit de la integración.
+- [x] Escribir RED de navegador: `get_by_role('combobox',name='Vista de maqueta')`, vistas, zoom, giro, filtros, ausencia AR, error GLB y cierre. Repetir ruta local con cambio de cuenta y cero escrituras.
+- [x] Construir interfaz, panel plegable, barra de cámara y controles AR con estados. En móvil iniciar filtros plegados; no ocultar todos los controles detrás del panel.
+- [x] Conectar carga local y diálogo público; mantener glTF público anterior y no descargar SDK antes del clic.
+- [x] Ejecutar pruebas nuevas y suites GLB/local existentes. Inspeccionar capturas de escritorio y móvil en un lote; corregir defectos juntos y confirmar una vez.
+- [x] Registrar resultado y commit de la integración.
 
 ### Task 4: Verificación y publicación
 

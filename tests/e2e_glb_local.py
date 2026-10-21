@@ -22,7 +22,9 @@ with local_page('tests/fixtures/glb-viewer.html',setup=setup) as pg:
  assert pg.evaluate("viewer.snapshot().view")=='front'
  pg.evaluate("viewer.setSpin(true)");pg.wait_for_timeout(100)
  assert pg.evaluate('viewer.snapshot().spin') is True
- pg.evaluate("viewer.setSpin(false);viewer.setView('iso')")
+ pg.evaluate("viewer.setView('top')")
+ assert pg.evaluate('viewer.snapshot().spin') is False,'A chosen camera view must stop automatic rotation'
+ pg.evaluate("viewer.setView('iso')")
  before=canvas.screenshot()
  assert pg.evaluate("viewer.filter({preset:'mep'}).map(e=>e.name)")==['Tubería_01']
  pg.wait_for_timeout(100);assert before!=canvas.screenshot(),'Filter did not change rendered geometry'

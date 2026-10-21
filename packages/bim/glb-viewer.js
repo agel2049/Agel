@@ -38,9 +38,9 @@
   const content=new THREE.Group();content.add(model);scene.add(content);
   const centeredBounds=new THREE.Box3().setFromObject(content),extent=centeredBounds.getSize(new THREE.Vector3());
   if(!Number.isFinite(extent.length())||extent.length()<=0){release(model);draco.dispose();throw Error('El modelo no tiene dimensiones válidas.');}
-  scene.add(new THREE.HemisphereLight(0xffffff,0x737b89,1.7));
-  const key=new THREE.DirectionalLight(0xffffff,1.8);key.position.set(5,9,7);scene.add(key);
-  const fill=new THREE.DirectionalLight(0xc4d8ff,.7);fill.position.set(-5,3,-4);scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0xffffff,0x737b89,.85));
+  const key=new THREE.DirectionalLight(0xffffff,1.1);key.position.set(5,9,7);scene.add(key);
+  const fill=new THREE.DirectionalLight(0xc4d8ff,.35);fill.position.set(-5,3,-4);scene.add(fill);
   const byId=new Map(meshes.map(m=>[m.uuid,m]));let activeIds=new Set(byId.keys());
   function draw(){if(disposed||frame||renderer?.xr.isPresenting)return;frame=requestAnimationFrame(()=>{frame=0;if(!disposed&&!renderer.xr.isPresenting){if(spin)controls.update();renderer.render(scene,camera);if(spin)draw();}});}
   function fit(ids){
@@ -49,7 +49,7 @@
    if(box.isEmpty())return;const c=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3()),radius=Math.max(size.length()/2,.01),distance=radius/Math.sin(camera.fov*Math.PI/360)/Math.min(camera.aspect,1)*1.15;
    const direction=camera.position.clone().sub(controls.target);if(direction.lengthSq()<.001)direction.set(1,.65,1.5);direction.normalize();camera.position.copy(c).addScaledVector(direction,distance);camera.near=Math.max(radius/10000,.0001);camera.far=distance+radius*1000;camera.updateProjectionMatrix();controls.target.copy(c);controls.maxDistance=Math.max(distance*50,100);controls.update();draw();
   }
-  function setView(name){if(disposed||renderer.xr.isPresenting)return;const pose=AgelMaquetteMath.view(name);currentView=name;camera.up.fromArray(pose.up);camera.position.copy(controls.target).add(new THREE.Vector3(...pose.direction));fit();}
+  function setView(name){if(disposed||renderer.xr.isPresenting)return;const pose=AgelMaquetteMath.view(name);setSpin(false);currentView=name;camera.up.fromArray(pose.up);camera.position.copy(controls.target).add(new THREE.Vector3(...pose.direction));fit();}
   function zoom(factor){if(!Number.isFinite(factor)||factor<=0||disposed||renderer.xr.isPresenting)return;const v=camera.position.clone().sub(controls.target);v.multiplyScalar(factor);v.setLength(Math.max(camera.near*3,Math.min(v.length(),controls.maxDistance)));camera.position.copy(controls.target).add(v);controls.update();draw();}
   function setSpin(value){spin=!!value&&!disposed&&!renderer?.xr.isPresenting;if(controls){controls.autoRotate=spin;controls.autoRotateSpeed=.6;}draw();}
   function pan(x,y){if(disposed||renderer.xr.isPresenting||!Number.isFinite(x)||!Number.isFinite(y))return;camera.updateMatrixWorld();const distance=camera.position.distanceTo(controls.target)*Math.tan(camera.fov*Math.PI/360),delta=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0).multiplyScalar(x*distance).add(new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,1).multiplyScalar(y*distance));camera.position.add(delta);controls.target.add(delta);controls.update();draw();}

@@ -140,7 +140,8 @@
       document.body.classList.add('sr-immersive');
       const host=h('div');app.querySelector('.sr-top')?.after(host);if(!host.isConnected)app.prepend(host);
       const onLocalModel=state.preview==='local'?()=>{const u=new URL(ROOT+'apps/bim/',location.href);u.searchParams.set('local',params.get('local'));u.searchParams.set('return',location.pathname+location.search+location.hash);location.href=u.href;}:null;
-      state.navigation=AgelShowroomNavigation.create(m);state.experience=AgelShowroomExperience.mount(host,{manifest:m,navigation:state.navigation,onLocalModel,openTour:args=>AgelTourBridge.open({...args,openExisting:openTour})});
+      const onModel=/\.glb(\?|$)/i.test(m.content.model3d?.url||'')?()=>openMaquetteModel().catch(()=>{}):null;
+      state.navigation=AgelShowroomNavigation.create(m);state.experience=AgelShowroomExperience.mount(host,{manifest:m,navigation:state.navigation,onLocalModel,onModel,openTour:args=>AgelTourBridge.open({...args,openExisting:openTour})});
     }else document.body.classList.remove('sr-immersive');
     loadSelection();
     if(!state.experience){bindHorizon();bindExplore();}bindUnits(); bindTourButtons(); bindGallery(); bindForm(); bindModel();
@@ -721,12 +722,33 @@
 
   // ── modelo 3D (model-viewer, se descarga solo al pedirlo) ────────────
   const MODEL_VIEWER = 'https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js';
+  let maquetteSDK;
+  async function loadMaquette(){
+    if(window.AgelMaquette)return;if(maquetteSDK)return maquetteSDK;
+    maquetteSDK=(async()=>{for(const path of ['classify.js','glb-filters.js','maquette-math.js','glb-ar.js','glb-viewer.js','maquette.js']){
+      await new Promise((resolve,reject)=>{const script=h('script',{src:ROOT+'packages/bim/'+path});script.onload=resolve;script.onerror=()=>{script.remove();reject(Error('No se pudo cargar el visor. Revisa la conexión y vuelve a intentar.'));};document.head.append(script);});
+    }})();try{await maquetteSDK;}catch(e){maquetteSDK=null;throw e;}
+  }
+  async function openMaquetteModel(){
+    if(document.querySelector('.mq-dialog'))return;
+    const previous=document.activeElement,dialog=h('dialog',{class:'mq-dialog','aria-label':'Maqueta virtual'}),message=h('p',{role:'status'},'Cargando maqueta…'),cancel=h('button',{type:'button',class:'sr-btn',onclick:()=>dialog.close()},'Cerrar maqueta');
+    const loading=h('div',{class:'mq-loading'},h('h2',{},state.m.content.model3d.title||'Maqueta virtual'),message,cancel);put(dialog,loading);document.body.append(dialog);dialog.showModal();
+    const request=new AbortController();let pane,closed=false;
+    const cleanup=()=>{if(closed)return;closed=true;request.abort();pane?.dispose();dialog.remove();window.removeEventListener('pagehide',cleanup);if(previous?.isConnected)previous.focus();};dialog.addEventListener('close',cleanup,{once:true});window.addEventListener('pagehide',cleanup,{once:true});
+    try{
+      await loadMaquette();if(closed)return;
+      const response=await fetch(state.m.content.model3d.url,{signal:request.signal,credentials:'omit',referrerPolicy:'no-referrer'});if(!response.ok)throw Error('No se pudo descargar la maqueta. Revisa la conexión y vuelve a intentar.');
+      const blob=await response.blob();if(closed)return;loading.remove();
+      pane=AgelMaquette.mount(dialog,{blob,title:state.m.content.model3d.title,onClose:()=>dialog.close()});await pane.ready;
+    }catch(e){if(!closed&&!pane){message.textContent=e.message||'No se pudo abrir el modelo.';loading.append(h('button',{type:'button',class:'sr-btn',onclick:()=>{dialog.close();openMaquetteModel().catch(()=>{});}},'Reintentar'));}}
+  }
   function bindModel() {
     const stage = $('.sr-model-stage');
     if (!stage) return;
     $('[data-model-open]', stage).addEventListener('click', async e => {
       const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Cargando modelo…';
       try {
+        if(/\.glb(\?|$)/i.test(state.m.content.model3d.url)){await openMaquetteModel();btn.disabled=false;btn.textContent='Ver en 3D';return;}
         if (!customElements.get('model-viewer')) await new Promise((res, rej) => {
           const s = h('script', { type: 'module', src: MODEL_VIEWER }); s.onload = res; s.onerror = () => rej(new Error('descarga'));
           document.head.append(s);
