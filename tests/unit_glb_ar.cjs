@@ -53,3 +53,35 @@ test('a hit is required, vertical surfaces are ignored and piece visibility is p
  const horizontal=new THREE.Matrix4().makeTranslation(0,0,-1).toArray();f.renderer.loop(0,{getHitTestResults:()=>[{getPose:()=>({transform:{matrix:horizontal}})}]});f.session.dispatchEvent(new Event('select'));assert.equal(f.model.visible,true);assert.equal(child.layers.mask,0);
  await ar.end();assert.equal(child.layers.mask,0);ar.dispose();child.geometry.dispose();child.material.dispose();
 });
+test('a late canceled permission cannot clean up a newer session',async()=>{
+ let resolve;const old=fixture(),f=fixture();let calls=0;
+ f.xr.requestSession=()=>++calls===1?new Promise(r=>resolve=r):Promise.resolve(f.session);
+ const ar=AR.create(f.config),first=ar.start();await ar.end();await ar.start();
+ resolve(old.session);await assert.rejects(first,/cancel/i);
+ assert.equal(old.session.ended,1);assert.equal(f.session.source.cancelled,0);assert.equal(f.renderer.xr.isPresenting,true);
+ await ar.end();assert.equal(f.session.ended,1);assert.equal(f.renderer.xr.isPresenting,false);ar.dispose();
+});
+test('AR uses physical clip distances and restores model-unit clip distances',async()=>{
+ const f=fixture();f.camera.near=5;f.camera.far=500000;const ar=AR.create(f.config);
+ await ar.start();assert.equal(f.camera.near,.01);assert.equal(f.camera.far,100);
+ await ar.end();assert.equal(f.camera.near,5);assert.equal(f.camera.far,500000);ar.dispose();
+});
+test('canceled initialization restores the actual Three r128 XR manager after its late continuation',async()=>{
+ const fs=require('node:fs'),path=require('node:path'),base=path.dirname(require.resolve('three/package.json',{paths:[path.join(__dirname,'vendor')]}));
+ const read=file=>fs.readFileSync(path.join(base,'src',file),'utf8').replace(/^import .*;\s*$/gm,'').replace(/^export .*;\s*$/gm,'');
+ const WebGLAnimation=Function(read('renderers/webgl/WebGLAnimation.js')+';return WebGLAnimation;')();
+ const WebXRManager=Function('ArrayCamera','EventDispatcher','PerspectiveCamera','Vector3','Vector4','WebGLAnimation',read('renderers/webxr/WebXRManager.js')+';return WebXRManager;')(THREE.ArrayCamera,THREE.EventDispatcher,THREE.PerspectiveCamera,THREE.Vector3,THREE.Vector4,WebGLAnimation);
+ const f=fixture();let resolveLocal,entered;const waiting=new Promise(r=>entered=r);let frames=0;
+ f.session.requestReferenceSpace=type=>type==='viewer'?Promise.resolve({}):new Promise(r=>{resolveLocal=r;entered();});
+ f.session.updateRenderState=()=>{};f.session.requestAnimationFrame=()=>++frames;f.session.cancelAnimationFrame=()=>{frames--;};
+ f.renderer.state={bindXRFramebuffer(){}};f.renderer.getRenderTarget=()=>null;f.renderer.setRenderTarget=()=>{};
+ f.renderer.xr=new WebXRManager(f.renderer,{getContextAttributes:()=>({xrCompatible:true})});
+ let ended=false;f.session.end=async()=>{if(ended)return;ended=true;f.session.ended++;f.session.dispatchEvent(new Event('end'));};
+ global.XRWebGLLayer=class{};
+ let draws=0;f.config.draw=()=>{draws++;};
+ const ar=AR.create(f.config),start=ar.start();await waiting;await ar.end();
+ await assert.rejects(ar.start(),/abriendo/,'renderer setup must finish before starting another session');
+ resolveLocal({});await assert.rejects(start,/cancel/i);
+ assert.equal(f.renderer.xr.isPresenting,false);assert.equal(f.renderer.xr.enabled,false);assert.equal(f.renderer.loop,null);assert.equal(frames,0,'late animation must be stopped');assert.equal(f.renderer.xr.getSession(),null);assert.ok(draws>0);
+ ar.dispose();delete global.XRWebGLLayer;
+});

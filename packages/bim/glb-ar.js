@@ -3,10 +3,10 @@
  'use strict';
  const math=typeof module!=='undefined'&&module.exports?require('./maquette-math.js'):root.AgelMaquetteMath;
  function create({renderer,scene,camera,model,bounds,controls,onState=()=>{},draw=()=>{},three: T=root.THREE,xr=root.navigator?.xr,secure=root.isSecureContext}){
-  let session=null,source=null,reticle=null,saved=null,overlay=null,closed=false,busy=false,live=false,nonce=0,anchor=null,size=1,rotation=0;
+  let session=null,source=null,reticle=null,saved=null,overlay=null,closed=false,busy=false,settingUp=false,live=false,nonce=0,anchor=null,size=1,rotation=0;
   const extent=Math.max(...bounds.getSize(new T.Vector3()).toArray());math.scaleFor(extent,size);
   const emit=(state,message)=>{if(!closed)onState({state,message,overlay:!!session?.domOverlayState});};
-  const cancelled=()=>Error('Visor cerrado o sesión cancelada.');
+  const cancelled=()=>Object.assign(Error('Visor cerrado o sesión cancelada.'),{name:'AbortError'});
   async function supported(){try{return !closed&&!!secure&&!!xr&&await xr.isSessionSupported('immersive-ar');}catch{return false;}}
   function apply(){if(!anchor)return;const scale=math.scaleFor(extent,size);model.matrix.copy(anchor).multiply(new T.Matrix4().makeRotationY(rotation)).scale(new T.Vector3(scale,scale,scale)).multiply(new T.Matrix4().makeTranslation(0,-bounds.min.y,0));model.matrixWorldNeedsUpdate=true;}
   function select(){if(!live||anchor||!reticle?.visible)return;anchor=reticle.matrix.clone();apply();model.visible=true;reticle.visible=false;emit('placed','Maqueta colocada. Muévete alrededor para explorar.');}
@@ -36,7 +36,7 @@
    renderer.render(scene,camera);
   }
   async function start(rootOverlay){
-   if(closed)throw cancelled();if(busy||session)throw Error('Ya se está abriendo una sesión de cámara.');
+   if(closed)throw cancelled();if(busy||settingUp||session)throw Error('Ya se está abriendo una sesión de cámara.');
    if(!secure||!xr)throw Error('La cámara AR requiere HTTPS y un dispositivo compatible.');
    busy=true;const ticket=++nonce;emit('starting','Activando cámara…');let acquired;
    const valid=()=>{if(closed||ticket!==nonce)throw cancelled();};
@@ -47,14 +47,31 @@
     const ref=await session.requestReferenceSpace('viewer');valid();
     const hit=await session.requestHitTestSource({space:ref});if(closed||ticket!==nonce){hit.cancel();throw cancelled();}source=hit;
     model.updateMatrix();saved={matrix:model.matrix.clone(),auto:model.matrixAutoUpdate,visible:model.visible,background:scene.background,alpha:renderer.getClearAlpha(),position:camera.position.clone(),quaternion:camera.quaternion.clone(),up:camera.up.clone(),near:camera.near,far:camera.far,target:controls.target.clone(),controls:controls.enabled};
+    camera.near=.01;camera.far=100;camera.updateProjectionMatrix();
     model.matrixAutoUpdate=false;model.visible=false;controls.enabled=false;scene.background=null;renderer.setClearAlpha(0);
     overlay=rootOverlay;overlay?.addEventListener('beforexrselect',beforeSelect);
     reticle=new T.Mesh(new T.RingGeometry(.065,.085,48).rotateX(-Math.PI/2),new T.MeshBasicMaterial({color:0xb89d74,side:T.DoubleSide}));reticle.matrixAutoUpdate=false;reticle.visible=false;scene.add(reticle);
-    renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local');await renderer.xr.setSession(session);valid();
+    renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local');
+    // Three r128 completes setSession after async reference-space setup. Defer its
+    // end handler until that continuation finishes so it cannot revive a dead session.
+    const deferEnd=event=>event.stopImmediatePropagation();settingUp=true;
+    acquired.addEventListener('end',deferEnd);
+    try{await renderer.xr.setSession(acquired);}finally{
+     acquired.removeEventListener('end',deferEnd);
+     if(closed||ticket!==nonce){
+      if(renderer.xr.isPresenting)acquired.dispatchEvent(new Event('end'));
+      renderer.xr.isPresenting=false;renderer.xr.enabled=false;renderer.setAnimationLoop(null);
+      await renderer.xr.setSession(null);queueMicrotask(draw);
+     }
+     settingUp=false;
+    }
+    valid();
     busy=false;live=true;renderer.setAnimationLoop(tick);emit('searching','Apunta a una mesa o al suelo. Toca el círculo para colocar la maqueta.');
    }catch(error){
+    const owns=ticket===nonce;
     if(acquired){try{await acquired.end();}catch{/* Already ended by the user. */}}
-    cleanup();if(closed)throw cancelled();
+    if(owns&&ticket===nonce)cleanup();
+    if(!owns||closed||error.name==='AbortError')throw cancelled();
     const message=error.name==='NotAllowedError'?'No se activó la cámara. Permite su uso en el navegador y vuelve a intentar.':error.name==='NotSupportedError'?'Este dispositivo no permite colocar la maqueta con WebXR. Puedes seguir explorándola en 3D.':error.message==='Visor cerrado o sesión cancelada.'?error.message:'No se pudo iniciar AR. Cierra otra sesión de cámara y vuelve a intentar.';
     emit('error',message);throw Error(message);
    }

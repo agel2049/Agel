@@ -67,7 +67,7 @@
 
 **Interfaces:** CI incluye pruebas nuevas y existentes; documentación distingue controles disponibles de la comprobación física pendiente.
 
-- [ ] Incorporar comandos: `node --test tests/unit_maquette_math.cjs tests/unit_glb_ar.cjs` y `python tests/e2e_maquette.py`.
-- [ ] Ejecutar sintaxis, módulos, suites UI afectadas y comprobar hash de panorama contra base. Verificar diff y ausencia de secretos.
-- [ ] Revisión independiente de rama completa; corregir problemas importantes con regresión antes de publicar.
+- [x] Incorporar comandos: `node --test tests/unit_maquette_math.cjs tests/unit_glb_ar.cjs` y `python tests/e2e_maquette.py`.
+- [x] Ejecutar sintaxis, módulos, suites UI afectadas y comprobar hash de panorama contra base. Verificar diff y ausencia de secretos.
+- [x] Revisión independiente de rama completa; corregir problemas importantes con regresión antes de publicar.
 - [ ] Publicar mediante PR/CI usando la autorización existente; comprobar la versión desplegada y entregar instrucciones y límites físicos AR.

@@ -7,7 +7,7 @@
 3. Ve a **Modelos y 4D → Ver GLB local**, o abre la vista previa local del showroom y pulsa **Modelo 3D local**.
 4. El archivo permanece en el dispositivo. Esta ruta no lo publica ni lo carga a Supabase o Autodesk.
 
-El GLB debe estar en el mismo navegador y dispositivo donde lo guardaste, con su cuenta correspondiente. Un enlace o QR no transfiere los archivos locales a otro teléfono. Para probarlo en el móvil, agrega allí el archivo.
+El GLB debe estar en el mismo navegador y dispositivo donde lo guardaste, con su cuenta correspondiente. Actualmente, un enlace o QR no transfiere los archivos locales a otro teléfono. Para probarlo en el móvil, agrega allí el archivo.
 
 ## Controles de maqueta
 
@@ -50,3 +50,13 @@ Los modelos glTF públicos existentes mantienen su ruta anterior. La publicació
 Se verifican automáticamente cámara virtual, filtros, teclado, móvil/escritorio, apertura pública, retorno, cambios de cuenta y ausencia de escrituras a nube en la ruta local. El ciclo AR se prueba con sesiones simuladas: superficie, colocación, tamaño, recolocación, negación de permisos, cancelación tardía y restauración. Quick Look se simula en las pruebas del flujo; no se declara validada su conversión nativa.
 
 **Pendiente de validación física:** un Android con ARCore y un iPhone/iPad reales, incluyendo cámara, colocación, seguimiento y apariencia de un modelo del usuario. No se ha realizado una conversión RVT/NWD real. No hay cambios de esquema ni modificaciones del motor panorámico.
+
+## Compartir temporalmente con otro celular: propuesta siguiente
+
+Es posible añadir **Compartir temporalmente → abrir con QR**, sin publicar el modelo en Supabase ni configurar el proyecto en el celular. El QR enlazaría una sesión y el equipo de origen enviaría el GLB al teléfono. El teléfono necesita recibir los datos para renderizarlos; se podría mantener la copia durante la sesión, sin guardado permanente en el catálogo.
+
+La opción propuesta es transferencia WebRTC. Requiere un servicio de señalización y, en redes que impiden conexión directa, un retransmisor TURN. Este retransmisor puede generar tráfico y costos: no se ha contratado ni activado ninguno. Una alternativa dentro de la misma red es servir el archivo desde la computadora; para AR el teléfono necesita un origen HTTPS válido.
+
+**Esta función de intercambio todavía no está implementada.** La computadora debe permanecer disponible durante el envío. La memoria y capacidad gráfica del teléfono siguen limitando el tamaño práctico del modelo.
+
+Referencias oficiales: [transferencia de datos WebRTC](https://webrtc.org/getting-started/data-channels) y [conexión, señalización y TURN](https://webrtc.org/getting-started/peer-connections).
