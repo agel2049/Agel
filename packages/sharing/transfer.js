@@ -94,6 +94,9 @@
         }
         if(data.length>8192)throw Error('Mensaje demasiado grande');const m=JSON.parse(data);
         if(!m||typeof m!=='object')throw Error('Mensaje inválido');
+        // These two bounded control messages belong to remote-model.js on the
+        // same reliable channel; its listener validates their own schemas.
+        if(m.op==='model'||m.op==='model-state')return;
         if(m.op==='hello'){if(!Number.isInteger(m.maxMessageSize)||m.maxMessageSize<256)throw Error('Límite inválido');frameSize=Math.min(frameSize,m.maxMessageSize);return;}
         if(m.op==='close'){close(undefined,false);return;}
         if(!idOK(m.id))throw Error('Solicitud inválida');

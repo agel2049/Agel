@@ -66,6 +66,9 @@ test('progress identifies the asset on both ends after a bounded read',async t=>
  const a=new Channel(),b=new Channel();a.other=b;b.other=a;const hostProgress=[],guestProgress=[];
  const host=T.serve(a,{assets:new Map([['asset',{getBlob:async()=>new Blob(['abc'],{type:'image/png'})}]]),onProgress:p=>hostProgress.push(p)}),guest=T.receive(b,{onProgress:p=>guestProgress.push(p)});t.after(()=>{guest.close();host.close();});await collect(open(guest));assert.deepEqual(hostProgress,[{asset:'asset',bytes:3}]);assert.deepEqual(guestProgress,[{asset:'asset',bytes:3}]);
 });
+test('model controls share the channel without closing media; other idless messages are rejected',async t=>{
+ const {guest,b}=setup(t);for(const op of ['model','model-state'])b.dispatchEvent(new MessageEvent('message',{data:JSON.stringify({op,action:'open'})}));const result=await collect(open(guest));assert.equal(result.first.status,200);assert.equal(Buffer.concat(result.chunks).toString(),'0123456789');b.dispatchEvent(new MessageEvent('message',{data:JSON.stringify({op:'unexpected'})}));const p=open(guest);assert.equal((await p.next()).op,'error');p.close();
+});
 function worker(){const events={},clients=new Map();const context={URL,Response,Request,Headers,ReadableStream,MessageChannel,ArrayBuffer,Uint8Array,setTimeout,clearTimeout,console,self:{location:{href:'https://example.test/apps/share/media-worker.js'},clients:{get:async id=>clients.get(id),claim:async()=>{}},skipWaiting:async()=>{},addEventListener:(name,fn)=>{events[name]=fn;}}};vm.runInNewContext(fs.readFileSync(require.resolve('../apps/share/media-worker.js'),'utf8'),context);return {events,clients};}
 const session='11111111-1111-4111-8111-111111111111',asset='22222222-2222-4222-8222-222222222222';
 test('worker streams media using a live session owner and rejects missing bindings and executable paths',async()=>{
