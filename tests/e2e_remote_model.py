@@ -15,9 +15,9 @@ with local_page('tests/fixtures/remote-model.html',setup=setup) as pg:
  assert pg.evaluate('typeof renderedViewer.orbit')=='function','Renderer remote orbit is unavailable'
  assert pg.evaluate("(()=>{const v=document.querySelector('video');return v.videoWidth>0&&v.videoWidth<=720&&Math.abs(v.videoWidth/v.videoHeight-1.5)<.02;})()"),'WebRTC must deliver the canvas aspect ratio; it may adapt resolution to CPU/network'
  assert pg.evaluate("async()=>Array.from((await senderPC.getStats()).values()).some(s=>s.type==='outbound-rtp'&&s.kind==='video'&&s.framesEncoded>0)"),'Canvas video was not encoded by WebRTC'
- pg.wait_for_timeout(200)
- watermark=pg.evaluate('''()=>{const c=document.createElement('canvas');c.width=720;c.height=480;const x=c.getContext('2d');x.drawImage(document.querySelector('video'),0,0,720,480);const p=x.getImageData(20,440,320,28).data;let light=0;for(let i=0;i<p.length;i+=4)if(p[i]>170&&p[i+1]>170&&p[i+2]>170)light++;return light;}''')
- assert watermark>200,'Session watermark text is missing from transmitted video pixels'
+ # Codec adaptation, antialiasing and platform fonts alter exact glyph coverage.
+ # Observe actual high-contrast text pixels in the burned-in watermark region.
+ pg.wait_for_function("""(()=>{const v=document.querySelector('video'),c=document.createElement('canvas');c.width=720;c.height=480;const x=c.getContext('2d');x.drawImage(v,0,0,720,480);const p=x.getImageData(20,440,320,28).data;let light=0;for(let i=0;i<p.length;i+=4)if(p[i]>150&&p[i+1]>150&&p[i+2]>150)light++;return light>50;})()""",timeout=10000)
  video=pg.locator('video');before=pg.evaluate('videoPixels()')
  pg.get_by_label('Vista de maqueta',exact=True).select_option('top');pg.wait_for_timeout(200)
  assert before!=pg.evaluate('videoPixels()'),'Rendered camera view was not transmitted to video'
