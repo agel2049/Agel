@@ -813,6 +813,34 @@ def showroom_experience_solo_imagen_publicable(w):
     pub=w.run('ana','select public.create_publication(%s,%s,%s)',(p,'showroom','solo-imagen'),fetch='val')
     check(w.run('ana','select public.create_publication_version(%s)',(pub,),fetch='val') is not None,'imagen no publicable')
 
+@test
+def temporary_sharing_private_project_broadcast(w):
+    org=w.org('ana'); project=w.project('ana',org); other=w.project('ana',org)
+    w.add_member('ana',project,'lector','viewer'); w.user('ajeno')
+    good=f'agel-share:{project}:{uuid.uuid4()}'
+    # Realtime probes INSERT/SELECT inside a transaction and rolls it back.
+    # Seeded rows stand in for those probes; no application message is persisted.
+    for topic, extension in [(good,'broadcast'),(good,'presence')]:
+        w.conn.execute('insert into realtime.messages(topic,extension) values(%s,%s)',(topic,extension))
+    def count(who, topic):
+        w.conn.execute("select set_config('realtime.topic',%s,false)",(topic,))
+        return w.run(who,"select count(*) from realtime.messages",fetch='val')
+    for who in ['ana','lector']:
+        check(count(who,good)==1,f'{who} cannot receive project broadcast')
+        check(w.run(who,"insert into realtime.messages(topic,extension) values(%s,'broadcast') returning id",(good,),fetch='val') is not None,f'{who} cannot send')
+        # Remove this authorization probe with the fixture owner.
+        w.conn.execute("delete from realtime.messages where extension='broadcast' and topic=%s and id not in (select id from realtime.messages where topic=%s order by ctid limit 1)",(good,good))
+    check(count('anon',good)==0,'anonymous can receive')
+    check(count('ajeno',good)==0,'outsider can receive')
+    denied_topics=[f'agel-share:{other}:{uuid.uuid4()}',f'agel-share:{project}:bad',f'agel-share:bad:{uuid.uuid4()}',good+':extra','other:'+good,good+'\n']
+    for topic in denied_topics:
+        check(count('lector',topic)==0,'malformed/other project topic can receive')
+    for who,topic,extension in [('anon',good,'broadcast'),('ajeno',good,'broadcast'),('lector',good,'presence')]+[('lector',t,'broadcast') for t in denied_topics]:
+        w.conn.execute("select set_config('realtime.topic',%s,false)",(topic,))
+        check(w.denied(who,"insert into realtime.messages(topic,extension) values(%s,%s)",(topic,extension)),f'{who} can send to {topic}/{extension}')
+    w.run('ana','delete from public.project_members where project_id=%s and user_id=%s',(project,w.user('lector')),fetch='none')
+    check(count('lector',good)==0,'revoked member retains authorization')
+
 # ───────────────────────── ejecución ─────────────────────────
 def main():
     only = sys.argv[sys.argv.index('-k') + 1] if '-k' in sys.argv else None

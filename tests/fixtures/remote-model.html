@@ -1,0 +1,19 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="../../packages/bim/maquette.css"><style>body{margin:0}#source{position:fixed;left:-1200px;top:0;width:720px;height:480px}#receiver{min-height:480px}</style><div id="source"></div><div id="receiver"></div>
+<script src="../../packages/bim/classify.js"></script><script src="../../packages/bim/glb-filters.js"></script><script src="../../packages/bim/maquette-math.js"></script><script src="../../packages/bim/glb-viewer.js"></script><script src="../../packages/sharing/remote-model.js"></script>
+<script>
+window.mountRemote=async bytes=>{
+ const blob=new Blob([new Uint8Array(bytes)],{type:'model/gltf-binary'});window.remoteStates=[];window.remoteCommands=[];
+ const originalOpen=AgelGLB.open;window.drawnFrames=0;AgelGLB.open=async(container,options)=>{const view=await originalOpen(container,{...options,onFrame:canvas=>{drawnFrames++;options.onFrame?.(canvas);}});window.renderedViewer=view;return view;};
+ const workspace={load:async()=>({showroom:{model3d:{url:'agel-local:own',title:'Maqueta local transmitida'}},media:[{ref:'agel-local:own'}]}),store:{get:async()=>({blob})},onClose:()=>()=>{}};
+ window.remoteHost=AgelSharedModel.host({workspace,container:document.getElementById('source'),sessionId:'abcdef01-1234-4567-8910-abcdef012345',send:m=>{remoteStates.push(m);remoteMount?.handle(m);}});
+ let stream=remoteHost.stream;
+ if(window.useRTC){
+  window.senderPC=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});window.receiverPC=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+  const incoming=new Promise(resolve=>{receiverPC.ontrack=event=>resolve(event.streams[0]);});for(const track of stream.getTracks())senderPC.addTrack(track,stream);
+  const gathered=pc=>pc.iceGatheringState==='complete'?Promise.resolve():new Promise(resolve=>{pc.addEventListener('icegatheringstatechange',()=>{if(pc.iceGatheringState==='complete')resolve();});});
+  await senderPC.setLocalDescription(await senderPC.createOffer());await gathered(senderPC);await receiverPC.setRemoteDescription(senderPC.localDescription);await receiverPC.setLocalDescription(await receiverPC.createAnswer());await gathered(receiverPC);await senderPC.setRemoteDescription(receiverPC.localDescription);stream=await incoming;
+ }
+ window.remoteMount=AgelSharedModel.mount(document.getElementById('receiver'),{stream,send:m=>{remoteCommands.push(m);remoteHost.handle(m);}});
+};
+window.videoPixels=()=>{const c=document.createElement('canvas');c.width=720;c.height=480;c.getContext('2d').drawImage(document.querySelector('video'),0,0,720,480);return c.toDataURL();};
+</script></html>

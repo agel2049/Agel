@@ -51,12 +51,10 @@ Se verifican automáticamente cámara virtual, filtros, teclado, móvil/escritor
 
 **Pendiente de validación física:** un Android con ARCore y un iPhone/iPad reales, incluyendo cámara, colocación, seguimiento y apariencia de un modelo del usuario. No se ha realizado una conversión RVT/NWD real. No hay cambios de esquema ni modificaciones del motor panorámico.
 
-## Compartir temporalmente con otro celular: propuesta siguiente
+## Compartir temporalmente con otro celular
 
-Es posible añadir **Compartir temporalmente → abrir con QR**, sin publicar el modelo en Supabase ni configurar el proyecto en el celular. El QR enlazaría una sesión y el equipo de origen enviaría el GLB al teléfono. El teléfono necesita recibir los datos para renderizarlos; se podría mantener la copia durante la sesión, sin guardado permanente en el catálogo.
+Desde el panel puedes abrir una sesión mediante **Compartir temporalmente → QR**. El receptor entra con una cuenta del proyecto, sin volver a configurar su catálogo ni subir los medios a Supabase. La sesión dura hasta 30 minutos y se termina desde la computadora.
 
-La opción propuesta es transferencia WebRTC. Requiere un servicio de señalización y, en redes que impiden conexión directa, un retransmisor TURN. Este retransmisor puede generar tráfico y costos: no se ha contratado ni activado ninguno. Una alternativa dentro de la misma red es servir el archivo desde la computadora; para AR el teléfono necesita un origen HTTPS válido.
+El 3D se transmite como imagen interactiva: **el GLB permanece en la computadora**. Por esa razón el modelo remoto no ofrece AR local en el celular. Se conservan los controles y filtros; la marca de agua forma parte de la imagen transmitida. Renders, panorámicas y videos se solicitan temporalmente cuando hacen falta. Capturas/grabación de pantalla siguen siendo posibles.
 
-**Esta función de intercambio todavía no está implementada.** La computadora debe permanecer disponible durante el envío. La memoria y capacidad gráfica del teléfono siguen limitando el tamaño práctico del modelo.
-
-Referencias oficiales: [transferencia de datos WebRTC](https://webrtc.org/getting-started/data-channels) y [conexión, señalización y TURN](https://webrtc.org/getting-started/peer-connections).
+Consulta [Compartir temporalmente](COMPARTIR-TEMPORALMENTE.md) para conexión, permisos, privacidad y limitaciones de redes sin TURN de pago.

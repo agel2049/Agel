@@ -108,3 +108,20 @@ end $$;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
 alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
+
+-- Realtime authorization probe table. This fixture only emulates rolled-back
+-- policy checks; production Realtime already owns this schema/table/function.
+create schema if not exists realtime;
+grant usage on schema realtime to anon, authenticated, service_role;
+create table if not exists realtime.messages (
+  id uuid primary key default gen_random_uuid(),
+  topic text not null,
+  extension text not null,
+  payload jsonb
+);
+alter table realtime.messages enable row level security;
+grant select, insert on realtime.messages to anon, authenticated, service_role;
+create or replace function realtime.topic() returns text language sql stable as $$
+  select nullif(current_setting('realtime.topic', true), '')
+$$;
+grant execute on function realtime.topic() to anon, authenticated, service_role;
