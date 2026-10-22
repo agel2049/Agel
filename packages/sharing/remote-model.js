@@ -14,6 +14,9 @@
   function placeholder(message){ctx.fillStyle='#101214';ctx.fillRect(0,0,720,480);ctx.fillStyle='#e6e4df';ctx.font='20px system-ui, sans-serif';ctx.fillText(message,40,230);watermark();}
   placeholder('Modelo transmitido desde la computadora');
   const stream=output.captureStream(15);
+  // Static Three.js views render only on demand. Keep publishing their last
+  // pixels so an encoder that becomes ready later can obtain its first frame.
+  const framePump=setInterval(()=>{if(!closed&&!paused){ctx.drawImage(output,0,0);for(const track of stream.getTracks())track.requestFrame?.();}},200);
   function publish(state,message){
    if(closed)return;
    const metadata={op:'model-state',state,title};
@@ -65,12 +68,12 @@
    else if(a==='spin'&&typeof message.enabled==='boolean')view.setSpin(message.enabled);
    else if(a==='filter'&&PRESETS.some(([v])=>v===message.preset)){activePreset=message.preset;view.filter({preset:activePreset});view.fit();publish('ready');}
   }
-  function close(){if(closed)return;closed=true;paused=true;epoch++;aborter.abort();unsubscribe?.();view?.dispose();view=null;for(const track of stream.getTracks())track.stop();stage.remove();}
+  function close(){if(closed)return;closed=true;paused=true;epoch++;clearInterval(framePump);aborter.abort();unsubscribe?.();view?.dispose();view=null;for(const track of stream.getTracks())track.stop();stage.remove();}
   unsubscribe=workspace.onClose?.(close);return {stream,handle,close};
  }
  function h(tag,attrs={},...children){const element=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(v===null||v===undefined||v===false)continue;if(k.startsWith('on'))element.addEventListener(k.slice(2),v);else element.setAttribute(k,String(v));}for(const c of children.flat())element.append(c?.nodeType?c:document.createTextNode(String(c)));return element;}
  function mount(container,{stream,send,title='Maqueta transmitida',onClose}){
-  let disposed=false,ready=false,spin=false,pointer=null,lastMove=0,expanded=!matchMedia('(max-width:700px)').matches;
+  let disposed=false,ready=false,spin=false,panMode=false,pointer=null,lastMove=0,expanded=!matchMedia('(max-width:700px)').matches;
   const command=(action,extra={})=>{if(!disposed)try{send({op:'model',action,...extra});}catch{report('Se perdió la conexión. Vuelve a abrir la sesión.');}};
   const button=(text,fn,attrs={})=>h('button',{type:'button',...attrs,onclick:fn},text);
   const error=h('p',{class:'mq-error',role:'alert'}),count=h('p',{class:'mq-count',role:'status'},'Preparando el modelo…');
@@ -83,17 +86,20 @@
   const heading=h('h1',{},String(title).slice(0,120)),top=h('header',{class:'mq-top'},button('Cerrar maqueta',requestClose),heading,toggle);
   const views=h('select',{'aria-label':'Vista de maqueta',disabled:true,onchange:()=>{command('view',{view:views.value});spin=false;rotate.setAttribute('aria-pressed','false');}},...VIEWS.map(([value,label])=>h('option',{value},label)));
   const fit=button('Encuadrar',()=>command('fit'),{disabled:true}),near=button('+',()=>command('zoom',{factor:.8}),{'aria-label':'Acercar maqueta',disabled:true}),far=button('−',()=>command('zoom',{factor:1.25}),{'aria-label':'Alejar maqueta',disabled:true}),rotate=button('Giro automático',()=>{spin=!spin;command('spin',{enabled:spin});rotate.setAttribute('aria-pressed',String(spin));},{disabled:true,'aria-pressed':'false'});
+  function stopSpin(){if(spin)command('spin',{enabled:false});spin=false;rotate.setAttribute('aria-pressed','false');}
+  const move=button('Mover vista',()=>{panMode=!panMode;stopSpin();move.setAttribute('aria-pressed',String(panMode));help.textContent=panMode?'Arrastra para mover la vista · Desactiva Mover vista para girar':'Arrastra para girar · Activa Mover vista para desplazar · + y − para acercar';},{disabled:true,'aria-pressed':'false'});
   const play=button('Reproducir modelo',()=>{video.play().then(()=>{play.hidden=true;}).catch(()=>report('Pulsa Reproducir modelo para continuar.'));});
   const retry=button('Reintentar',()=>{error.textContent='';command('open');video.play().catch(()=>{play.hidden=false;});},{hidden:true});
-  const camera=h('nav',{class:'mq-camera','aria-label':'Controles de maqueta'},views,fit,near,far,rotate),controls=[views,fit,near,far,rotate];
-  const shell=h('section',{class:'ag-maquette','aria-label':'Maqueta transmitida'},h('div',{class:'mq-stage'},video),top,panel,h('footer',{class:'mq-bottom'},error,retry,play,h('p',{class:'mq-ar-note'},'Modelo transmitido; el original permanece en la computadora.'),h('p',{class:'mq-help'},'Arrastra para girar · + y − para acercar · WASD o flechas para desplazar'),camera));container.append(shell);
+  const camera=h('nav',{class:'mq-camera','aria-label':'Controles de maqueta'},views,fit,near,far,move,rotate),controls=[views,fit,near,far,move,rotate];
+  const help=h('p',{class:'mq-help'},'Arrastra para girar · Activa Mover vista para desplazar · + y − para acercar');
+  const shell=h('section',{class:'ag-maquette','aria-label':'Maqueta transmitida'},h('div',{class:'mq-stage'},video),top,panel,h('footer',{class:'mq-bottom'},error,retry,play,h('p',{class:'mq-ar-note'},'Modelo transmitido; el original permanece en la computadora.'),help,camera));container.append(shell);
   function report(message){if(!disposed){error.textContent=message;retry.hidden=false;}}
   video.addEventListener('playing',()=>{play.hidden=true;});video.addEventListener('error',()=>report('No se pudo reproducir el modelo transmitido. Vuelve a intentar.'));
-  video.addEventListener('pointerdown',event=>{if(!ready)return;video.focus();pointer={id:event.pointerId,x:event.clientX,y:event.clientY};video.setPointerCapture(event.pointerId);spin=false;rotate.setAttribute('aria-pressed','false');});
-  video.addEventListener('pointermove',event=>{if(!pointer||pointer.id!==event.pointerId||!ready)return;const now=performance.now();if(now-lastMove<34)return;lastMove=now;command('orbit',{x:clamp((event.clientX-pointer.x)/Math.max(video.clientWidth,1),-.5,.5),y:clamp((event.clientY-pointer.y)/Math.max(video.clientHeight,1),-.5,.5)});pointer.x=event.clientX;pointer.y=event.clientY;});
+  video.addEventListener('pointerdown',event=>{if(!ready)return;video.focus();pointer={id:event.pointerId,x:event.clientX,y:event.clientY};try{video.setPointerCapture(event.pointerId);}catch{}stopSpin();});
+  video.addEventListener('pointermove',event=>{if(!pointer||pointer.id!==event.pointerId||!ready)return;const now=performance.now();if(now-lastMove<34)return;lastMove=now;command(panMode?'pan':'orbit',{x:clamp((event.clientX-pointer.x)/Math.max(video.clientWidth,1),-.5,.5),y:clamp((panMode?-1:1)*(event.clientY-pointer.y)/Math.max(video.clientHeight,1),-.5,.5)});pointer.x=event.clientX;pointer.y=event.clientY;});
   const pointerEnd=()=>{pointer=null;};video.addEventListener('pointerup',pointerEnd);video.addEventListener('pointercancel',pointerEnd);video.addEventListener('lostpointercapture',pointerEnd);
   video.addEventListener('wheel',event=>{if(!ready)return;event.preventDefault();const now=performance.now();if(now-lastMove<34)return;lastMove=now;command('zoom',{factor:event.deltaY>0?1.1:.9});},{passive:false});
-  video.addEventListener('keydown',event=>{if(!ready||event.altKey||event.ctrlKey||event.metaKey)return;const m={w:[0,.12],s:[0,-.12],a:[-.12,0],d:[.12,0],ArrowUp:[0,.12],ArrowDown:[0,-.12],ArrowLeft:[-.12,0],ArrowRight:[.12,0]}[event.key.length===1?event.key.toLowerCase():event.key];if(m){event.preventDefault();command('pan',{x:m[0],y:m[1]});}});
+  video.addEventListener('keydown',event=>{if(!ready||event.altKey||event.ctrlKey||event.metaKey)return;const m={w:[0,.12],s:[0,-.12],a:[-.12,0],d:[.12,0],ArrowUp:[0,.12],ArrowDown:[0,-.12],ArrowLeft:[-.12,0],ArrowRight:[.12,0]}[event.key.length===1?event.key.toLowerCase():event.key];if(m){event.preventDefault();stopSpin();command('pan',{x:m[0],y:m[1]});}});
   function handle(message){
    if(disposed||!message||message.op!=='model-state'||!['loading','ready','paused','error'].includes(message.state))return;
    ready=message.state==='ready';for(const c of controls)c.disabled=!ready;

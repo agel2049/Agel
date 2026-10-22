@@ -82,6 +82,12 @@
   }
 
   async function boot() {
+    if(window.AgelTemporarySession){
+      state.preview='temporary';
+      window.AgelTemporarySession.onClose(()=>{state.experience?.dispose();state.experience=null;document.querySelectorAll('dialog[open]').forEach(d=>d.close());});
+      try{const model=await window.AgelTemporarySession.ready;hydrate(null,'Temporal',model);}
+      catch(e){console.info('[showroom temporal]',e.message);}return;
+    }
     if(params.get('local')){
       try{if(!cloud?.user)throw Error('Inicia sesión con la cuenta que creó el borrador');const ws=await AgelWorkspace.open({cloud,ownerId:cloud.user.id,projectId:params.get('local')});state.preview='local';hydrate(null,'Local',await ws.previewManifest());window.addEventListener('pagehide',()=>ws.close(),{once:true});}
       catch(e){showState('Borrador local no disponible',e.message);}return;
@@ -349,7 +355,7 @@
   const selKey = () => `agel.sel.${state.slug || 'preview'}`;
   function loadSelection() {
     let ids = [];
-    try { ids = JSON.parse(localStorage.getItem(selKey()) || '[]'); } catch (_) {}
+    if(state.preview!=='temporary')try { ids = JSON.parse(localStorage.getItem(selKey()) || '[]'); } catch (_) {}
     const shared = params.get('sel');
     if (shared) {
       const asked = shared.split(',').map(s => s.trim().toLowerCase()).filter(Boolean).slice(0, MAX_SEL);
@@ -362,7 +368,7 @@
     state.sel = [...new Set(ids.filter(leaf))].slice(0, MAX_SEL);
     saveSelection();
   }
-  function saveSelection() { try { localStorage.setItem(selKey(), JSON.stringify(state.sel)); } catch (_) {} }
+  function saveSelection() { if(state.preview==='temporary')return;try { localStorage.setItem(selKey(), JSON.stringify(state.sel)); } catch (_) {} }
   function toggleSel(id) {
     const i = state.sel.indexOf(id);
     if (i >= 0) state.sel.splice(i, 1);
@@ -526,6 +532,17 @@
       openShot(e.images, ii, e.title || 'Avance de obra');
     }));
   }
+  // Session media belongs to this receiver client, so images must stay in-page.
+  document.addEventListener('click', event => {
+    if(state.preview!=='temporary'||event.defaultPrevented||event.button!==0)return;
+    const link=event.target.closest?.('a[href]');
+    if(!link)return;
+    const url=new URL(link.href,location.href),media=new URL('media/',location.href);
+    if(url.origin!==media.origin||!url.pathname.startsWith(media.pathname)||!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp|avif|gif)$/i.test(url.pathname.slice(media.pathname.length)))return;
+    event.preventDefault();link.focus();
+    const title=link.getAttribute('aria-label')||link.querySelector('img')?.alt||link.textContent.trim()||'Imagen';
+    openShot([{url:url.href,caption:title}],0,title);
+  });
   function openShot(g, i, title) {
     const opener = document.activeElement;
     const d = dialog('sr-lightbox', title, () => opener && opener.focus && opener.focus());
@@ -730,6 +747,7 @@
     }})();try{await maquetteSDK;}catch(e){maquetteSDK=null;throw e;}
   }
   async function openMaquetteModel(){
+    if(state.preview==='temporary'){window.AgelTemporarySession.openModel();return;}
     if(document.querySelector('.mq-dialog'))return;
     const previous=document.activeElement,dialog=h('dialog',{class:'mq-dialog','aria-label':'Maqueta virtual'}),message=h('p',{role:'status'},'Cargando maqueta…'),cancel=h('button',{type:'button',class:'sr-btn',onclick:()=>dialog.close()},'Cerrar maqueta');
     const loading=h('div',{class:'mq-loading'},h('h2',{},state.m.content.model3d.title||'Maqueta virtual'),message,cancel);put(dialog,loading);document.body.append(dialog);dialog.showModal();

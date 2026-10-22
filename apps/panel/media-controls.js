@@ -9,6 +9,7 @@
   });
   container.append(h('div',{class:'pn-toolbar pn-local-controls'},status,
    h('a',{class:'ag-btn',href:'../showroom/?local='+encodeURIComponent(workspace.projectId),target:'_blank',rel:'noopener'},'Vista previa local'),
+   h('button',{class:'ag-btn',onclick:()=>run(()=>AgelTemporaryShare.open({workspace,rootUrl:new URL('../../',location.href).href}))},'Compartir temporalmente'),
    h('button',{class:'ag-btn',onclick:()=>run(async()=>AgelLocalBackup.exportProject(workspace.store,await workspace.load()))},'Respaldar archivos locales'),
    h('button',{class:'ag-btn',onclick:()=>restore.click()},'Restaurar respaldo'),restore,
    h('button',{class:'ag-btn primary',onclick:()=>run(async()=>{

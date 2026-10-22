@@ -101,6 +101,7 @@ jobs:
           python tests/e2e_maquette.py
           python tests/e2e_remote_model.py
           python tests/e2e_temporary_share.py
+          python tests/e2e_share_navigation.py
           python tests/e2e_local_experience_full.py
 
       - name: Editor en modo local
