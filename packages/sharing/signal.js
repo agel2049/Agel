@@ -1,4 +1,4 @@
-/* Private, ephemeral Realtime signaling. Only encrypted connection metadata leaves this module.
+/* Ephemeral Realtime signaling with private-account and encrypted-invitation modes. Only encrypted connection metadata leaves this module.
  * Wire protocol: https://supabase.com/docs/guides/realtime/protocol (1.0.0). */
 (function (root) {
   'use strict';
@@ -9,12 +9,13 @@
   function open(options) {
     let cancel = () => {};
     const promise = new Promise((resolve, reject) => {
-      const { cloud, projectId, sessionId, key, onMessage, onClose } = options;
+      const { cloud, projectId, sessionId, key, onMessage, onClose, presentation = false } = options;
+      const visitor = presentation === true && options.guest === true;
       let ws, cryptoKey, closed = false, joined = false, ref = 1, heartbeatRef = null;
       let offAuth, timeout, heartbeat, inbound = Promise.resolve(), pending = 0;
       const seen = new Set(), encoder = new TextEncoder(), decoder = new TextDecoder('utf-8', { fatal: true });
-      const topic = `realtime:agel-share:${projectId}:${sessionId}`, aad = encoder.encode(topic);
-      const identity = cloud?.user?.id;
+      let topic = `realtime:agel-share:${projectId}:${sessionId}`, aad = encoder.encode(topic);
+      const identity = visitor ? null : cloud?.user?.id;
       function push(event, payload, target = topic, reference = String(++ref)) {
         if (closed || ws?.readyState !== 1) throw new Error('La conexión temporal está cerrada.');
         ws.send(JSON.stringify({ topic: target, event, payload, ref: reference, join_ref: target === topic ? '1' : null }));
@@ -68,16 +69,24 @@
         if (!UUID.test(projectId) || !UUID.test(sessionId) || typeof key !== 'string' || !/^[\w-]{43}$/.test(key)) throw new Error('Enlace temporal inválido.');
         const rawKey = decode(key);
         if (rawKey.length !== 32 || encode(rawKey) !== key) throw new Error('Clave temporal inválida.');
-        if (!identity || !cloud.anonKey || !cloud.url || !cloud.onAuth) throw new Error('Inicia sesión con una cuenta del equipo.');
-        timeout = setTimeout(() => close('No se pudo abrir el canal privado. Reintenta la conexión.'), 15000);
-        root.addEventListener?.('storage', storageChanged); root.addEventListener?.('pagehide', pageHidden);
-        offAuth = cloud.onAuth(session => {
+        if (!cloud?.anonKey || !cloud.url || (!visitor && (!identity || !cloud.onAuth))) throw new Error('Inicia sesión con una cuenta del equipo.');
+        timeout = setTimeout(() => close('No se pudo abrir el canal de conexión. Reintenta la conexión.'), 15000);
+        root.addEventListener?.('pagehide', pageHidden);
+        if (!visitor) root.addEventListener?.('storage', storageChanged);
+        if (!visitor) offAuth = cloud.onAuth(session => {
           if (session?.user?.id !== identity) { close('Cambió la cuenta. Vuelve a abrir el enlace.'); return; }
           if (joined && session.access_token) { try { push('access_token', { access_token: session.access_token }); } catch (_) { close('Se perdió la sesión.'); } }
         });
-        const token = await cloud.accessToken();
+        const token = visitor ? cloud.anonKey : await cloud.accessToken();
         if (closed) return;
-        if (!token || cloud.user?.id !== identity) throw new Error('Inicia sesión con una cuenta del equipo.');
+        if (!token || (!visitor && cloud.user?.id !== identity)) throw new Error('Inicia sesión con una cuenta del equipo.');
+        if (presentation === true) {
+          // Public relay, private invitation: a domain-separated digest routes
+          // ciphertext without disclosing the random key that authenticates it.
+          const routeKey = encode(await root.crypto.subtle.digest('SHA-256', encoder.encode('AgelArq presentation v1:' + key)));
+          topic = `realtime:agel-view:${projectId}:${sessionId}:${routeKey}`;
+          aad = encoder.encode(topic);
+        }
         cryptoKey = await root.crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['encrypt', 'decrypt']);
         rawKey.fill(0);
         if (closed) return;
@@ -88,19 +97,19 @@
         url.search = ''; url.hash = ''; url.searchParams.set('apikey', cloud.anonKey); url.searchParams.set('vsn', '1.0.0');
         ws = new root.WebSocket(url.href);
         ws.onopen = () => {
-          try { push('phx_join', { config: { private: true, broadcast: { ack: false, self: false }, presence: { enabled: false }, postgres_changes: [] }, access_token: cloud.session?.access_token || token }, topic, '1'); }
-          catch (_) { close('No se pudo abrir el canal privado.'); }
+          try { push('phx_join', { config: { private: presentation !== true, broadcast: { ack: false, self: false }, presence: { enabled: false }, postgres_changes: [] }, access_token: visitor ? token : cloud.session?.access_token || token }, topic, '1'); }
+          catch (_) { close('No se pudo abrir el canal de conexión.'); }
         };
-        ws.onerror = () => close('No se pudo conectar al canal privado.');
+        ws.onerror = () => close('No se pudo conectar al canal de conexión.');
         ws.onclose = () => close('Se perdió la conexión temporal.');
         ws.onmessage = event => {
           if (closed || typeof event.data !== 'string' || event.data.length > MAX_WIRE) return;
           let frame; try { frame = JSON.parse(event.data); } catch (_) { return; }
           if (frame.topic === 'phoenix' && frame.event === 'phx_reply' && frame.ref === heartbeatRef && frame.payload?.status === 'ok') { heartbeatRef = null; return; }
           if (frame.topic !== topic) return;
-          if (frame.event === 'phx_error' || frame.event === 'phx_close' || (frame.event === 'system' && frame.payload?.status === 'error')) { close('El canal privado rechazó la conexión.'); return; }
+          if (frame.event === 'phx_error' || frame.event === 'phx_close' || (frame.event === 'system' && frame.payload?.status === 'error')) { close('El canal de conexión rechazó la conexión.'); return; }
           if (frame.event === 'phx_reply' && frame.ref === '1' && !joined) {
-            if (frame.payload?.status !== 'ok') { close('Tu cuenta no tiene acceso al proyecto.'); return; }
+            if (frame.payload?.status !== 'ok') { close(presentation ? 'No se pudo abrir la presentación. Genera un nuevo QR desde la computadora.' : 'Tu cuenta no tiene acceso al proyecto.'); return; }
             joined = true; clearTimeout(timeout);
             heartbeat = setInterval(() => {
               if (heartbeatRef) { close('Se perdió la conexión temporal.'); return; }

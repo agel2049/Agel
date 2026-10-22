@@ -32,9 +32,7 @@ try:
   transport=(ROOT/'packages/sharing/transfer.js').read_text()+"\nfor(const method of ['serve','receive']){const original=AgelShareTransfer[method];AgelShareTransfer[method]=(c,o)=>{if(method==='serve')o={...o,assets:new Map([...o.assets].map(([id,entry])=>[id,{getBlob:async()=>{const blob=await entry.getBlob(),head=await blob.slice(0,4).arrayBuffer();if(head.byteLength===4&&new DataView(head).getUint32(0,true)===0x46546c67)window.__sentGlb=(window.__sentGlb||0)+1;return blob;}}]))};return original(c,{...o,onProgress:p=>{window.__bytes=(window.__bytes||0)+p.bytes;}});};}"
   glb_viewer=(ROOT/'packages/bim/glb-viewer.js').read_text()+"\n{const original=AgelGLB.open;AgelGLB.open=(container,options)=>original(container,{...options,onFrame:canvas=>{window.__drawFrames=(window.__drawFrames||0)+1;window.__drawSize=[canvas.width,canvas.height,canvas.clientWidth,canvas.clientHeight];window.__sourceData=canvas.toDataURL();try{options.onFrame?.(canvas);}catch(e){window.__captureError=e.stack;throw e;}}});}"
   cloud=(ROOT/'tests/fixtures/local-experience-cloud.js').read_text()
-  # The fixture signs in locally only; production receiver calls the normal Cloud API.
-  cloud=cloud.replace("const cloud={storageKey:","let guestSigned=false;const cloud={async signInWithPassword(){guestSigned=true;return this.user;},storageKey:")
-  cloud=cloud.replace("get user(){return {", "get user(){if(window.__shareGuest&&!guestSigned)return null;return {")
+  cloud=cloud.replace("(function(){","(function(){if(window.__shareGuest){window.AgelCloud={client(){window.__authCalls=(window.__authCalls||0)+1;throw Error('Visitor must not access account state');}};return;}",1)
   for ctx in (host,guest):
    ctx.add_init_script("window.__pcs=[];const NativePC=window.RTCPeerConnection;window.RTCPeerConnection=class extends NativePC{constructor(...args){super(...args);window.__pcs.push(this);}};")
    ctx.route('**/packages/bim/glb-viewer.js',lambda r:r.fulfill(body=glb_viewer,content_type='text/javascript'))
@@ -43,6 +41,8 @@ try:
    ctx.route('**/packages/sharing/signal.js',lambda r:r.fulfill(path=str(ROOT/'tests/fixtures/temporary-share-signal.js'),content_type='text/javascript'))
    ctx.route('https://cdn.jsdelivr.net/npm/three@0.128.0/**',lambda r:r.fulfill(path=str(ROOT/'tests/vendor/node_modules/three'/urlparse(r.request.url).path.split('three@0.128.0/')[1])))
    ctx.route('https://fixture.agelarq.test/**',lambda r:r.fulfill(path=str(ROOT/'tests/fixtures/pano_a.jpg'),content_type='image/jpeg'))
+  backend_requests=[]
+  guest.on('request',lambda req:backend_requests.append(req.url) if any(p in req.url for p in ['/auth/v1/','/rest/v1/','/storage/v1/']) else None)
   guest.add_init_script("window.__shareGuest=true;window.__idbWrites=0;const open=indexedDB.open.bind(indexedDB);indexedDB.open=(...a)=>{window.__idbWrites++;return open(...a);};")
   page=host.new_page();page.goto(base+f'apps/panel/#/p/{PROJECT}/showroom')
   page.get_by_role('button',name='Compartir temporalmente',exact=True).wait_for()
@@ -68,9 +68,7 @@ try:
   assert page.get_by_role('img',name='Código QR del showroom temporal').count()==1
   page.screenshot(path='/tmp/agel-share-host.png')
   phone=guest.new_page();phone.on('console',lambda msg:print('BROWSER',msg.type,msg.text,flush=True) if msg.type=='error' else None);phone.on('pageerror',lambda e:print('PAGE ERROR',e,flush=True));phone.goto(url)
-  phone.get_by_label('Correo',exact=True).fill('fixture@example.test');phone.get_by_label('Contraseña',exact=True).fill('test-only')
-  phone.screenshot(path='/tmp/agel-share-login.png')
-  phone.get_by_role('button',name='Iniciar sesión y conectar',exact=True).click()
+  assert phone.locator('#share-login').count()==0,'QR presentation must not ask for an account'
   phone.locator('.ax-opening video').wait_for(timeout=20000)
   try:phone.wait_for_function("(()=>{const v=document.querySelector('.ax-opening video');return v&&v.readyState>=2&&v.videoWidth>0&&v.videoHeight===16;})()",timeout=20000)
   except Exception:
@@ -113,8 +111,11 @@ try:
   phone.locator('#share-gate').wait_for(state='visible',timeout=5000)
   assert phone.locator('.ax-shell').count()==0
   assert phone.evaluate('window.__idbWrites')==0
+  assert phone.evaluate('window.__authCalls||0')==0
+  assert backend_requests==[],'A QR visitor must not call Auth, project REST or Storage'
+  assert phone.get_by_role('link',name='Editor',exact=True).count()==0
   assert phone.evaluate('async()=>await indexedDB.databases()')==[]
   assert phone.evaluate('async()=>await caches.keys()')==[]
   browser.close()
-  print('PASS: local QR, login, real WebRTC, 80 MiB Opening ranges, facade/lobby, pixel-streamed 3D controls without original GLB, no receiver DB or writes, remote close')
+  print('PASS: local QR without login, real WebRTC, 80 MiB Opening ranges, facade/lobby, pixel-streamed 3D controls without original GLB, no receiver DB or writes, remote close')
 finally:server.shutdown();server.server_close()

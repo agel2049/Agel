@@ -4,7 +4,7 @@
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const NETWORK = 'No se pudo establecer la conexión directa. Prueba con ambos equipos en la misma red y vuelve a compartir.';
   function connect(role, options) {
-    const { cloud, projectId, sessionId, key, expiresAt, onChannel, onTrack, onState, iceServers, signalOpen, stream } = options;
+    const { cloud, projectId, sessionId, key, expiresAt, onChannel, onTrack, onState, iceServers, signalOpen, stream, presentation = false } = options;
     const id = root.crypto.randomUUID();
     let closed = false, opening, signal, pc, channel, remote, selected = false, delivered = false, helloTimer, deadline, connecting;
     let queue = Promise.resolve(), outgoing = Promise.resolve(), pending = 0, candidates = [], localCandidates = [], localSent = false, resolveReady, rejectReady;
@@ -151,7 +151,7 @@
       if (!UUID.test(projectId) || !UUID.test(sessionId) || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) throw new Error('El enlace temporal venció. Vuelve a compartir.');
       deadline = setTimeout(() => close('La sesión temporal venció.'), Math.min(expiresAt - Date.now(), 1800000));
       state('waiting', role === 'host' ? 'Esperando al celular…' : 'Buscando al equipo fuente…');
-      opening = (signalOpen || root.AgelShareSignal.open)({ cloud, projectId, sessionId, key, onMessage, onClose: reason => close(reason, false) });
+      opening = (signalOpen || root.AgelShareSignal.open)({ cloud, projectId, sessionId, key, presentation, guest: role === 'guest', onMessage, onClose: reason => close(reason, false) });
       const result = await opening;
       if (closed) { result.close(); return; }
       signal = result;
