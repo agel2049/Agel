@@ -32,7 +32,7 @@ No existe protección absoluta frente a capturas o grabación de pantalla. Los r
 - Supabase intercambia únicamente pequeñas señales cifradas para conectar los equipos mediante un tema de invitación; no recibe los videos, imágenes ni modelos del intercambio. No se crean filas ni publicaciones para compartir.
 - El código del Service Worker queda limitado a la ruta de recepción. No guarda medios ni ofrece un modo sin conexión.
 - No se habilita TURN de pago. Si la red bloquea una conexión directa, aparecerá un error. Prueba otra red o ambos equipos en una red doméstica que permita comunicación entre dispositivos; las redes de invitados pueden bloquearla incluso usando el mismo Wi-Fi.
-- - Genera un QR nuevo después de actualizar AgelArq: las invitaciones anteriores exigían cuenta y usan otro canal de conexión.
+- Genera un QR nuevo después de actualizar AgelArq: las invitaciones anteriores exigían cuenta y usan otro canal de conexión.
 - El enlace necesita un navegador con WebRTC y Service Workers; la página debe abrirse mediante HTTPS, salvo localhost para pruebas.
 
 ## Verificación
