@@ -79,6 +79,9 @@ try:
   result=phone.evaluate('''async url=>{const r=await fetch(url,{headers:{Range:'bytes=100-199'}});return {status:r.status,range:r.headers.get('Content-Range'),size:(await r.arrayBuffer()).byteLength};}''',video_url)
   assert result['status']==206 and result['size']==100 and result['range'].startswith('bytes 100-199/')
   assert phone.evaluate('window.__idbWrites')==0
+  cdp=guest.new_cdp_session(phone);cdp.send('ServiceWorker.enable');cdp.send('ServiceWorker.stopAllWorkers')
+  restarted=phone.evaluate('''async url=>{const r=await fetch(url,{headers:{Range:'bytes=100-199'}});return {status:r.status,size:(await r.arrayBuffer()).byteLength};}''',video_url)
+  assert restarted=={'status':206,'size':100},'A normal worker restart must recover the live receiver'
   phone.get_by_role('button',name='Ver proyecto',exact=True).click();phone.get_by_role('img',name='Fachada',exact=True).wait_for()
   phone.get_by_role('button',name='Entrar al lobby',exact=True).click();phone.get_by_role('img',name='Lobby',exact=True).wait_for()
   assert phone.get_by_role('button',name='Modelo 3D local',exact=True).count()==0

@@ -1,6 +1,6 @@
 /* Session media are streamed from their live receiver tab, never cached. */
 'use strict';
-const bindings=new Map();
+const bindings=new Map(),recovering=new Map();
 const UUID='[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const uuidPattern=new RegExp('^'+UUID+'$','i');
 const route=new RegExp('^('+UUID+')/('+UUID+')\\.(jpg|jpeg|png|webp|avif|gif|bmp|ktx2|mp4|webm|ogv|mov|mp3|m4a|ogg|wav|glb|pdf)$','i');
@@ -23,8 +23,33 @@ self.addEventListener('message',event=>{
     if(!current)bindings.set(m.session,{client:event.source.id,pending:new Set()});
   }else if(m.type==='agel-share-unbind'&&current?.client===event.source.id){bindings.delete(m.session);release(current);}
 });
+// Workers may be stopped while idle. Ask the live receiver to re-establish
+// ownership; only that tab still holds its authenticated peer and file stream.
+function probe(client,session){
+  return new Promise(resolve=>{
+    const {port1,port2}=new MessageChannel();let done=false;
+    const finish=active=>{if(done)return;done=true;clearTimeout(timer);port1.close();resolve(active);};
+    const timer=setTimeout(()=>finish(false),2000);
+    port1.onmessage=e=>finish(e.data?.active===true);port1.onmessageerror=()=>finish(false);port1.start();
+    try{client.postMessage({type:'agel-share-probe',session},[port2]);}catch{finish(false);}
+  });
+}
+async function recover(session){
+  if(recovering.has(session))return recovering.get(session);
+  if(recovering.size>=16)return null;
+  const pending=(async()=>{
+    const clients=await self.clients.matchAll({type:'window'});
+    const candidates=clients.filter(owner);
+    const active=await Promise.all(candidates.map(async client=>await probe(client,session)?client:null));
+    const current=bindings.get(session);if(current)return current;
+    // Only one connected receiver may claim a session. Ambiguity fails closed.
+    const owners=active.filter(Boolean);if(owners.length!==1)return null;
+    const binding={client:owners[0].id,pending:new Set()};bindings.set(session,binding);return binding;
+  })();
+  recovering.set(session,pending);try{return await pending;}finally{recovering.delete(session);}
+}
 async function serve(event,match){
-  const [,session,asset,extension]=match,binding=bindings.get(session);
+  const [,session,asset,extension]=match,binding=bindings.get(session)||await recover(session);
   if(!binding)return failure(410,'La sesión compartida terminó');
   const client=await self.clients.get(binding.client);
   if(!client||!owner(client)){bindings.delete(session);release(binding);return failure(410,'La sesión compartida terminó');}

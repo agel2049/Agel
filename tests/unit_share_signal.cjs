@@ -6,7 +6,7 @@ const {webcrypto}=require('node:crypto');
 const projectId='11111111-1111-4111-8111-111111111111',sessionId='22222222-2222-4222-8222-222222222222';
 const key=Buffer.alloc(32,7).toString('base64url');
 const turn=()=>new Promise(r=>setImmediate(r));
-async function until(fn){for(let i=0;i<100;i++){if(fn())return;await turn();}assert.ok(fn(),'async operation did not settle');}
+async function until(fn){const deadline=Date.now()+2000;while(!fn()&&Date.now()<deadline)await new Promise(r=>setTimeout(r,5));assert.ok(fn(),'async operation did not settle');}
 function env(){
  const sockets=[],pcs=[],timers=new Map(),events=new Map();let seq=0;
  class WS{constructor(url){this.url=url;this.readyState=0;this.sent=[];sockets.push(this);}send(s){this.sent.push(JSON.parse(s));}close(){this.readyState=3;this.onclose?.();}open(){this.readyState=1;this.onopen?.();}receive(m){this.onmessage?.({data:JSON.stringify(m)});}}
@@ -26,8 +26,8 @@ test('signal authenticates only a private project topic and keeps key/JWT outsid
 test('AES-GCM authenticates topic/ciphertext and rejects tampering, wrong keys, oversized frames and replay',async()=>{
  const a=env(),b=env(),received=[];const sa=await signal(a),sb=await signal(b,{onMessage:m=>received.push(m)});
  await sa.api.send({type:'hello',from:'one'});const wire=sa.ws.sent.at(-1);sb.ws.receive(wire);await until(()=>received.length===1);assert.equal(received[0].from,'one');sb.ws.receive(wire);await turn();await turn();assert.equal(received.length,1);
- const corrupt=structuredClone(wire);corrupt.payload.payload.data='AAAA';sb.ws.receive(corrupt);sb.ws.receive({...wire,topic:'realtime:other'});sb.ws.receive({...wire,payload:{...wire.payload,payload:{data:'x'.repeat(100000)}}});await turn();assert.equal(received.length,1);
- const c=env(),wrong=[];const sc=await signal(c,{key:Buffer.alloc(32,8).toString('base64url'),onMessage:m=>wrong.push(m)});sc.ws.receive(wire);await turn();await turn();assert.equal(wrong.length,0);await assert.rejects(sa.api.send({sdp:'x'.repeat(40000)}),/grande|large|limit/i);sa.api.close();sb.api.close();sc.api.close();
+ const corrupt=structuredClone(wire);corrupt.payload.payload.data='AAAA';sb.ws.receive(corrupt);sb.ws.receive({...wire,topic:'realtime:other'});sb.ws.receive({...wire,payload:{...wire.payload,payload:{data:'x'.repeat(100000)}}});await sa.api.send({type:'hello',from:'after-invalid'});sb.ws.receive(sa.ws.sent.at(-1));await until(()=>received.length===2);assert.deepEqual(received.map(m=>m.from),['one','after-invalid']);
+ const c=env(),wrong=[];const sc=await signal(c,{key:Buffer.alloc(32,8).toString('base64url'),onMessage:m=>wrong.push(m)});sc.ws.receive(wire);await sc.api.send({type:'hello',from:'correct-key-sentinel'});sc.ws.receive(sc.ws.sent.at(-1));await until(()=>wrong.length===1);assert.equal(wrong[0].from,'correct-key-sentinel');await assert.rejects(sa.api.send({sdp:'x'.repeat(40000)}),/grande|large|limit/i);sa.api.close();sb.api.close();sc.api.close();
 });
 test('invalid session/key and missing authentication never open socket',async()=>{
  const e=env();for(const extra of [{key:'bad'},{projectId:'not-uuid'},{sessionId:'bad'}])await assert.rejects(e.ctx.AgelShareSignal.open({...e.opts,...extra}));e.cloud.change(null);await assert.rejects(e.ctx.AgelShareSignal.open(e.opts));assert.equal(e.sockets.length,0);

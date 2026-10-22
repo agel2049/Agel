@@ -35,11 +35,15 @@ with local_page('tests/fixtures/remote-model.html',setup=setup) as pg:
  assert pg.evaluate('renderedViewer.snapshot().spin') is False
  assert pg.evaluate("remoteCommands.at(-1).action==='spin'&&remoteCommands.at(-1).enabled===false")
  move=pg.get_by_role('button',name='Mover vista',exact=True);move.tap();assert move.get_attribute('aria-pressed')=='true'
+ pg.get_by_label('Vista de maqueta',exact=True).select_option('front');pg.wait_for_timeout(200)
+ def blue_x():return pg.evaluate('''()=>{const c=document.createElement('canvas');c.width=720;c.height=480;const x=c.getContext('2d');x.drawImage(document.querySelector('video'),0,0,720,480);const p=x.getImageData(0,0,720,420).data;let n=0,sum=0;for(let i=0;i<p.length;i+=4)if(p[i+2]>80&&p[i+2]>p[i]*1.5){n++;sum+=(i/4)%720;}return sum/n;}''')
+ before_x=blue_x()
  before_position=pg.evaluate('renderedViewer.snapshot().target');before=pg.evaluate('videoPixels()')
  box=video.bounding_box();x=box['x']+box['width']*.65;y=box['y']+box['height']*.4
  pg.evaluate('''({x,y})=>{const v=document.querySelector('video');v.dispatchEvent(new PointerEvent('pointerdown',{pointerId:8,pointerType:'touch',clientX:x,clientY:y,bubbles:true}));v.dispatchEvent(new PointerEvent('pointermove',{pointerId:8,pointerType:'touch',clientX:x+70,clientY:y+40,bubbles:true}));v.dispatchEvent(new PointerEvent('pointerup',{pointerId:8,pointerType:'touch',clientX:x+70,clientY:y+40,bubbles:true}));}''',{'x':x,'y':y});pg.wait_for_timeout(200)
  assert pg.evaluate("remoteCommands.at(-1).action")=='pan'
  assert before_position!=pg.evaluate('renderedViewer.snapshot().target'),'Touch pan did not displace the camera'
+ assert blue_x()>before_x,'Rightward touch pan must move model pixels rightward'
  assert before!=pg.evaluate('videoPixels()'),'Touch pan did not alter transmitted pixels'
  for control in [move,spin,pg.get_by_label('Vista de maqueta',exact=True),pg.get_by_label('Acercar maqueta',exact=True),pg.get_by_label('Alejar maqueta',exact=True)]:
   rect=control.bounding_box();assert rect['x']>=0 and rect['x']+rect['width']<=390 and rect['y']>=0 and rect['y']+rect['height']<=844,'Phone camera control escaped viewport'

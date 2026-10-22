@@ -31,6 +31,7 @@
  function onMedia(event){
   const data=event.data,port=event.ports?.[0];
   if(!port)return;
+  if(event.source===navigator.serviceWorker.controller&&data?.type==='agel-share-probe'){port.postMessage({active:!closed&&!!receive&&data.session===sessionId});port.close();return;}
   if(closed||!receive||event.source!==navigator.serviceWorker.controller||data?.type!=='agel-share-fetch'||data.session!==sessionId){port.postMessage({op:'error',message:'Sesión no disponible'});port.close();return;}
   receive.pipe(data.asset,data.range,port);
  }
