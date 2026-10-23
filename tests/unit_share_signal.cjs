@@ -17,7 +17,7 @@ function env(){
  for(const name of ['signal','peer']){const p=`packages/sharing/${name}.js`;if(fs.existsSync(p))vm.runInContext(fs.readFileSync(p,'utf8'),ctx);}
  return{ctx,cloud,sockets,pcs,timers,events,opts:{cloud,projectId,sessionId,key},tick(ms){for(const[id,t]of [...timers])if(t.ms===ms){if(!t.interval)timers.delete(id);t.f();}}};
 }
-async function signal(e,extra={}){const p=e.ctx.AgelShareSignal.open({...e.opts,...extra});await until(()=>e.sockets.length);const ws=e.sockets.at(-1);ws.open();const join=ws.sent[0];ws.receive({topic:join.topic,event:'phx_reply',ref:join.ref,join_ref:join.join_ref,payload:{status:'ok',response:{}}});return{api:await p,ws,join};}
+async function signal(e,extra={}){const p=e.ctx.AgelShareSignal.open({...e.opts,...extra});p.catch(()=>{});await until(()=>e.sockets.length);const ws=e.sockets.at(-1);ws.open();const join=ws.sent[0];ws.receive({topic:join.topic,event:'phx_reply',ref:join.ref,join_ref:join.join_ref,payload:{status:'ok',response:{}}});return{api:await p,ws,join};}
 test('signal authenticates only a private project topic and keeps key/JWT outside URL and broadcast',async()=>{
  const e=env();assert.ok(e.ctx.AgelShareSignal,'signal API missing');const{api,ws,join}=await signal(e);
  assert.equal(new URL(ws.url).searchParams.get('vsn'),'1.0.0');assert.ok(!ws.url.includes('jwt1'));assert.ok(!ws.url.includes(key));assert.equal(join.payload.config.private,true);assert.equal(join.payload.config.presence.enabled,false);assert.equal(join.payload.access_token,'jwt1');assert.equal(join.topic,`realtime:agel-share:${projectId}:${sessionId}`);
@@ -84,4 +84,24 @@ test('guest forwards one actual video stream, drops audio/extra tracks, and clos
 });
 test('guest wraps streamless video and drops streamless audio without calling onTrack',async()=>{
  const e=env(),Stream=installStreams(e),streams=[];const{peer,pc}=await guestVideo(e,s=>streams.push(s));const audio=videoTrack('audio');pc.ontrack({track:audio,streams:[]});assert.equal(audio.stops,1);assert.equal(streams.length,0);const video=videoTrack();pc.ontrack({track:video,streams:[]});assert.ok(streams[0] instanceof Stream);assert.deepEqual(streams[0].getTracks(),[video]);peer.close();await assert.rejects(peer.ready);assert.equal(video.stops,1);
+});
+
+test('presentation guest joins with public config only and keeps invitation key and SDP encrypted',async()=>{
+ const e=env(),publicCloud={url:e.cloud.url,anonKey:e.cloud.anonKey};
+ const {api,ws,join}=await signal(e,{cloud:publicCloud,presentation:true,guest:true});
+ assert.equal(join.payload.config.private,false);assert.equal(join.payload.access_token,'public-anon');assert.match(join.topic,/^realtime:agel-view:[\w-]+:[\w-]+:[\w-]{43}$/);assert.ok(!JSON.stringify(join).includes(key));assert.ok(!ws.url.includes(key));
+ await api.send({sdp:'PRIVATE_PIXELS_SIGNAL'});assert.ok(!JSON.stringify(ws.sent.at(-1)).includes('PRIVATE_PIXELS_SIGNAL'));api.close();assert.equal(e.events.get('storage')?.size||0,0);assert.equal(e.cloud.listeners.size,0);
+});
+test('presentation host stays authenticated and shares the same derived topic with an anonymous guest',async()=>{
+ const a=env(),b=env(),received=[];
+ const host=await signal(a,{presentation:true});const guest=await signal(b,{presentation:true,guest:true,cloud:{url:b.cloud.url,anonKey:b.cloud.anonKey},onMessage:m=>received.push(m)});
+ assert.equal(host.join.topic,guest.join.topic);assert.equal(host.join.payload.access_token,'jwt1');await host.api.send({type:'hello',from:'source'});guest.ws.receive(host.ws.sent.at(-1));await until(()=>received.length===1);assert.equal(received[0].from,'source');guest.ws.receive(host.ws.sent.at(-1));await host.api.send({type:'hello',from:'sentinel'});guest.ws.receive(host.ws.sent.at(-1));await until(()=>received.length===2);assert.deepEqual(received.map(m=>m.from),['source','sentinel']);a.cloud.change(null);assert.equal(host.ws.readyState,3);guest.api.close();
+ await assert.rejects(a.ctx.AgelShareSignal.open({...a.opts,presentation:true}));await assert.rejects(a.ctx.AgelShareSignal.open({...a.opts,guest:true}));
+});
+test('a wrong presentation key cannot authenticate even if a signal is relabeled with the guest topic',async()=>{
+ const a=env(),b=env(),received=[];const host=await signal(a,{presentation:true});const guest=await signal(b,{presentation:true,guest:true,key:Buffer.alloc(32,8).toString('base64url'),cloud:{url:b.cloud.url,anonKey:b.cloud.anonKey},onMessage:m=>received.push(m)});
+ assert.notEqual(host.join.topic,guest.join.topic);await host.api.send({from:'wrong-key'});guest.ws.receive({...host.ws.sent.at(-1),topic:guest.join.topic});await guest.api.send({from:'sentinel'});guest.ws.receive(guest.ws.sent.at(-1));await until(()=>received.length===1);assert.equal(received[0].from,'sentinel');host.api.close();guest.api.close();
+});
+test('peer passes presentation mode while fixing guest identity from its role',async()=>{
+ for(const role of ['host','guest']){const e=env();let captured;const peer=e.ctx.AgelSharePeer[role]({...e.opts,presentation:true,expiresAt:Date.now()+60000,signalOpen:async opts=>{captured=opts;return{send:async()=>{},close(){}};}});await turn();assert.equal(captured.presentation,true);assert.equal(captured.guest,role==='guest');peer.close();}
 });

@@ -27,7 +27,7 @@
   const MAX_SEL = 10;
 
   let cloud = null;
-  try { cloud = AgelCloud.client(); } catch (e) { console.warn('[showroom]', e.message); }
+  try { if(!window.AgelTemporarySession)cloud = AgelCloud.client(); } catch (e) { console.warn('[showroom]', e.message); }
 
   const state = {
     slug: (app.dataset.slug || params.get('p') || '').toLowerCase(),

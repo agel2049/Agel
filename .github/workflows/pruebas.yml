@@ -15,7 +15,8 @@ on:
 
 jobs:
   pruebas:
-    runs-on: ubuntu-latest
+    # Playwright 1.56 is pinned; Ubuntu 26.04 is not supported by that release.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:
       postgres:
