@@ -80,9 +80,10 @@ try:
   cdp=guest.new_cdp_session(phone);cdp.send('ServiceWorker.enable');cdp.send('ServiceWorker.stopAllWorkers')
   restarted=phone.evaluate('''async url=>{const r=await fetch(url,{headers:{Range:'bytes=100-199'}});return {status:r.status,size:(await r.arrayBuffer()).byteLength};}''',video_url)
   assert restarted=={'status':206,'size':100},'A normal worker restart must recover the live receiver'
-  phone.get_by_role('button',name='Ver proyecto',exact=True).click();phone.get_by_role('img',name='Fachada',exact=True).wait_for()
+  phone.get_by_role('button',name='Iniciar',exact=True).click();phone.get_by_role('img',name='Fachada',exact=True).wait_for()
   phone.get_by_role('button',name='Entrar al lobby',exact=True).click();phone.get_by_role('img',name='Lobby',exact=True).wait_for()
   assert phone.get_by_role('button',name='Modelo 3D local',exact=True).count()==0
+  phone.get_by_text('Opciones del proyecto',exact=True).click()
   phone.get_by_role('button',name='Maqueta virtual',exact=True).click()
   phone.locator('.mq-count').filter(has_text='3 de 3 piezas').wait_for(state='attached',timeout=20000)
   try:phone.wait_for_function("(()=>{const v=document.querySelector('.ag-maquette video');return v&&v.srcObject instanceof MediaStream&&v.readyState>=2&&v.videoWidth>0;})()",timeout=15000)

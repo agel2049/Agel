@@ -1,6 +1,7 @@
 /* Immersive website shell. The panorama renderer remains behind an adapter. */
 (function(root){
  'use strict';const R=root.AgelShowroomRelations,G=root.AgelShowroomGeometry;
+ const assetRoot=new URL('../../',document.currentScript.src).href;
  const h=(tag,attrs={},...kids)=>{const el=document.createElement(tag);for(const [k,v]of Object.entries(attrs)){if(v==null||v===false)continue;if(k.startsWith('on'))el.addEventListener(k.slice(2),v);else el.setAttribute(k,String(v));}for(const child of kids.flat())if(child!=null)el.append(child.nodeType?child:document.createTextNode(String(child)));return el;};
  const svg=(tag,attrs={})=>{const el=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const[k,v]of Object.entries(attrs))el.setAttribute(k,v);return el;};
  const arrow=()=>{const s=svg('svg',{viewBox:'0 0 24 24','aria-hidden':'true',width:20,height:20});s.append(svg('path',{d:'M5 12h14M13 6l6 6-6 6',fill:'none',stroke:'currentColor','stroke-width':1.5}));return s;};
@@ -8,6 +9,7 @@
   let fitMode=false,disposed=false,sequence=0,tour=null,video=null,restoring=false,selected=null,bimHandler=onBim;
   const scopeSpaces=R.normalizeSpaces(m.spaces,m.scenes),views=m.content.views,ex=m.content.experience;
   const button=(label,action,attrs={})=>h('button',{type:'button',...attrs,onclick:action},label);
+  const logo=()=>h('img',{class:'ax-logo',src:assetRoot+'assets/brand/archgel-symbol.png',alt:'Archgel',width:96,height:56});
   const dispatch=a=>n.dispatch(a),stage=h('div',{class:'ax-stage'}),content=h('div',{class:'ax-content'}),status=h('p',{class:'ax-status',role:'status','aria-live':'polite'});
   const crumb=h('p',{class:'ax-crumb'}),back=button('Volver',()=>n.back(),{class:'ax-quiet'}),levelNav=h('nav',{'aria-label':'Niveles',class:'ax-levels'});
   const locationPanel=h('section',{class:'ax-location','aria-label':'Ubicación del proyecto',hidden:true}),locationButton=button('Ubicación',()=>{locationPanel.hidden=!locationPanel.hidden;locationButton.setAttribute('aria-expanded',String(!locationPanel.hidden));},{'aria-expanded':false});
@@ -15,8 +17,15 @@
    loc.map_url?h('a',{href:loc.map_url,target:'_blank',rel:'noopener noreferrer'},'Abrir mapa'):null,button('Cerrar ubicación',()=>{locationPanel.hidden=true;locationButton.setAttribute('aria-expanded','false');locationButton.focus();},{class:'ax-quiet'})].filter(Boolean));
   const bim=button('Modelo BIM · equipo',()=>bimHandler?.(),{hidden:!bimHandler});
   const lower=h('div',{class:'ax-lower'},locationButton,bim,...(m.content.model3d?[onLocalModel?button('Modelo 3D local',onLocalModel):onModel?button('Maqueta virtual',onModel):h('a',{href:'#modelo'},'Modelo 3D')]:[]),h('a',{href:'#contacto'},'Solicitar información'));
-  const sidebar=h('aside',{class:'ax-sidebar'},h('a',{class:'ax-brand',href:'#'},m.brand.name||'AgelArq'),h('h2',{},m.project.name),levelNav,lower);
-  const body=h('div',{class:'ax-workspace'},sidebar,h('div',{class:'ax-main'},h('div',{class:'ax-top'},back,crumb,button('Ver imagen completa',ev=>{fitMode=!fitMode;ev.currentTarget.setAttribute('aria-pressed',String(fitMode));fit();},{class:'ax-quiet','aria-pressed':false}),button('Fachada',()=>dispatch({type:'FACADE'}),{class:'ax-quiet'})),status,stage,content,locationPanel));
+  const mobile=matchMedia('(max-width:760px)'),tools=h('details',{class:'ax-tools',open:!mobile.matches},h('summary',{},'Opciones del proyecto'),lower),adaptTools=()=>tools.open=!mobile.matches;mobile.addEventListener('change',adaptTools);
+  const home=()=>dispatch({type:m.opening?.enabled?'OPENING':'FACADE'});
+  const sidebar=h('aside',{class:'ax-sidebar'},button('',home,{class:'ax-brand','aria-label':'Volver al inicio del proyecto'}),levelNav,tools);sidebar.firstChild.append(logo());
+  const stepNumber=h('span',{class:'ax-step-number'},'02'),stepTitle=h('h1',{},'Explorar el edificio'),stepHint=h('p',{},'Selecciona un nivel para continuar'),viewName=h('span',{class:'ax-view-name'});
+  const band=h('footer',{class:'ax-band'},h('div',{class:'ax-step'},stepNumber,h('span',{},'/ 04')),h('div',{class:'ax-band-copy'},stepTitle,stepHint),viewName);
+  const start=button('Inicio',home),building=button('Edificio',()=>dispatch({type:'FACADE'})),plans=button('Plantas',()=>{const v=views.find(v=>v.id!==ex.facadeViewId&&['floor','lobby','unit'].includes(v.role));if(v)dispatch({type:'OPEN_VIEW',id:v.id});}),walk=button('360°',()=>{const ids=R.sceneIdsForScope(n.state.spaceId,scopeSpaces,m.scenes);if(ids.length)dispatch({type:'OPEN_SCENE',id:ids[0]});});
+  const rail=h('nav',{class:'ax-rail','aria-label':'Etapas de la presentación'},start,building,plans,walk);
+  const full=button('Pantalla completa',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{status.textContent='Usa la opción de pantalla completa de tu navegador.';}},{class:'ax-quiet'});
+  const body=h('div',{class:'ax-workspace'},sidebar,h('header',{class:'ax-project-title'},h('h2',{},m.project.name)),h('div',{class:'ax-main'},h('div',{class:'ax-top'},back,crumb,button('Ver imagen completa',ev=>{fitMode=!fitMode;ev.currentTarget.setAttribute('aria-pressed',String(fitMode));fit();},{class:'ax-quiet','aria-pressed':false}),full),status,stage,content,locationPanel),rail,band);
   const section=h('section',{class:'ax-experience','aria-label':'Explorar proyecto'});container.append(section);
   function buildingOf(id){const seen=new Set();let space=m.spaces.find(s=>s.id===id);while(space&&!seen.has(space.id)){seen.add(space.id);if(space.kind==='edificio')return space;space=m.spaces.find(s=>s.id===space.parent_id);}return null;}
   function renderLevels(state){
@@ -29,15 +38,20 @@
   function fit(){const frame=stage.querySelector('.ax-frame');if(!frame)return;const ratio=Number(frame.dataset.ratio)||16/9,w=Math[fitMode?'min':'max'](stage.clientWidth,stage.clientHeight*ratio);frame.style.width=w+'px';frame.style.height=w/ratio+'px';}
   const observer=new ResizeObserver(fit);observer.observe(stage);
   async function opening(seq){
-   const o=m.opening||{},wrap=h('div',{class:'ax-opening'}),copy=h('div',{class:'ax-opening-copy'},h('span',{class:'ax-brand'},m.brand.name||'AgelArq'),h('h1',{},o.title||m.project.name),o.subtitle?h('p',{},o.subtitle):null);
-   const go=button(o.button||'Ver proyecto',()=>dispatch({type:'ENTER_PROJECT'}),{class:'ax-enter'});go.append(arrow());copy.append(go);
+   const o=m.opening||{},wrap=h('div',{class:'ax-opening'}),copy=h('div',{class:'ax-opening-copy'},logo());
+   const go=button('Iniciar',()=>dispatch({type:'ENTER_PROJECT'}),{class:'ax-enter'});go.append(arrow());copy.append(go);
    if(o.poster){const url=await resolveMedia(o.poster);if(seq!==sequence)return;wrap.append(h('img',{src:url,alt:'',class:'ax-opening-media'}));}
    if(o.video){const url=await resolveMedia(o.video);if(seq!==sequence)return;video=h('video',{src:url,playsinline:true,muted:true,loop:true,preload:'metadata',class:'ax-opening-media','aria-hidden':true});video.muted=true;wrap.append(video);video.play().catch(()=>{});}
-   wrap.append(copy,h('a',{class:'ax-opening-info',href:'#contacto'},'Información del proyecto'));section.replaceChildren(wrap);
+   wrap.append(copy);section.replaceChildren(wrap);
   }
   function activate(r){const target=r.target||(r.space?{type:'space',id:r.space}:null);if(target)dispatch({type:{view:'OPEN_VIEW',space:'OPEN_SPACE',scene:'OPEN_SCENE'}[target.type],id:target.id});}
   async function render(state){
    const seq=++sequence;status.textContent=state.error||'';renderLevels(state);
+   section.dataset.state=state.kind;
+   const facade=state.kind==='facade',isTour=state.kind==='tour';
+   stepNumber.textContent=facade?'02':isTour?'04':'03';stepTitle.textContent=facade?'Explorar el edificio':isTour?'Recorrer el espacio':'Explorar la planta';stepHint.textContent=facade?'Selecciona un nivel para continuar':state.kind==='unit'?'Elige un espacio para recorrerlo en 360°':'Selecciona un área para descubrirla';
+   for(const [b,active]of [[building,facade],[plans,!facade&&!isTour],[walk,isTour]])b.setAttribute('aria-current',String(active));
+   plans.disabled=!views.some(v=>v.id!==ex.facadeViewId&&['floor','lobby','unit'].includes(v.role));walk.disabled=!R.sceneIdsForScope(state.spaceId,scopeSpaces,m.scenes).length;
    if(tour&&state.kind!=='tour'){const old=tour;tour=null;old.close?.();}
    if(state.kind==='tour'){
     if(!tour){tour=openTour({manifest:m,sceneId:state.sceneId,spaceId:state.spaceId,onClose:()=>{tour=null;if(n.state.kind==='tour')n.back();}})||{close(){}};}return;
@@ -46,6 +60,7 @@
    if(state.kind==='opening'){await opening(seq);return;}
    section.replaceChildren(body);stage.setAttribute('aria-busy','true');
    const v=views.find(v=>v.id===state.viewId),space=m.spaces.find(s=>s.id===state.spaceId);
+   viewName.textContent=v?.title||space?.name||'';
    crumb.textContent=[m.project.name,v?.title,space?.name].filter((x,i,a)=>x&&a.indexOf(x)===i).join(' / ');
    for(const b of levelNav.querySelectorAll('button'))b.setAttribute('aria-current',String(b.dataset.level===state.spaceId||b.dataset.view===state.viewId||!!space&&m.spaces.find(s=>s.id===space.parent_id)?.id===b.dataset.level));
    content.replaceChildren();
@@ -78,7 +93,7 @@
   if(query.get('unidad'))n.dispatch({type:'OPEN_SPACE',id:query.get('unidad')});if(query.get('escena'))n.restore('?scene='+query.get('escena'));
   const unsubscribe=n.subscribe(s=>{updateHistory();render(s);});
   const pop=()=>{restoring=true;n.restore(new URLSearchParams(location.search));restoring=false;};root.addEventListener('popstate',pop);render(n.state);
-  return {setBimAccess(handler){bimHandler=handler;bim.hidden=!handler;},dispose(){disposed=true;sequence++;unsubscribe();observer.disconnect();root.removeEventListener('popstate',pop);video?.pause();tour?.close();section.remove();}};
+  return {setBimAccess(handler){bimHandler=handler;bim.hidden=!handler;},dispose(){disposed=true;sequence++;unsubscribe();observer.disconnect();mobile.removeEventListener('change',adaptTools);root.removeEventListener('popstate',pop);video?.pause();tour?.close();section.remove();}};
  }
  root.AgelShowroomExperience={mount};
 })(window);

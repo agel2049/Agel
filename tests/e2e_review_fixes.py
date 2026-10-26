@@ -9,9 +9,9 @@ with local_page('tests/fixtures/panel-local.html') as pg:
  assert pg.evaluate("""async()=>{const w=await AgelWorkspace.open({cloud:AgelCloud.client(),ownerId:'owner',projectId:'p'});return (await w.load()).showroom.description;}""")=='Cambio de otra pestaña'
  print('PASS: stale showroom controls cannot overwrite a newer draft')
 with local_page('tests/fixtures/experience-settings.html') as pg:
- pg.get_by_label('Texto del botón',exact=True).wait_for()
+ pg.get_by_label('Activar Opening',exact=True).wait_for()
  pg.evaluate("""async()=>{const w=await AgelWorkspace.open({cloud,ownerId:'owner',projectId:'p'}),d=await w.load();d.showroom.opening={button:'Otra pestaña'};await w.save(d);}""")
- pg.get_by_label('Texto del botón',exact=True).fill('Anterior')
+ pg.get_by_label('Activar Opening',exact=True).check()
  pg.get_by_role('button',name='Guardar experiencia en este dispositivo',exact=True).click()
  pg.get_by_role('alert').filter(has_text='otra pestaña').wait_for(timeout=3000)
  print('PASS: stale experience controls preserve another tab')
