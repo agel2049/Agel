@@ -89,6 +89,7 @@ jobs:
           python tests/e2e_workspace.py
           python tests/e2e_workspace_sync.py
           python tests/e2e_experience_settings.py
+          python tests/e2e_archgel_opening.py
           python tests/e2e_showroom_experience.py
           python tests/e2e_showroom_fullscreen.py
           python tests/e2e_review_fixes.py

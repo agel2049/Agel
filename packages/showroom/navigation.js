@@ -11,6 +11,7 @@
   const api={get state(){return {...state};},subscribe(fn){listeners.add(fn);return()=>listeners.delete(fn);},
    dispatch(a){
     if(a.type==='BACK')return api.back();
+    if(a.type==='OPENING'&&m.opening?.enabled)return transition({...base(),kind:'opening'});
     if(a.type==='ENTER_PROJECT'||a.type==='FACADE')return transition(base());
     if(a.type==='OPEN_VIEW'){const v=views.find(v=>v.id===a.id);if(!v)return reject();return transition({kind:v.id===facade?.id?'facade':'plan',viewId:v.id,spaceId:v.spaceId||null,sceneId:null});}
     if(a.type==='OPEN_SPACE'){const s=spaces.find(s=>s.id===a.id);if(!s)return reject();const v=views.find(v=>v.spaceId===s.id);return transition({kind:['nivel','edificio','conjunto'].includes(s.kind)&&v?'plan':'unit',viewId:v?.id||null,spaceId:s.id,sceneId:null});}

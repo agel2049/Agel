@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory() as tmp,local_page(f'apps/panel/#/p/{project}/
  assert len(video)>200,'Video fixture has no encoded frames'
  padding=80*1024*1024;path=Path(tmp)/'opening.webm';path.write_bytes(bytes(video)+b'\xec'+((1<<56)|padding).to_bytes(8,'big')+b'\0'*padding)
  pg.get_by_label('Agregar video local',exact=True).set_input_files(str(path))
- pg.get_by_role('status').filter(has_text='Archivo guardado en este dispositivo').wait_for()
+ pg.get_by_role('status').filter(has_text='Opening guardado en este dispositivo').wait_for()
  pg.get_by_role('button',name='Guardar experiencia en este dispositivo',exact=True).click()
  pg.get_by_role('group',name='Experiencia del showroom',exact=True).get_by_role('status').filter(has_text='Guardado en este dispositivo').wait_for()
  with pg.expect_popup() as p:pg.get_by_role('link',name='Vista previa local',exact=True).click()
@@ -34,7 +34,7 @@ with tempfile.TemporaryDirectory() as tmp,local_page(f'apps/panel/#/p/{project}/
  preview.locator('.ax-opening video').wait_for()
  preview.wait_for_function("(()=>{const v=document.querySelector('.ax-opening video');return v&&v.readyState>=2&&v.videoWidth===16&&!v.error;})()",timeout=15000)
  assert preview.locator('.ax-opening video').get_attribute('src').startswith('blob:')
- preview.get_by_role('button',name='Ver proyecto',exact=True).click()
+ preview.get_by_role('button',name='Iniciar',exact=True).click()
  preview.get_by_role('img',name='Fachada',exact=True).wait_for()
  preview.get_by_role('button',name='Entrar al lobby',exact=True).click()
  preview.get_by_role('img',name='Lobby',exact=True).wait_for()
