@@ -1,6 +1,6 @@
 /* One IFC job per worker. Original bytes and BIM metadata never leave this device. */
 'use strict';
-importScripts('./vendor/web-ifc/web-ifc-api-iife.js','./ifc-glb.js','./classify.js');
+importScripts('./vendor/web-ifc/web-ifc-api-iife.js','./ifc-glb.js'+new URL(self.location.href).search,'./classify.js');
 self.onmessage=async({data})=>{
  if(data?.type!=='convert')return;
  const api=new WebIFC.IfcAPI();let model;
@@ -32,7 +32,8 @@ self.onmessage=async({data})=>{
   each('IFCRELASSOCIATESMATERIAL',r=>{const names=[...new Set(materialNames(r.RelatingMaterial))].join(' / ').slice(0,200);for(const item of r.RelatedObjects||[])materials.set(id(item),names);});
   each('IFCRELASSIGNSTOGROUP',r=>{const group=get(id(r.RelatingGroup));if(!/SYSTEM/i.test(api.GetNameFromTypeCode(group.type)))return;for(const item of r.RelatedObjects||[])systems.set(id(item),text(group.Name));});
   function levelFor(element){let key=containers.get(element);const seen=new Set();while(key&&!seen.has(key)){seen.add(key);if(storeys.has(key))return storeys.get(key);key=parents.get(key)||containers.get(key);}return '';}
-  const b=AgelIFCGLB.create(),geometryCache=new Map();let ignored=0,last=0;
+  const b=AgelIFCGLB.create(),geometryCache=new Map(),issueIds=new Set(),issues=[];let ignored=0,last=0,skippedParts=0,skippedElements=0,emptyGeometries=0;
+  function note(mesh,row,type){if(issueIds.has(mesh.expressID))return;issueIds.add(mesh.expressID);if(issues.length<20)issues.push({expressID:mesh.expressID,name:text(row.Name)||type,type,reason:'Sin superficie triangulable'});}
   progress('Preparando geometría');
   api.StreamAllMeshes(model,(mesh,index,total)=>{
    const row=get(mesh.expressID),type=api.GetNameFromTypeCode(row.type),upper=type.toUpperCase();if(['IFCSPACE','IFCOPENINGELEMENT'].includes(upper)){ignored++;return;}
@@ -41,15 +42,16 @@ self.onmessage=async({data})=>{
    const category=pick('category','categoria','revit category')||(upper==='IFCCOVERING'?type+' · Acabados':type),parts=[],system=systems.get(mesh.expressID)||pick('system name','nombre de sistema','system type','tipo de sistema');
    if(!discipline&&mep.has(mesh.expressID)&&!AgelClassify.disciplineFor(category,system))discipline='Instalaciones (MEP)';
    for(let j=0;j<mesh.geometries.size();j++){
-    const placed=mesh.geometries.get(j),key=placed.geometryExpressID;let geometry=geometryCache.get(key);
-    if(!geometry){const g=api.GetGeometry(model,key);try{geometry=b.geometry(key,api.GetVertexArray(g.GetVertexData(),g.GetVertexDataSize()),api.GetIndexArray(g.GetIndexData(),g.GetIndexDataSize()));geometryCache.set(key,geometry);}finally{g.delete();}}
+    const placed=mesh.geometries.get(j),key=placed.geometryExpressID;
+    if(!geometryCache.has(key)){const g=api.GetGeometry(model,key);try{const geometry=b.geometry(key,api.GetVertexArray(g.GetVertexData(),g.GetVertexDataSize()),api.GetIndexArray(g.GetIndexData(),g.GetIndexDataSize()));geometryCache.set(key,geometry);if(!geometry)emptyGeometries++;}catch(error){throw Error(`Elemento IFC #${mesh.expressID} (${type}), geometría #${key}: ${error.message}`);}finally{g.delete();}}
+    const geometry=geometryCache.get(key);if(!geometry){skippedParts++;note(mesh,row,type);continue;}
     const c=placed.color,material=b.material([c.x,c.y,c.z,c.w],materials.get(mesh.expressID)||materials.get(types.get(mesh.expressID))||'');parts.push({geometry,material,matrix:Array.from(placed.flatTransformation)});
    }
-   b.element({id:mesh.expressID,name:text(row.Name)||type+' #'+mesh.expressID,metadata:{IFCClass:type,GlobalId:text(row.GlobalId),category,discipline,level:levelFor(mesh.expressID)||pick('level','nivel'),'System Name':system,phase:pick('phase created','fase de creacion','phase','fase')},parts});
+   if(!parts.length){skippedElements++;note(mesh,row,type);}else b.element({id:mesh.expressID,name:text(row.Name)||type+' #'+mesh.expressID,metadata:{IFCClass:type,GlobalId:text(row.GlobalId),category,discipline,level:levelFor(mesh.expressID)||pick('level','nivel'),'System Name':system,phase:pick('phase created','fase de creacion','phase','fase')},parts});
    if(Date.now()-last>150||index===total-1){progress('Preparando geometría',index+1,total);last=Date.now();}
   },true);
   progress('Creando copia de visualización');
-  const bytes=b.finish({schema,source:'IFC local',coordinateToOrigin:api.GetCoordinationMatrix(model),units:'metres'}),summary={schema,...b.stats,ignored,bytes:bytes.byteLength};
+  const bytes=b.finish({schema,source:'IFC local',coordinateToOrigin:api.GetCoordinationMatrix(model),units:'metres'}),summary={schema,...b.stats,ignored,bytes:bytes.byteLength,skippedParts,skippedElements,emptyGeometries,issuesTotal:issueIds.size,issues};
   self.postMessage({type:'done',bytes,summary},[bytes]);
  }catch(error){self.postMessage({type:'error',message:error.message||'No se pudo preparar el IFC. Reexporta el modelo o divídelo por disciplinas.'});}
  finally{if(model!==undefined&&model>=0)try{api.CloseModel(model);}catch{}try{api.Dispose();}catch{}}

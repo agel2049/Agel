@@ -8,7 +8,8 @@
   function accessor(v,componentType,count,type,more={}){const index=doc.accessors.length;doc.accessors.push({bufferView:v,componentType,count,type,...more});return index;}
   function geometry(key,vertices,indices){
    if(geometries.has(key))return geometries.get(key);
-   if(!vertices?.length||vertices.length%6||!indices?.length||indices.length%3)throw Error('Geometría IFC incompleta.');
+   if(!vertices?.length||!indices?.length)return null;
+   if(vertices.length%6||indices.length%3)throw Error('Geometría IFC incompleta.');
    const count=vertices.length/6,min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
    for(let i=0;i<vertices.length;i++){if(!Number.isFinite(vertices[i]))throw Error('Vértice IFC no válido.');if(i%6<3){const axis=i%6;min[axis]=Math.min(min[axis],vertices[i]);max[axis]=Math.max(max[axis],vertices[i]);}}
    for(const i of indices)if(!Number.isInteger(i)||i<0||i>=count)throw Error('Índice de geometría IFC fuera del modelo.');
