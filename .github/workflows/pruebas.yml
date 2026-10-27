@@ -101,6 +101,7 @@ jobs:
           python tests/e2e_glb_preview.py
           python tests/e2e_glb_local.py
           python tests/e2e_ifc_local.py
+          python tests/e2e_ifc_empty_surfaces.py
           python tests/e2e_ifc_panel.py
           python tests/e2e_maquette.py
           python tests/e2e_remote_model.py

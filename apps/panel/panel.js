@@ -290,6 +290,18 @@
       const fi = h('input', { type: 'file', accept, multiple: true, hidden: true });
       const btn = h('button', { type: 'button', class: 'ag-btn', onclick: () => fi.click() }, icon('upload'), label);
       let controller;const cancel=h('button',{type:'button',class:'ag-btn',hidden:true,onclick:()=>controller?.abort()},'Cancelar importación IFC');
+      const report=h('details',{hidden:true});
+      function showImportReport(summary){
+        report.replaceChildren();report.hidden=!summary;if(!summary)return;
+        report.append(h('summary',null,'Resumen de importación IFC'),h('p',null,`${summary.elements} piezas visibles · ${summary.schema}.`));
+        if(summary.skippedParts||summary.skippedElements){
+          report.append(h('p',null,`Representaciones sin triángulos: ${summary.skippedParts||0}. Elementos sin superficie visible: ${summary.skippedElements||0}. Revisa la lista antes de presentar el modelo.`));
+          const issues=Array.isArray(summary.issues)?summary.issues.slice(0,20):[];
+          report.append(h('ul',null,issues.map(item=>h('li',null,`IFC #${item.expressID} · ${item.name} · ${item.type}`))));
+          if(summary.issuesTotal>issues.length)report.append(h('p',null,`Mostrando ${issues.length} de ${summary.issuesTotal} elementos afectados.`));
+        }
+      }
+      if(kind==='glb')showImportReport(Object.values(draft.ifcImports||{}).find(entry=>entry.ref===sr.model3d?.url)?.summary);
       fi.addEventListener('change', async () => {
         controller=new AbortController();const leaving=()=>controller.abort();window.addEventListener('hashchange',leaving,{once:true});
         try{
@@ -298,13 +310,14 @@
           busy(btn, true, `Guardando ${file.name}…`);
           try { const ifc=kind==='glb'&&/\.ifc$/i.test(file.name);cancel.hidden=!ifc;
             const r = ifc?await AgelIFC.importFile({workspace,file,expectedRevision:editSession.revision,signal:controller.signal,onProgress:text=>busy(btn,true,text)}):await workspace.addMedia(file,kind,{expectedRevision:editSession.revision});editSession.revision=r.localRevision; await onDone(r.ref,file);if(!await saveContent())break;
-            if(ifc)notify(`${r.cached?'Copia IFC reutilizada':'IFC preparado'} · ${r.summary.elements} piezas · ${r.summary.schema}. Guardado local; sin subir el original.`);
+            if(kind==='glb')showImportReport(ifc?r.summary:null);
+            if(ifc)notify(`${r.cached?'Copia IFC reutilizada':'IFC preparado'} · ${r.summary.elements} piezas · ${r.summary.schema}. Guardado local; sin subir el original.${r.summary.skippedParts||r.summary.skippedElements?' Hay superficies omitidas: revisa el resumen de importación.':''}`);
           }
           catch (e) { if(e.name==='AbortError')notify(e.message);else fail(e);if(controller.signal.aborted)break; }
         }
         }finally{window.removeEventListener('hashchange',leaving);cancel.hidden=true;busy(btn, false); fi.value = ''; draw();}
       });
-      return h('span', null, btn, fi,cancel);
+      const controls=h('span',null,btn,fi,cancel);return kind==='glb'?h('div',null,controls,report):controls;
     }
     const err = h('p', { class: 'ag-error', role: 'alert' });
     const save = h('button', { type: 'submit', class: 'ag-btn primary' }, 'Guardar en este dispositivo');

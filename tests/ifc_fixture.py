@@ -1,5 +1,5 @@
 """Minimal, synthetic STEP models: four separate elements and one storey."""
-def ifc_bytes(schema='IFC4',millimeters=False,typed_material=False,offset=0,long_header=False,generic_mep=False):
+def ifc_bytes(schema='IFC4',millimeters=False,typed_material=False,offset=0,long_header=False,generic_mep=False,surfaces='normal'):
  scale=1000 if millimeters else 1
  lines=["#1=IFCPERSON($,$,'Test',$,$,$,$,$);","#2=IFCORGANIZATION($,'Fixture',$,$,$);","#3=IFCPERSONANDORGANIZATION(#1,#2,$);","#4=IFCAPPLICATION(#2,'1','Fixture','fixture');","#5=IFCOWNERHISTORY(#3,#4,$,.ADDED.,$,$,$,0);","#10=IFCCARTESIANPOINT((0.,0.,0.));","#11=IFCDIRECTION((0.,0.,1.));","#12=IFCDIRECTION((1.,0.,0.));","#13=IFCAXIS2PLACEMENT3D(#10,#11,#12);","#14=IFCLOCALPLACEMENT($,#13);","#15=IFCCARTESIANPOINT((0.,0.));","#16=IFCAXIS2PLACEMENT2D(#15,$);",f"#17=IFCRECTANGLEPROFILEDEF(.AREA.,$,#16,{2*scale}.,{.2*scale});",f"#18=IFCEXTRUDEDAREASOLID(#17,#13,#11,{3*scale}.);","#20=IFCSHAPEREPRESENTATION(#30,'Body','SweptSolid',(#18));","#21=IFCPRODUCTDEFINITIONSHAPE($,$,(#20));","#30=IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,0.00001,#13,$);",f"#31=IFCSIUNIT(*,.LENGTHUNIT.,{'.MILLI.' if millimeters else '$'},.METRE.);","#32=IFCUNITASSIGNMENT((#31));","#33=IFCPROJECT('0A00000000000000000001',#5,'Prueba local',$,$,$,$,(#30),#32);","#40=IFCBUILDINGSTOREY('0A00000000000000000002',#5,'Nivel 1',$,$,#14,$,$,.ELEMENT.,0.);","#41=IFCRELAGGREGATES('0A00000000000000000003',#5,$,$,#33,(#40));"]
  for i,(typ,name) in enumerate([('IFCWALL','Muro'),('IFCBEAM','Viga'),('IFCPIPESEGMENT' if schema!='IFC2X3' else 'IFCFLOWSEGMENT','Tuberia'),('IFCCOVERING','Acabado')]):
@@ -7,6 +7,12 @@ def ifc_bytes(schema='IFC4',millimeters=False,typed_material=False,offset=0,long
   suffix=",.CLADDING." if typ=='IFCCOVERING' else ",.NOTDEFINED." if schema!='IFC2X3' else ''
   lines.append(f"#{50+i}={typ}('0A000000000000000000{10+i}',#5,'{name}',$,$,#{pid+2},#21,'tag-{i}'{suffix});")
  lines += ["#60=IFCRELCONTAINEDINSPATIALSTRUCTURE('0A00000000000000000020',#5,$,$,(#50,#51,#52,#53),#40);","#61=IFCPROPERTYSINGLEVALUE('Discipline',$,IFCLABEL('Hidrosanitaria'),$);","#62=IFCPROPERTYSET('0A00000000000000000021',#5,'Pset_Test',$,(#61));","#63=IFCRELDEFINESBYPROPERTIES('0A00000000000000000022',#5,$,$,(#52),#62);","#64=IFCMATERIAL('Ladrillo');" if schema=='IFC2X3' else "#64=IFCMATERIAL('Ladrillo',$,$);","#65=IFCRELASSOCIATESMATERIAL('0A00000000000000000023',#5,$,$,(#50),#64);"]
+ if surfaces!='normal':
+  lines += ["#202=IFCRECTANGLEPROFILEDEF(.AREA.,$,#16,0.,0.);","#203=IFCEXTRUDEDAREASOLID(#202,#13,#11,0.);"]
+  if surfaces=='separate':
+   lines += ["#210=IFCSHAPEREPRESENTATION(#30,'Body','SweptSolid',(#203));","#211=IFCPRODUCTDEFINITIONSHAPE($,$,(#210));","#212=IFCBUILDINGELEMENTPROXY('0A00000000000000000040',#5,'Sin superficie',$,$,#14,#211,'tag',.NOTDEFINED.);"]
+  else:
+   lines=[x.replace("'SweptSolid',(#18)","'SweptSolid',(#18,#203)" if surfaces=='mixed' else "'SweptSolid',(#203)") for x in lines]
  if generic_mep:
   lines=[x.replace('IFCPIPESEGMENT(', 'IFCSANITARYTERMINAL(') for x in lines if not x.startswith('#63=')]
  if typed_material:

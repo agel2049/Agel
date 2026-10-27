@@ -13,4 +13,12 @@ test('IFC GLB builder preserves shared geometry, identity, transform and typed p
 });
 test('invalid IFC geometry is rejected before a corrupt GLB is produced',()=>{
  assert.ok(B,'IFC GLB builder missing');const b=B.create();assert.throws(()=>b.geometry('bad',new Float32Array([NaN,0,0,0,0,1]),indices),/geometr|v[eé]rtice/i);assert.throws(()=>b.finish(),/geometr|pieza/i);
+ assert.throws(()=>b.geometry('broken-triangle',vertices,new Uint32Array([0,1])),/incompleta/);
+ assert.throws(()=>b.geometry('broken-vertex',new Float32Array(5),indices),/incompleta/);
+});
+test('empty IFC surfaces do not reject valid geometry in the same model',()=>{
+ const b=B.create();assert.equal(b.geometry('empty',new Float32Array(12),new Uint32Array()),null);
+ assert.equal(b.geometry('missing',new Float32Array(),new Uint32Array()),null);
+ const g=b.geometry('valid',vertices,indices),mat=b.material([1,1,1,1]);b.element({id:1,name:'Muro',parts:[{geometry:g,material:mat,matrix:[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]}]});
+ assert.ok(b.finish().byteLength>100);
 });

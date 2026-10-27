@@ -8,6 +8,8 @@
 
 Seleccionar otra vez exactamente el mismo IFC reutiliza la preparación guardada, incluso después de cerrar y abrir el panel. Cambiar el contenido del archivo o la versión del importador exige prepararlo otra vez. La primera lectura requiere memoria y espacio local para el original y la copia; no hay un límite artificial tomado del plan de Supabase. Para proyectos muy pesados, exporta por edificio o disciplina. No se promete un tamaño de entrada ilimitado ni compatibilidad con todas las representaciones IFC.
 
+Si una representación IFC no aporta triángulos, la importación conserva las piezas válidas y muestra un **Resumen de importación IFC** con los identificadores de los elementos afectados (hasta 20 ejemplos). Revisa esa lista antes de presentar: una pieza omitida puede ser relevante. El original no se modifica. Si todo el IFC carece de superficies visibles, la importación se rechaza y se conserva el modelo anterior. Los datos geométricos no vacíos pero mal formados siguen dando error, ahora con el elemento y la geometría identificados.
+
 Un archivo inválido, una cancelación, un conflicto de edición o falta de espacio no deben sustituir el modelo anterior. Conserva tus originales y un respaldo del proyecto; borrar datos del navegador elimina el almacenamiento local.
 
 ## Nube y formatos
