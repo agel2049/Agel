@@ -17,6 +17,8 @@ Aplicación estática en GitHub Pages con Supabase para cuentas y contenido publ
 ## Capabilities and Constraints
 No subir medios automáticamente. Mantener las opciones locales separadas de la subida voluntaria a la nube. Los archivos locales dependen de la capacidad de almacenamiento y del soporte de formatos del navegador. El QR temporal conserva sus límites de una persona y 30 minutos. El GLB original permanece en la Mac; el celular recibe imagen del modelo. BIM técnico restringido al equipo. No modificar el motor 360° ni realizar pruebas manuales de él.
 
+La maqueta local acepta IFC mediante preparación en segundo plano y caché versionada; conserva originales en el equipo y transmite solo imagen del modelo al celular.
+
 ## Brand Commitments
 Nombre solicitado para la presentación: Archgel. Símbolo PNG aportado por el usuario, provisional. Dirección visual aprobada a partir de BE OF DAO y el concepto de fachada del 25 de octubre de 2026. Opening con logo y un único botón Iniciar; sin nombre grande, títulos ni subtítulos sobre el video.
 

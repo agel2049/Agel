@@ -52,8 +52,8 @@
   }
   function busy(btn, on, text) {
     if (!btn) return;
-    if (on) { btn.dataset.label = btn.textContent; btn.disabled = true; if (text) btn.textContent = text; }
-    else { btn.disabled = false; if (btn.dataset.label) btn.textContent = btn.dataset.label; }
+    if (on) { if (btn.dataset.label === undefined) btn.dataset.label = btn.textContent; btn.disabled = true; if (text) btn.textContent = text; }
+    else { btn.disabled = false; if (btn.dataset.label !== undefined) btn.textContent = btn.dataset.label; delete btn.dataset.label; }
   }
 
   // ═════════════════════════════ acceso ═════════════════════════════
@@ -289,15 +289,22 @@
     function uploader(label, accept, kind, onDone) {
       const fi = h('input', { type: 'file', accept, multiple: true, hidden: true });
       const btn = h('button', { type: 'button', class: 'ag-btn', onclick: () => fi.click() }, icon('upload'), label);
+      let controller;const cancel=h('button',{type:'button',class:'ag-btn',hidden:true,onclick:()=>controller?.abort()},'Cancelar importación IFC');
       fi.addEventListener('change', async () => {
+        controller=new AbortController();const leaving=()=>controller.abort();window.addEventListener('hashchange',leaving,{once:true});
+        try{
         for (const file of fi.files) {
+          if(controller.signal.aborted)break;
           busy(btn, true, `Guardando ${file.name}…`);
-          try { const r = await workspace.addMedia(file,kind,{expectedRevision:editSession.revision});editSession.revision=r.localRevision; await onDone(r.ref,file);if(!await saveContent())break; }
-          catch (e) { fail(e); }
+          try { const ifc=kind==='glb'&&/\.ifc$/i.test(file.name);cancel.hidden=!ifc;
+            const r = ifc?await AgelIFC.importFile({workspace,file,expectedRevision:editSession.revision,signal:controller.signal,onProgress:text=>busy(btn,true,text)}):await workspace.addMedia(file,kind,{expectedRevision:editSession.revision});editSession.revision=r.localRevision; await onDone(r.ref,file);if(!await saveContent())break;
+            if(ifc)notify(`${r.cached?'Copia IFC reutilizada':'IFC preparado'} · ${r.summary.elements} piezas · ${r.summary.schema}. Guardado local; sin subir el original.`);
+          }
+          catch (e) { if(e.name==='AbortError')notify(e.message);else fail(e);if(controller.signal.aborted)break; }
         }
-        busy(btn, false); fi.value = ''; draw();
+        }finally{window.removeEventListener('hashchange',leaving);cancel.hidden=true;busy(btn, false); fi.value = ''; draw();}
       });
-      return h('span', null, btn, fi);
+      return h('span', null, btn, fi,cancel);
     }
     const err = h('p', { class: 'ag-error', role: 'alert' });
     const save = h('button', { type: 'submit', class: 'ag-btn primary' }, 'Guardar en este dispositivo');
@@ -357,9 +364,9 @@
         progList,
         h('button', { type: 'button', class: 'ag-btn', onclick: () => { progress.unshift({ date: new Date().toISOString().slice(0, 7), title: '', note: '', images: [] }); drawProgress(); } }, icon('plus'), 'Agregar hito')),
       h('fieldset', null, h('legend', null, 'Modelo 3D (opcional)'),
-        h('p', { class: 'pn-muted' }, 'El GLB se guarda en este dispositivo. Puedes verlo y filtrar sus piezas desde Modelos 3D sin subirlo. Su tamaño local depende del espacio y la memoria del equipo; los límites de nube solo se revisan al sincronizar.'),
+        h('p', { class: 'pn-muted' }, 'Agrega un GLB o un IFC desde tu equipo. El IFC se prepara una vez en segundo plano y conserva categorías, niveles e instalaciones cuando el modelo los incluye. El original y la copia de visualización quedan en este dispositivo, sin subirlos. Puedes cancelar la preparación. El tamaño local depende del espacio y la memoria del equipo.'),
         h('div', { class: 'pn-grid' }, field('Archivo GLB (URL https)', f.model_url), field('Título', f.model_title)),
-        uploader('Agregar GLB local', '.glb,model/gltf-binary', 'glb', url => { f.model_url.value = url; })),
+        uploader('Agregar modelo local (GLB o IFC)', '.glb,.ifc,model/gltf-binary,application/x-step,application/x-ifc', 'glb', url => { f.model_url.value = url; })),
       h('fieldset', null, h('legend', null, 'Ubicación'),
         field('Dirección', f.address), field('Enlace del mapa', f.map_url), field('Notas (accesos, distancias)', f.loc_notes)),
       h('fieldset', null, h('legend', null, 'Contacto'),
@@ -745,7 +752,7 @@
         } }] });
     };
     put(body,
-      local?.url?h('article',{class:'pn-card'},h('h2',null,local.title||'GLB del showroom'),h('p',{class:'pn-muted'},local.url.startsWith('agel-local:')?'Guardado en este dispositivo. Puedes filtrar sus piezas sin subirlo a Supabase.':'Modelo 3D del showroom. Sus filtros dependen de las piezas y propiedades exportadas.'),h('a',{class:'ag-btn primary',href:`${ROOT}apps/bim/?local=${S.projectId}`},'Ver GLB local')):null,
+      local?.url?h('article',{class:'pn-card'},h('h2',null,local.title||'Modelo local del showroom'),h('p',{class:'pn-muted'},local.url.startsWith('agel-local:')?'Guardado en este dispositivo. IFC y GLB preparados pueden filtrarse sin subirlos a Supabase.':'Modelo 3D del showroom. Sus filtros dependen de las piezas y propiedades exportadas.'),h('a',{class:'ag-btn primary',href:`${ROOT}apps/bim/?local=${S.projectId}`},'Ver GLB local')):null,
       h('div', { class: 'pn-toolbar' },
         h('p', { class: 'pn-muted' }, 'Para modelos de Navisworks (NWD) se reutiliza el visor de Autodesk y su conversión. Esta conexión requiere configurar APS. El GLB de arriba puede verse localmente sin esa conversión.'),
         canEdit() ? h('button', { type: 'button', class: 'ag-btn primary', onclick: newModel }, icon('plus'), 'Nuevo modelo') : null),

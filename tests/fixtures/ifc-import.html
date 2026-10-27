@@ -1,0 +1,8 @@
+<!doctype html><meta charset="utf-8"><div id="viewer" style="width:800px;height:500px"></div>
+<script src="../../packages/core/schema.js"></script><script src="../../packages/showroom/relations.js"></script>
+<script src="../../packages/core/sync.js"></script><script src="../../packages/core/local-media.js"></script><script src="../../packages/core/workspace.js"></script>
+<script src="../../packages/bim/classify.js"></script><script src="../../packages/bim/glb-filters.js"></script><script src="../../packages/bim/maquette-math.js"></script><script src="../../packages/bim/glb-viewer.js"></script>
+<script src="../../packages/bim/ifc-import.js"></script>
+<script>
+window.cloud={user:{id:'owner'},rpc:async name=>name==='load_project_tree'?{revision:1,role:'owner',project:{id:'ifc-project',name:'IFC'},scenes:[]}:name==='load_workspace_settings'?{}:Promise.reject(Error('Unexpected write')),select:async()=>[]};
+</script>
