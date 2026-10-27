@@ -1,6 +1,6 @@
 """Small self-contained GLB with distinct architectural parts, not user assets."""
 import json,struct
-def glb_bytes(external=False,empty=False,nested=False):
+def glb_bytes(external=False,empty=False,nested=False,rebar=False):
  binary=struct.pack('<9f',-1,0,0,1,0,0,0,2,0)
  doc={'asset':{'version':'2.0'},'scene':0,'scenes':[{'nodes':[0]}],
   'nodes':[{'name':'Edificio','children':[] if empty else [1,2,3]},
@@ -12,6 +12,7 @@ def glb_bytes(external=False,empty=False,nested=False):
   'buffers':[{'byteLength':len(binary)}],'bufferViews':[{'buffer':0,'byteOffset':0,'byteLength':len(binary)}],
   'accessors':[{'bufferView':0,'componentType':5126,'count':3,'type':'VEC3','min':[-1,0,0],'max':[1,2,0]}]}
  if external:doc['images']=[{'uri':'https://forbidden.example/private.png'}]
+ if rebar:doc['nodes'][2]['extras'].update(Category='Estructura',IFCClass='IfcReinforcingBar')
  if nested:doc['nodes'][0]['children']=[1,3];doc['nodes'][1]['children']=[2]
  text=json.dumps(doc,separators=(',',':')).encode();text+=b' '*((-len(text))%4)
  return struct.pack('<III',0x46546C67,2,12+8+len(text)+8+len(binary))+struct.pack('<II',len(text),0x4E4F534A)+text+struct.pack('<II',len(binary),0x004E4942)+binary

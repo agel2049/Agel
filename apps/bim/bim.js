@@ -169,7 +169,7 @@
   async function tabFilters(p) {
     const renderToken=++S.renderToken;
     const f = S.facets || {};
-    const presets=h('div',{class:'pn-actions'},...[['complete','Completo'],['mep','MEP'],['masonry','Albañilería'],['structure','Estructura'],['finishes','Con acabados'],['grey','Obra gris']].map(([id,label])=>h('button',{class:'ag-btn',type:'button','aria-pressed':String(S.preset===id),onclick:()=>applyPreset(id)},label)));
+    const presets=h('div',{class:'pn-actions'},...[['complete','Completo'],['mep','MEP'],['masonry','Albañilería'],['structure','Estructura'],['rebar','Varillas'],['finishes','Con acabados'],['grey','Obra gris']].map(([id,label])=>h('button',{class:'ag-btn',type:'button','aria-pressed':String(S.preset===id),onclick:()=>applyPreset(id)},label)));
     if (!f.total) { put(p,presets, h('p', { class: 'bm-muted' }, 'Indexa los elementos para filtrar por disciplina, sistema, nivel y etapa.')); return; }
     const active = Object.entries(S.filters);
     if(renderToken!==S.renderToken)return;

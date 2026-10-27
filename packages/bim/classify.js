@@ -27,7 +27,7 @@
     ['Hidrosanitaria', ['pipe', 'tuberia', 'plumbing', 'aparato sanitario', 'aparatos sanitarios', 'accesorio de tuberia', 'flex pipe']],
     ['Eléctrica', ['cable tray', 'bandeja de cables', 'bandeja', 'conduit', 'tubo', 'electrical', 'electric', 'electrico', 'electrica',
                    'lighting', 'luminaria', 'iluminacion', 'communication', 'comunicacion', 'data device', 'dispositivo de datos']],
-    ['Estructura', ['structural', 'estructural', 'foundation', 'cimentacion', 'rebar', 'armadura', 'pilar estructural']],
+    ['Estructura', ['structural', 'estructural', 'foundation', 'cimentacion', 'rebar', 'armadura', 'varilla', 'reinforcing', 'pilar estructural']],
     ['Arquitectura', ['wall', 'muro', 'door', 'puerta', 'window', 'ventana', 'floor', 'suelo', 'piso', 'ceiling', 'techo', 'roof', 'cubierta',
                       'stair', 'escalera', 'railing', 'barandilla', 'baranda', 'curtain', 'muro cortina', 'casework', 'mobiliario', 'furniture', 'generic model', 'modelo generico']]
   ];
@@ -47,6 +47,11 @@
     if (FIRE_SYSTEM.test(s)) return 'Protección contra incendio';
     for (const [d, keys] of DISCIPLINES) if (keys.some(k => c.includes(k))) return d;
     return '';
+  }
+
+  function isRebar(category, ifcClass = '', name = '') {
+    return /\bifcreinforcing(bar|mesh)(type)?\b/.test(norm(ifcClass + ' ' + category)) ||
+      /\b(varillas?|rebars?|reinforcement|reinforcing bars?|structural rebar|armaduras?|refuerzo estructural)\b/.test(norm(category + ' ' + name));
   }
 
   function ruleMatches(rule, props) {
@@ -108,7 +113,7 @@
     return s;
   }
 
-  const api = { classify, summary, disciplineFor, ruleMatches, PROPS, DISCIPLINES };
+  const api = { classify, summary, disciplineFor, isRebar, ruleMatches, PROPS, DISCIPLINES };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.AgelClassify = api;
 })(typeof window !== 'undefined' ? window : globalThis);

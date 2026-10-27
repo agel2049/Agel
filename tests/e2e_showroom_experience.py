@@ -20,7 +20,7 @@ with local_page('tests/fixtures/showroom-experience.html') as pg:
  pg.get_by_role('button',name='Ubicación',exact=True).click()
  pg.get_by_text('Morelia, Michoacán',exact=True).wait_for()
  assert pg.evaluate('document.documentElement.scrollWidth<=innerWidth')
- pg.get_by_role('button',name='Edificio',exact=True).click();pg.get_by_role('img',name='Fachada',exact=True).wait_for();pg.wait_for_timeout(500);pg.screenshot(path='/tmp/agel-experience-desktop.png')
+ pg.get_by_role('button',name='Fachada',exact=True).click();pg.get_by_role('img',name='Fachada',exact=True).wait_for();pg.wait_for_timeout(750);pg.screenshot(path='/tmp/agel-experience-desktop.png')
  print('PASS: opening facade lobby level transparent rounded area scoped tour and return')
 with local_page('tests/fixtures/showroom-experience.html',{'width':390,'height':844}) as pg:
  pg.emulate_media(reduced_motion='reduce')

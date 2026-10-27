@@ -1,6 +1,18 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const F=require('../packages/bim/glb-filters.js');
 const mesh=(id,name,userData={},material='Material')=>({uuid:id,name,userData,material:{name:material}});
+test('Varillas recognizes IFC class independently of category and stays in structure/grey',()=>{
+ const bars=F.describe(mesh('bar','Elemento',{Category:'Estructura',discipline:'Estructura'}),[{name:'IFC #1',userData:{IFCClass:'IFCREINFORCINGBAR'}}]);
+ const column=F.describe(mesh('column','Columna',{Category:'Structural Columns'}));
+ assert.deepEqual(F.select([bars,column],{preset:'rebar'}).map(e=>e.id),['bar']);
+ assert.equal(F.select([bars],{preset:'structure'}).length,1);
+ assert.equal(F.select([bars],{preset:'grey'}).length,1);
+ const meshBars=F.describe(mesh('mesh','Malla',{IFCClass:'IfcReinforcingMesh'}));
+ assert.equal(F.select([meshBars],{preset:'rebar'}).length,1);
+ const named=F.describe(mesh('named','Varillas de refuerzo'));
+ assert.equal(F.select([named],{preset:'rebar'}).length,1);
+ assert.equal(F.select([column],{preset:'rebar'}).length,0);
+});
 test('explicit BIM properties and inherited level describe actual exported parts',()=>{
  const e=F.describe(mesh('pipe','Tubería 01',{Category:'Pipes'},'Cobre'),[{name:'Nivel 2',userData:{Level:'Nivel 2'}}]);
  assert.equal(e.discipline,'Hidrosanitaria');assert.equal(e.level,'Nivel 2');assert.equal(e.material,'Cobre');assert.equal(e.bucket,'mep');assert.equal(e.source,'properties');

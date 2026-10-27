@@ -25,17 +25,20 @@
   const discipline=explicit||C.disciplineFor(category,system)||'Sin clasificar';if(explicit)source='properties';
   const mats=[...new Set((Array.isArray(mesh.material)?mesh.material:[mesh.material]).map(m=>m?.name).filter(Boolean))];
   const material=mats.join(' / ').slice(0,200)||'Sin material nombrado',text=norm(category+' '+named);
+  // IFC class survives on the parent node even when Revit exports a broad category.
+  const ifcClass=norm(prop(props,['ifcclass','ifc class','ifc type']));
+  const isRebar=C.isRebar(category,ifcClass,named);
   let bucket='unknown';
   if(/electri|hidrosan|mecanica|hvac|incendio|plumb|mechanical|mep/.test(norm(discipline)))bucket='mep';
   else if(/acabado|finish|recubrimiento/.test(text))bucket='finishes';
-  else if(/estructur|structur/.test(norm(discipline)))bucket='structure';
+  else if(isRebar||/estructur|structur/.test(norm(discipline)))bucket='structure';
   else if(/muros?|wall|tabique|albanileria|masonry/.test(text))bucket='masonry';
-  return {id:mesh.uuid,name,discipline,category:category||'Sin categoría',level:String(prop(props,C.PROPS.level)).slice(0,120)||'Sin nivel',group:ancestors.map(n=>n.name).filter(Boolean).join(' / ').slice(0,200)||'Sin grupo',material,bucket,source};
+  return {id:mesh.uuid,name,discipline,category:category||'Sin categoría',level:String(prop(props,C.PROPS.level)).slice(0,120)||'Sin nivel',group:ancestors.map(n=>n.name).filter(Boolean).join(' / ').slice(0,200)||'Sin grupo',material,bucket,source,isRebar};
  }
  function select(elements,{facets:filters={},query='',preset='all'}={}){
-  if(!['all','mep','masonry','structure','finishes','grey'].includes(preset))throw Error('Filtro de modelo desconocido');
+  if(!['all','mep','masonry','structure','rebar','finishes','grey'].includes(preset))throw Error('Filtro de modelo desconocido');
   const q=norm(query);
-  return elements.filter(e=>(preset==='all'||(preset==='grey'?['masonry','structure'].includes(e.bucket):e.bucket===preset))&&
+  return elements.filter(e=>(preset==='all'||(preset==='rebar'?e.isRebar:preset==='grey'?['masonry','structure'].includes(e.bucket):e.bucket===preset))&&
    fields.every(f=>!filters[f]?.length||filters[f].includes(e[f]))&&(!q||norm([e.name,...fields.map(f=>e[f])].join(' ')).includes(q)));
  }
  function facets(elements){return Object.fromEntries(fields.map(f=>{const counts=new Map();for(const e of elements)if(e[f])counts.set(e[f],(counts.get(e[f])||0)+1);return [f,Object.fromEntries(counts)];}));}

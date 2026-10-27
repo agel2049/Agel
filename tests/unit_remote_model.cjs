@@ -14,6 +14,14 @@ function fixture({deferred=false,ref='agel-local:own',owned=true}={}){
  return {api:context.AgelSharedModel,workspace,container,sent,calls,paint,sequence,track,stream,viewer,canvas,get loads(){return loads;},advance(){now+=1100;},pulse(){pulse?.();},get cleared(){return cleared;},resolve(){resolveOpen();},frame:()=>frame?.({tag:'rendered-frame'})};
 }
 function host(f){assert.equal(typeof f.api?.host,'function');return f.api.host({workspace:f.workspace,container:f.container,sessionId:'abcdefgh-1234',send:m=>f.sent.push(m)});}
+test('guest receives a Varillas preset and may select it without model bytes or names',async()=>{
+ const f=fixture();f.viewer.elements.push({id:'private-bar',name:'private rebar',bucket:'structure',isRebar:true});
+ const h=host(f);h.handle({op:'model',action:'open'});await tick();
+ assert.equal(f.sent.at(-1).presets.find(p=>p.value==='rebar')?.count,1);
+ h.handle({op:'model',action:'filter',preset:'rebar'});
+ assert.equal(f.sent.at(-1).visible,1);assert.equal(JSON.stringify(f.sent).includes('private-bar'),false);
+ assert.ok(f.calls.some(c=>c[0]==='filter'&&c[1].preset==='rebar'));h.close();
+});
 test('host returns a video stream immediately and loads only its own GLB after open',async()=>{
  const f=fixture(),h=host(f);assert.equal(h.stream,f.stream);assert.equal(f.loads,0);assert.deepEqual([f.canvas.width,f.canvas.height],[720,480]);h.handle({op:'model',action:'open'});await tick();assert.equal(f.calls.filter(c=>c[0]==='open').length,1);assert.equal(f.sent.at(-1).state,'ready');h.close();assert.equal(f.track.stopped,true);
 });
