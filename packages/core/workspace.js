@@ -21,7 +21,7 @@
     const expected=next.localRevision||0,copy=clone(next);copy.localRevision=expected+1;copy.dirty=!synced;
     await store.saveDraft(copy,expected);check();current=copy;next.localRevision=copy.localRevision;next.dirty=copy.dirty;return clone(copy);
    },
-   async reloadCloud(){check();const [tree,spaces,privateSettings]=await Promise.all([cloud.rpc('load_project_tree',{p_project:projectId}),cloud.select('spaces',`project_id=eq.${projectId}&select=*&order=position.asc`),cloud.rpc('load_workspace_settings',{p_project:projectId})]);const previous=await api.load();const next={tree,spaces,showroom:clone(tree.project.showroom||{}),privateSettings,media:previous.media,baseRevision:tree.revision,localRevision:previous.localRevision,dirty:false};await api.save(next,{synced:true});return api.load();},
+   async reloadCloud(){check();const [tree,spaces,privateSettings]=await Promise.all([cloud.rpc('load_project_tree',{p_project:projectId}),cloud.select('spaces',`project_id=eq.${projectId}&select=*&order=position.asc`),cloud.rpc('load_workspace_settings',{p_project:projectId})]);const previous=await api.load();const next={tree,spaces,showroom:clone(tree.project.showroom||{}),privateSettings,media:previous.media,...(previous.ifcImports?{ifcImports:previous.ifcImports}:{}),baseRevision:tree.revision,localRevision:previous.localRevision,dirty:false};await api.save(next,{synced:true});return api.load();},
    async addMedia(file,kind='image',{expectedRevision}={}){
     check();const draft=await api.load();assertRevision(draft,expectedRevision);if(!['owner','editor'].includes(draft.tree.role))throw Error('No tienes permiso para editar');
     const meta=await store.put(file,{kind});draft.media.push(meta);await api.save(draft);return {...meta,localRevision:draft.localRevision};
@@ -64,13 +64,20 @@
      const byMime={'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/avif':'avif','video/mp4':'mp4','video/webm':'webm','model/gltf-binary':'glb','application/pdf':'pdf'};
      return byMime[meta?.mime]||(meta?.kind==='glb'?'glb':null)||(/\.(jpg|jpeg|png|webp|gif|avif|mp4|webm|glb|pdf)(?:[?#]|$)/i.exec(meta?.name||url)?.[1]?.toLowerCase())||'jpg';
     }
-    const isModel=(meta,url='')=>meta?.kind==='glb'||/model\/gltf|gltf/i.test(meta?.mime||'')||/\.(glb|gltf)(?:[?#]|$)/i.test(meta?.name||url);
+    const isModel=(meta,url='')=>['glb','ifc'].includes(meta?.kind)||/gltf|ifc|step/i.test(meta?.mime||'')||/\.(glb|gltf|ifc|ifcxml|ifczip|step|stp)(?:[?#]|$)/i.test(meta?.name||url);
     const model=d.showroom.model3d;const remoteModel=model?.url&&isModel(local.get(model.url),model.url)?{available:true,title:String(model.title||'Maqueta virtual').slice(0,120)}:null;
     function mask(v){if(typeof v==='string'&&v.startsWith('agel-local:')){if(isModel(local.get(v)))return null;if(!local.has(v))throw Error('Falta un archivo local del showroom. Vuelve a seleccionarlo.');const u='https://agel-local.invalid/'+v.slice(11)+'.'+extension(local.get(v));refs.set(u,v);return u;}if(Array.isArray(v))return v.map(mask);if(v&&typeof v==='object')return Object.fromEntries(Object.entries(v).map(([k,x])=>[k,mask(x)]));return v;}
     const m=sanitizeShowroom(mask(raw)),assets=new Map(),mapped=new Map(),pendingReads=new Set();let packageClosed=false;
     const checkPackage=()=>{check();if(packageClosed)throw Error('La sesión compartida se cerró.');};
     const closePackage=()=>{if(packageClosed)return;packageClosed=true;for(const controller of pendingReads)controller.abort();pendingReads.clear();closeListeners.delete(closePackage);};closeListeners.add(closePackage);
     const mediaKeys=new Set(['url','thumb','preview','image','img','poster','logo','video','videoUrl','endingVideoUrl','plan_url']);
+    async function rejectModelBytes(blob){
+     const magic=await blob.slice(0,4).arrayBuffer();if(magic.byteLength===4&&new DataView(magic).getUint32(0,true)===0x46546c67)throw Error('El archivo GLB original no se comparte.');
+     // STEP permits leading whitespace. Scan bounded chunks, never a fixed header offset.
+     const decoder=new TextDecoder();let prefix='',offset=0;
+     while(offset<blob.size&&prefix.length<32){checkPackage();const chunk=await blob.slice(offset,offset+4096).arrayBuffer();offset+=chunk.byteLength;prefix=(prefix+decoder.decode(chunk,{stream:offset<blob.size})).trimStart();}
+     if(/^ISO-10303-21(?:\s|;)/i.test(prefix))throw Error('El archivo IFC original no se comparte.');
+    }
     function asset(url){
      if(mapped.has(url))return mapped.get(url);if(isModel(null,url))return null;
      const ref=refs.get(url),u=new URL(url);
@@ -80,8 +87,8 @@
      assets.set(id,{getBlob:async()=>{
       checkPackage();let blob;
       if(ref)blob=(await store.get(ref)).blob;
-      else{const controller=new AbortController();pendingReads.add(controller);try{const response=await fetch(url,{signal:controller.signal,credentials:'omit',referrerPolicy:'no-referrer',cache:'no-store'});if(!response.ok)throw Error('Archivo del showroom no disponible');if(/gltf/i.test(response.headers.get('Content-Type')||''))throw Error('El modelo original no se comparte.');blob=await response.blob();}finally{pendingReads.delete(controller);}}
-      checkPackage();if(/gltf/i.test(blob.type))throw Error('El modelo original no se comparte; usa la maqueta transmitida.');const head=await blob.slice(0,4).arrayBuffer();if(head.byteLength===4&&new DataView(head).getUint32(0,true)===0x46546c67)throw Error('El archivo GLB original no se comparte.');checkPackage();return blob;
+      else{const controller=new AbortController();pendingReads.add(controller);try{const response=await fetch(url,{signal:controller.signal,credentials:'omit',referrerPolicy:'no-referrer',cache:'no-store'});if(!response.ok)throw Error('Archivo del showroom no disponible');if(/gltf|ifc|step/i.test(response.headers.get('Content-Type')||''))throw Error('El modelo original no se comparte.');blob=await response.blob();}finally{pendingReads.delete(controller);}}
+      checkPackage();if(/gltf|ifc|step/i.test(blob.type))throw Error('El modelo original no se comparte; usa la maqueta transmitida.');await rejectModelBytes(blob);checkPackage();return blob;
      }});
      mapped.set(url,placeholder);return placeholder;
     }

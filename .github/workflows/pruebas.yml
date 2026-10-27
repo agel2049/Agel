@@ -80,7 +80,7 @@ jobs:
           python supabase/tests/incremental.py
 
       - name: Maqueta y ciclo AR (dispositivo simulado)
-        run: node --test tests/unit_maquette_math.cjs tests/unit_glb_ar.cjs
+        run: node --test tests/unit_maquette_math.cjs tests/unit_glb_ar.cjs tests/unit_ifc_glb.cjs
 
       - name: Guardado local y showroom inmersivo (motor simulado)
         run: |
@@ -100,6 +100,8 @@ jobs:
           python tests/e2e_opening_lifecycle.py
           python tests/e2e_glb_preview.py
           python tests/e2e_glb_local.py
+          python tests/e2e_ifc_local.py
+          python tests/e2e_ifc_panel.py
           python tests/e2e_maquette.py
           python tests/e2e_remote_model.py
           python tests/e2e_temporary_share.py
