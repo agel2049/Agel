@@ -1,7 +1,7 @@
 /* Remote maquette: only rendered pixels and bounded commands cross the session. */
 (function(root){
  'use strict';
- const PRESETS=[['all','Todo'],['mep','Instalaciones'],['masonry','Albañilería'],['structure','Estructura'],['finishes','Acabados'],['grey','Obra gris']];
+ const PRESETS=[['all','Todo'],['mep','Instalaciones'],['masonry','Albañilería'],['structure','Estructura'],['rebar','Varillas'],['finishes','Acabados'],['grey','Obra gris']];
  const VIEWS=[['iso','Perspectiva'],['top','Planta'],['front','Frente'],['right','Lateral']];
  const clamp=(x,min,max)=>Math.max(min,Math.min(max,x));
  function host({workspace,container,sessionId,send,onState=()=>{}}){

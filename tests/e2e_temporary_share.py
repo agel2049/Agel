@@ -83,7 +83,7 @@ try:
   phone.get_by_role('button',name='Iniciar',exact=True).click();phone.get_by_role('img',name='Fachada',exact=True).wait_for()
   phone.get_by_role('button',name='Entrar al lobby',exact=True).click();phone.get_by_role('img',name='Lobby',exact=True).wait_for()
   assert phone.get_by_role('button',name='Modelo 3D local',exact=True).count()==0
-  phone.get_by_text('Opciones del proyecto',exact=True).click()
+  phone.get_by_text('Proyecto',exact=True).click()
   phone.get_by_role('button',name='Maqueta virtual',exact=True).click()
   phone.locator('.mq-count').filter(has_text='3 de 3 piezas').wait_for(state='attached',timeout=20000)
   try:phone.wait_for_function("(()=>{const v=document.querySelector('.ag-maquette video');return v&&v.srcObject instanceof MediaStream&&v.readyState>=2&&v.videoWidth>0;})()",timeout=15000)

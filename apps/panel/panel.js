@@ -294,6 +294,8 @@
       function showImportReport(summary){
         report.replaceChildren();report.hidden=!summary;if(!summary)return;
         report.append(h('summary',null,'Resumen de importación IFC'),h('p',null,`${summary.elements} piezas visibles · ${summary.schema}.`));
+        if(summary.adaptedIndexedSweeps)report.append(h('p',null,`${summary.adaptedIndexedSweeps} curvas completas preparadas para visualización. El IFC original se conserva.`));
+        if(summary.unsupportedIndexedSweeps)report.append(h('p',null,`${summary.unsupportedIndexedSweeps} curvas con recortes no compatibles. Pueden faltar piezas; revisa su exportación antes de presentar.`));
         if(summary.skippedParts||summary.skippedElements){
           report.append(h('p',null,`Representaciones sin triángulos: ${summary.skippedParts||0}. Elementos sin superficie visible: ${summary.skippedElements||0}. Revisa la lista antes de presentar el modelo.`));
           const issues=Array.isArray(summary.issues)?summary.issues.slice(0,20):[];

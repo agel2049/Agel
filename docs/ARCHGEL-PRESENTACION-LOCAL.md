@@ -13,4 +13,8 @@ Al quitar un video del Opening se retira su vínculo, conservando el archivo loc
 
 ## Diseño
 
-La fachada adopta la dirección aprobada: lienzo completo, vidrio oscuro, franja inferior recta, botones flotantes en cápsulas, niveles laterales, etapas y banda editorial. Opening sin nombre grande ni textos secundarios; solo logo provisional e Iniciar. Las fuentes se sirven desde el repositorio. El motor panorámico no cambia.
+La fachada ocupa todo el lienzo. A la derecha aparecen **Lobby y niveles**: cada nivel abre su planta; una zona de departamento abre su planta propia cuando existe, y la habitación o punto elegido lleva al 360°. Configura esas relaciones en el editor de zonas. Los niveles sin planta se muestran desactivados, sin enviar al visitante a otra vista.
+
+La franja inferior es recta, más baja y translúcida: permite ver los colores del render detrás del desenfoque. Los botones flotantes conservan cápsulas y opacidad al reposo. Se retiraron la navegación duplicada de etapas, sus números grandes y los textos repetidos. Volver, imagen completa y pantalla completa usan iconos con nombres accesibles.
+
+Opening sin nombre grande ni textos secundarios; solo logo provisional e Iniciar. Mientras está abierto no se puede desplazar el documento hacia las secciones de abajo. Al iniciar se recupera el desplazamiento normal de la web. Las transiciones se inspiran en DAO: logo que emerge, imágenes que se aclaran y controles que aparecen por grupos; se desactivan con movimiento reducido. Las fuentes se sirven desde el repositorio. El motor panorámico no cambia.

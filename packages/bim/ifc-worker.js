@@ -1,15 +1,19 @@
 /* One IFC job per worker. Original bytes and BIM metadata never leave this device. */
 'use strict';
-importScripts('./vendor/web-ifc/web-ifc-api-iife.js','./ifc-glb.js'+new URL(self.location.href).search,'./classify.js');
+importScripts('./vendor/web-ifc/web-ifc-api-iife.js','./ifc-glb.js'+new URL(self.location.href).search,'./ifc-curves.js'+new URL(self.location.href).search,'./classify.js');
 self.onmessage=async({data})=>{
  if(data?.type!=='convert')return;
  const api=new WebIFC.IfcAPI();let model;
  const progress=(stage,done=0,total=0)=>self.postMessage({type:'progress',stage,done,total});
  try{
   progress('Leyendo estructura IFC');api.SetWasmPath(new URL('./vendor/web-ifc/',self.location.href).href,true);await api.Init(undefined,true);api.SetLogLevel(WebIFC.LogLevel.LOG_LEVEL_ERROR);
-  model=api.OpenModel(new Uint8Array(data.bytes),{COORDINATE_TO_ORIGIN:true,CIRCLE_SEGMENTS:16,ALLOW_INCOMPATIBLE_SCHEMA_ALIASES:false});
+  const settings={COORDINATE_TO_ORIGIN:true,CIRCLE_SEGMENTS:16,ALLOW_INCOMPATIBLE_SCHEMA_ALIASES:false};
+  model=api.OpenModel(new Uint8Array(data.bytes),settings);
   if(model<0||!api.IsModelOpen(model))throw Error('No se pudo abrir el IFC. Reexporta el archivo desde Revit.');
   const schema=api.GetModelSchema(model);if(!/^(IFC2X3|IFC4|IFC4X3(?:_ADD[12])?)$/i.test(schema))throw Error('El esquema '+schema+' no es compatible con esta importación local.');
+  progress('Comprobando curvas de varillas');
+  const curves=AgelIFCCurves.prepare(api,WebIFC,model,new Uint8Array(data.bytes));
+  if(curves.adapted){api.CloseModel(model);model=api.OpenModel(curves.bytes,settings);if(model<0||!api.IsModelOpen(model))throw Error('No se pudo preparar la copia IFC. El original se conserva.');}
   const get=id=>api.GetLine(model,id,false),val=v=>v&&typeof v==='object'&&'value'in v?val(v.value):v,id=v=>v?.value;
   const text=v=>{v=val(v);return ['string','number','boolean'].includes(typeof v)?String(v).slice(0,240):'';};
   const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
@@ -43,7 +47,7 @@ self.onmessage=async({data})=>{
    if(!discipline&&mep.has(mesh.expressID)&&!AgelClassify.disciplineFor(category,system))discipline='Instalaciones (MEP)';
    for(let j=0;j<mesh.geometries.size();j++){
     const placed=mesh.geometries.get(j),key=placed.geometryExpressID;
-    if(!geometryCache.has(key)){const g=api.GetGeometry(model,key);try{const geometry=b.geometry(key,api.GetVertexArray(g.GetVertexData(),g.GetVertexDataSize()),api.GetIndexArray(g.GetIndexData(),g.GetIndexDataSize()));geometryCache.set(key,geometry);if(!geometry)emptyGeometries++;}catch(error){throw Error(`Elemento IFC #${mesh.expressID} (${type}), geometría #${key}: ${error.message}`);}finally{g.delete();}}
+    if(!geometryCache.has(key)){const g=api.GetGeometry(model,key);try{const geometry=b.geometry(key,api.GetVertexArray(g.GetVertexData(),g.GetVertexDataSize()),api.GetIndexArray(g.GetIndexData(),g.GetIndexDataSize()),{reuseTranslation:/^IFCREINFORCING/.test(upper)});geometryCache.set(key,geometry);if(!geometry)emptyGeometries++;}catch(error){throw Error(`Elemento IFC #${mesh.expressID} (${type}), geometría #${key}: ${error.message}`);}finally{g.delete();}}
     const geometry=geometryCache.get(key);if(!geometry){skippedParts++;note(mesh,row,type);continue;}
     const c=placed.color,material=b.material([c.x,c.y,c.z,c.w],materials.get(mesh.expressID)||materials.get(types.get(mesh.expressID))||'');parts.push({geometry,material,matrix:Array.from(placed.flatTransformation)});
    }
@@ -51,7 +55,7 @@ self.onmessage=async({data})=>{
    if(Date.now()-last>150||index===total-1){progress('Preparando geometría',index+1,total);last=Date.now();}
   },true);
   progress('Creando copia de visualización');
-  const bytes=b.finish({schema,source:'IFC local',coordinateToOrigin:api.GetCoordinationMatrix(model),units:'metres'}),summary={schema,...b.stats,ignored,bytes:bytes.byteLength,skippedParts,skippedElements,emptyGeometries,issuesTotal:issueIds.size,issues};
+  const bytes=b.finish({schema,source:'IFC local',coordinateToOrigin:api.GetCoordinationMatrix(model),units:'metres'}),summary={schema,...b.stats,ignored,bytes:bytes.byteLength,skippedParts,skippedElements,emptyGeometries,issuesTotal:issueIds.size,issues,adaptedIndexedSweeps:curves.adapted,unsupportedIndexedSweeps:curves.unsupported};
   self.postMessage({type:'done',bytes,summary},[bytes]);
  }catch(error){self.postMessage({type:'error',message:error.message||'No se pudo preparar el IFC. Reexporta el modelo o divídelo por disciplinas.'});}
  finally{if(model!==undefined&&model>=0)try{api.CloseModel(model);}catch{}try{api.Dispose();}catch{}}

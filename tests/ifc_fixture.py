@@ -1,4 +1,12 @@
 """Minimal, synthetic STEP models: four separate elements and one storey."""
+def rebar_bytes(partial=False):
+ data=ifc_bytes().decode().replace('#32=IFCUNITASSIGNMENT((#31));','#32=IFCUNITASSIGNMENT((#31,#3012));')
+ lines=["#3010=IFCSIUNIT(*,.PLANEANGLEUNIT.,$,.RADIAN.);","#3011=IFCMEASUREWITHUNIT(IFCREAL(0.017453292519943295),#3010);","#3012=IFCCONVERSIONBASEDUNIT(#3013,.PLANEANGLEUNIT.,'DEGREE',#3011);","#3013=IFCDIMENSIONALEXPONENTS(0,0,0,0,0,0,0);"]
+ for i,pts,segments,end in [(0,'(0.,0.,0.),(1.,0.,0.)','$','0.5' if partial else '1.'),(1,'(1.,0.,0.),(0.,1.,0.),(-1.,0.,0.)','(IFCARCINDEX((1,2,3)))','90.' if partial else '180.')]:
+  n=3100+i*10
+  lines += [f'#{n}=IFCCARTESIANPOINTLIST3D(({pts}));',f'#{n+1}=IFCINDEXEDPOLYCURVE(#{n},{segments},.F.);',f'#{n+2}=IFCSWEPTDISKSOLID(#{n+1},0.01,$,0.,{end});',f"#{n+3}=IFCSHAPEREPRESENTATION(#30,'Body','AdvancedSweptSolid',(#{n+2}));",f'#{n+4}=IFCPRODUCTDEFINITIONSHAPE($,$,(#{n+3}));',f"#{n+5}=IFCREINFORCINGBAR('0A000000000000000000{50+i}',#5,'Varilla {i}',$,$,#14,#{n+4},'bar-{i}',$,0.02,0.000314,1.,.NOTDEFINED.,.PLAIN.);"]
+ return data.replace('\nENDSEC;\nEND-ISO-10303-21;','\n'+'\n'.join(lines)+'\nENDSEC;\nEND-ISO-10303-21;').encode()
+
 def ifc_bytes(schema='IFC4',millimeters=False,typed_material=False,offset=0,long_header=False,generic_mep=False,surfaces='normal'):
  scale=1000 if millimeters else 1
  lines=["#1=IFCPERSON($,$,'Test',$,$,$,$,$);","#2=IFCORGANIZATION($,'Fixture',$,$,$);","#3=IFCPERSONANDORGANIZATION(#1,#2,$);","#4=IFCAPPLICATION(#2,'1','Fixture','fixture');","#5=IFCOWNERHISTORY(#3,#4,$,.ADDED.,$,$,$,0);","#10=IFCCARTESIANPOINT((0.,0.,0.));","#11=IFCDIRECTION((0.,0.,1.));","#12=IFCDIRECTION((1.,0.,0.));","#13=IFCAXIS2PLACEMENT3D(#10,#11,#12);","#14=IFCLOCALPLACEMENT($,#13);","#15=IFCCARTESIANPOINT((0.,0.));","#16=IFCAXIS2PLACEMENT2D(#15,$);",f"#17=IFCRECTANGLEPROFILEDEF(.AREA.,$,#16,{2*scale}.,{.2*scale});",f"#18=IFCEXTRUDEDAREASOLID(#17,#13,#11,{3*scale}.);","#20=IFCSHAPEREPRESENTATION(#30,'Body','SweptSolid',(#18));","#21=IFCPRODUCTDEFINITIONSHAPE($,$,(#20));","#30=IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,0.00001,#13,$);",f"#31=IFCSIUNIT(*,.LENGTHUNIT.,{'.MILLI.' if millimeters else '$'},.METRE.);","#32=IFCUNITASSIGNMENT((#31));","#33=IFCPROJECT('0A00000000000000000001',#5,'Prueba local',$,$,$,$,(#30),#32);","#40=IFCBUILDINGSTOREY('0A00000000000000000002',#5,'Nivel 1',$,$,#14,$,$,.ELEMENT.,0.);","#41=IFCRELAGGREGATES('0A00000000000000000003',#5,$,$,#33,(#40));"]

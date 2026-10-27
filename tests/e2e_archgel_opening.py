@@ -27,7 +27,7 @@ with local_page('tests/fixtures/showroom-experience.html') as pg:
  pg.get_by_role('button',name='Iniciar',exact=True).click()
  pg.get_by_role('img',name='Fachada',exact=True).wait_for()
  assert pg.locator('.ax-brand').inner_text()==''
- pg.get_by_role('button',name='Inicio',exact=True).click()
+ pg.get_by_role('button',name='Volver al inicio del proyecto',exact=True).click()
  pg.get_by_role('button',name='Iniciar',exact=True).wait_for()
  print('PASS: logo-only Opening with one Iniciar action, facade navigation and return')
 

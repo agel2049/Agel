@@ -1,6 +1,6 @@
 /* IFC import/cache boundary. No cloud API, no viewer, no persistent object URLs. */
 (function(root){
- 'use strict';const VERSION='web-ifc-0.0.78/archgel-2',workerURL=new URL('ifc-worker.js?version='+encodeURIComponent(VERSION),document.currentScript.src).href;
+ 'use strict';const VERSION='web-ifc-0.0.78/archgel-3',workerURL=new URL('ifc-worker.js?version='+encodeURIComponent(VERSION),document.currentScript.src).href;
  const aborted=()=>new DOMException('Importación IFC cancelada. El modelo anterior se conserva.','AbortError');
  const check=signal=>{if(signal?.aborted)throw aborted();};
  async function importFile({workspace,file,expectedRevision,signal,onProgress=()=>{}}){

@@ -42,7 +42,7 @@
     const loaded=await AgelGLB.open(stage,{blob,onARState:arState});if(disposed){loaded.dispose();return;}view=loaded;
     const search=h('input',{type:'search',placeholder:'Nombre, grupo o material','aria-label':'Buscar piezas',oninput:()=>{filters.query=search.value;apply();}});
     const group=h('div',{class:'mq-presets'});
-    for(const[value,label]of [['all','Todo'],['mep','Instalaciones'],['masonry','Albañilería'],['structure','Estructura'],['finishes','Acabados'],['grey','Obra gris']]){
+    for(const[value,label]of [['all','Todo'],['mep','Instalaciones'],['masonry','Albañilería'],['structure','Estructura'],['rebar','Varillas'],['finishes','Acabados'],['grey','Obra gris']]){
      const n=AgelGLBFilters.select(view.elements,{preset:value}).length,b=button(`${label} (${n})`,()=>{filters.preset=value;apply();view.fit();},{disabled:!n,'aria-pressed':value==='all'});presets.push([value,b]);group.append(b);
     }
     panel.append(h('label',{class:'mq-search',for:id+'-search'},'Buscar piezas'),search,group,button('Ver todo',()=>{filters.preset='all';filters.query='';filters.facets={};search.value='';for(const e of facetInputs)e.checked=false;apply();view.fit();}));search.id=id+'-search';

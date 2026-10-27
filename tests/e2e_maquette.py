@@ -28,6 +28,9 @@ with local_page('tests/fixtures/maquette.html',setup=setup) as pg:
  pg.get_by_role('searchbox',name='Buscar piezas').press('w')
  assert pg.get_by_role('searchbox',name='Buscar piezas').input_value()=='Wallsw','WASD consumed a text input'
  pg.get_by_role('button',name='Ver todo',exact=True).click()
+ pg.evaluate('maquette.dispose()');pg.evaluate('mountMaquette',list(glb_bytes(rebar=True)))
+ pg.get_by_role('button',name='Varillas (1)',exact=True).click()
+ pg.get_by_role('status').filter(has_text='1 de 3 piezas').wait_for()
  pg.evaluate('maquette.dispose()');pg.evaluate('mountMaquette',list(maquette_building_bytes()));pg.wait_for_timeout(100)
  pg.screenshot(path='/tmp/agel-maquette-desktop.png')
  pg.set_viewport_size({'width':390,'height':844});pg.evaluate('maquette.dispose()');pg.evaluate('mountMaquette',list(maquette_building_bytes()));pg.wait_for_timeout(100)
