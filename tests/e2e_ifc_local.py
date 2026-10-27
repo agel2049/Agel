@@ -8,7 +8,7 @@ def setup(pg):
 with local_page('tests/fixtures/ifc-import.html',setup=setup) as pg:
  assert pg.evaluate('typeof AgelIFC')=='object','Local IFC importer unavailable'
  requests=[];pg.on('request',lambda r:requests.append((r.method,r.url)))
- cases=[('IFC4',ifc_bytes()),('IFC2X3',ifc_bytes('IFC2X3')),('IFC4X3',ifc_bytes('IFC4X3')),('IFC4-mm',ifc_bytes(millimeters=True)),('IFC4-detailed',ifc_bytes(typed_material=True,offset=10000000,long_header=True))]
+ cases=[('IFC4',ifc_bytes()),('IFC2X3',ifc_bytes('IFC2X3')),('IFC4X3',ifc_bytes('IFC4X3')),('IFC4-mm',ifc_bytes(millimeters=True)),('IFC4-mep',ifc_bytes(generic_mep=True)),('IFC4-detailed',ifc_bytes(typed_material=True,offset=10000000,long_header=True))]
  for schema,data in cases:
   result=pg.evaluate('''async ({data,schema})=>{window.ws=await AgelWorkspace.open({cloud,ownerId:'owner',projectId:'ifc-project'});const d=await ws.load();const result=await AgelIFC.importFile({workspace:ws,file:new File([new Uint8Array(data)],schema+'.ifc'),expectedRevision:d.localRevision});window.imported=result;window.view=await AgelGLB.open(document.getElementById('viewer'),{blob:(await ws.store.get(result.ref)).blob});return {summary:result.summary,rows:view.elements};}''',{'data':list(data),'schema':schema})
   assert len(result['rows'])==4,result
@@ -23,9 +23,9 @@ with local_page('tests/fixtures/ifc-import.html',setup=setup) as pg:
   pg.evaluate('view.dispose()')
   cached=pg.evaluate('''async ({data,schema})=>{const d=await ws.load(),r=await AgelIFC.importFile({workspace:ws,file:new File([new Uint8Array(data)],schema+'.ifc'),expectedRevision:d.localRevision});return {cached:r.cached,ref:r.ref,original:imported.ref};}''',{'data':list(data),'schema':schema})
   assert cached['cached'] and cached['ref']==cached['original'],cached
- pg.reload();assert pg.evaluate('''async()=>{const w=await AgelWorkspace.open({cloud,ownerId:'owner',projectId:'ifc-project'}),d=await w.load();return d.ifcImports&&Object.keys(d.ifcImports).length===5;}''')
+ pg.reload();assert pg.evaluate('''async()=>{const w=await AgelWorkspace.open({cloud,ownerId:'owner',projectId:'ifc-project'}),d=await w.load();return d.ifcImports&&Object.keys(d.ifcImports).length===6;}''')
  sync=pg.evaluate('''async()=>{const w=await AgelWorkspace.open({cloud,ownerId:'owner',projectId:'ifc-project'}),d=await w.load();d.showroom.model3d={url:Object.values(d.ifcImports)[0].ref};await w.save(d);const p=await AgelSync.plan(d,w.store);await w.reloadCloud();return {kinds:p.assets.map(a=>a.kind),caches:Object.keys((await w.load()).ifcImports).length};}''')
- assert sync=={'kinds':['glb'],'caches':5},sync
+ assert sync=={'kinds':['glb'],'caches':6},sync
  assert not any(method not in ['GET','HEAD'] or '/rest/v1/' in url for method,url in requests),requests
  print('PASS: real IFC2X3/IFC4/IFC4X3 WASM, millimetres, type material and large coordinates/header, four filter presets, storey/material, reused geometry, cache/reload without upload')
 with local_page('tests/fixtures/ifc-import.html',setup=setup) as pg:

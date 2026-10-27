@@ -1,6 +1,6 @@
 /* One IFC job per worker. Original bytes and BIM metadata never leave this device. */
 'use strict';
-importScripts('./vendor/web-ifc/web-ifc-api-iife.js','./ifc-glb.js');
+importScripts('./vendor/web-ifc/web-ifc-api-iife.js','./ifc-glb.js','./classify.js');
 self.onmessage=async({data})=>{
  if(data?.type!=='convert')return;
  const api=new WebIFC.IfcAPI();let model;
@@ -15,6 +15,7 @@ self.onmessage=async({data})=>{
   const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
   function each(type,fn){const code=WebIFC[type];if(code===undefined)return;const ids=api.GetLineIDsWithType(model,code);try{for(let i=0;i<ids.size();i++)fn(get(ids.get(i)));}finally{ids.delete?.();}}
   const parents=new Map(),containers=new Map(),storeys=new Map(),props=new Map(),psets=new Map(),materials=new Map(),systems=new Map(),types=new Map();
+  const mep=new Set(),distribution=api.GetLineIDsWithType(model,WebIFC.IFCDISTRIBUTIONELEMENT,true);try{for(let i=0;i<distribution.size();i++)mep.add(distribution.get(i));}finally{distribution.delete?.();}
   each('IFCBUILDINGSTOREY',r=>storeys.set(r.expressID,text(r.Name)||'Nivel #'+r.expressID));
   each('IFCRELAGGREGATES',r=>{for(const item of r.RelatedObjects||[])parents.set(id(item),id(r.RelatingObject));});
   each('IFCRELCONTAINEDINSPATIALSTRUCTURE',r=>{for(const item of r.RelatedElements||[])containers.set(id(item),id(r.RelatingStructure));});
@@ -36,14 +37,15 @@ self.onmessage=async({data})=>{
   api.StreamAllMeshes(model,(mesh,index,total)=>{
    const row=get(mesh.expressID),type=api.GetNameFromTypeCode(row.type),upper=type.toUpperCase();if(['IFCSPACE','IFCOPENINGELEMENT'].includes(upper)){ignored++;return;}
    const p=props.get(mesh.expressID)||{},pick=(...keys)=>text(keys.map(k=>p[k]).find(v=>v!==undefined&&v!==null&&v!==''));
-   const discipline=pick('discipline','disciplina')||(/^(IFCBEAM|IFCCOLUMN|IFCMEMBER|IFCFOOTING|IFCPILE|IFCREINFORCING)/.test(upper)||p.loadbearing===true||p.loadbearing==='T'?'Estructura':/^IFC(ELECTRIC|CABLE|LIGHT|PROTECTIVE|OUTLET|SWITCHING|JUNCTION)/.test(upper)?'Eléctrica':'');
-   const category=pick('category','categoria','revit category')||(upper==='IFCCOVERING'?type+' · Acabados':type),parts=[];
+   let discipline=pick('discipline','disciplina')||(/^(IFCBEAM|IFCCOLUMN|IFCMEMBER|IFCFOOTING|IFCPILE|IFCREINFORCING)/.test(upper)||p.loadbearing===true||p.loadbearing==='T'?'Estructura':/^IFC(ELECTRIC|CABLE|LIGHT|PROTECTIVE|OUTLET|SWITCHING|JUNCTION)/.test(upper)?'Eléctrica':'');
+   const category=pick('category','categoria','revit category')||(upper==='IFCCOVERING'?type+' · Acabados':type),parts=[],system=systems.get(mesh.expressID)||pick('system name','nombre de sistema','system type','tipo de sistema');
+   if(!discipline&&mep.has(mesh.expressID)&&!AgelClassify.disciplineFor(category,system))discipline='Instalaciones (MEP)';
    for(let j=0;j<mesh.geometries.size();j++){
     const placed=mesh.geometries.get(j),key=placed.geometryExpressID;let geometry=geometryCache.get(key);
     if(!geometry){const g=api.GetGeometry(model,key);try{geometry=b.geometry(key,api.GetVertexArray(g.GetVertexData(),g.GetVertexDataSize()),api.GetIndexArray(g.GetIndexData(),g.GetIndexDataSize()));geometryCache.set(key,geometry);}finally{g.delete();}}
     const c=placed.color,material=b.material([c.x,c.y,c.z,c.w],materials.get(mesh.expressID)||materials.get(types.get(mesh.expressID))||'');parts.push({geometry,material,matrix:Array.from(placed.flatTransformation)});
    }
-   b.element({id:mesh.expressID,name:text(row.Name)||type+' #'+mesh.expressID,metadata:{IFCClass:type,GlobalId:text(row.GlobalId),category,discipline,level:levelFor(mesh.expressID)||pick('level','nivel'),'System Name':systems.get(mesh.expressID)||pick('system name','nombre de sistema','system type','tipo de sistema'),phase:pick('phase created','fase de creacion','phase','fase')},parts});
+   b.element({id:mesh.expressID,name:text(row.Name)||type+' #'+mesh.expressID,metadata:{IFCClass:type,GlobalId:text(row.GlobalId),category,discipline,level:levelFor(mesh.expressID)||pick('level','nivel'),'System Name':system,phase:pick('phase created','fase de creacion','phase','fase')},parts});
    if(Date.now()-last>150||index===total-1){progress('Preparando geometría',index+1,total);last=Date.now();}
   },true);
   progress('Creando copia de visualización');
